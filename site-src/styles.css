@@ -17,7 +17,7 @@
   --coral: #f4978e;
   --coral-soft: #fde1dc;
   --sky-soft: #ddeefa;
-  --plum: #6b3d8c;      /* links: 8.3:1 on paper */
+  --plum: #6b3d8c;      /* links: 7.4:1 on paper */
   --hand: "Kalam", "Comic Sans MS", cursive;
   --body: "Nunito", system-ui, sans-serif;
   --wobble: 255px 18px 225px 18px / 18px 225px 18px 255px;
@@ -61,7 +61,7 @@ a:hover { text-decoration-color: var(--plum); }
   max-width: var(--max); margin: 0 auto; padding: 18px 20px 6px;
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px 24px;
 }
-.brand { text-decoration: none; color: var(--ink); }
+.brand { text-decoration: none; color: var(--ink); display: inline-flex; align-items: center; min-height: 52px; }
 .wordmark { display: inline-flex; align-items: center; gap: .3em; font-family: var(--hand); font-weight: 700; font-size: 2rem; line-height: 1; white-space: nowrap; }
 .wm-paw { width: 1.05em; color: var(--coral); transform: rotate(-14deg); }
 .wm-paw svg { width: 100%; }

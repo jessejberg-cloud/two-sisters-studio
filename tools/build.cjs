@@ -48,7 +48,7 @@ function logo(big) {
       return `<img class="logo-img${big ? ' logo-img--big' : ''}" src="${asset('logo/' + f)}" alt="${esc(site.podcastName)}">`;
     }
   }
-  return `<span class="wordmark${big ? ' wordmark--big' : ''}" aria-label="${esc(site.podcastName)}">`
+  return `<span class="wordmark${big ? ' wordmark--big' : ''}" role="img" aria-label="${esc(site.podcastName)}">`
     + `<span class="wm-paw" aria-hidden="true">${ICONS.paw}</span>`
     + `<span class="wm-text" aria-hidden="true"><span class="wm-1">Pet</span> <span class="wm-2">Parents</span></span>`
     + `</span>`;
@@ -83,6 +83,8 @@ function page({ key, title, body, depth }) {
 <meta name="referrer" content="no-referrer">
 <meta property="og:title" content="${esc(site.podcastName)}">
 <meta property="og:type" content="website">
+<meta property="og:site_name" content="${esc(site.podcastName)}">
+<meta property="og:description" content="${esc(site.podcastName)}">
 <meta property="og:image" content="${SITE_URL}/assets/brand/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
