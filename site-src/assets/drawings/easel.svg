@@ -1,0 +1,23 @@
+<svg class="art art-easel" viewBox="0 0 320 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="easel-t">
+  <title id="easel-t">An empty drawing pad and crayons, ready for new art.</title>
+  <defs>
+    <filter id="easel-wob" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="11"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.6"/>
+    </filter>
+  </defs>
+  <g filter="url(#easel-wob)" stroke="#2b2a33" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M110,40 L70,226 M210,40 L250,226 M160,40 L160,226" fill="none" stroke="#a8672e" stroke-width="7"/>
+    <rect x="86" y="30" width="148" height="132" rx="6" fill="#fff" transform="rotate(-2 160 96)"/>
+    <path d="M124,118 c-10,-18 -34,-4 -20,14 l20,20 l20,-20 c14,-18 -10,-32 -20,-14 z" fill="none" stroke="#f4978e" stroke-width="3" stroke-dasharray="6 7"/>
+    <path d="M178,72 q14,-14 28,0 q-14,14 -28,0 z" fill="none" stroke="#5fa8d3" stroke-dasharray="5 6"/>
+    <rect x="76" y="162" width="168" height="12" rx="4" fill="#d9a35b"/>
+    <g class="crayons">
+      <path d="M30,222 l50,-14 l4,12 l-50,14 z" fill="#e4572e"/>
+      <path d="M80,208 l12,1 l-8,11 z" fill="#e4572e"/>
+      <path d="M232,224 l52,-4 l1,12 l-52,4 z" fill="#5fa8d3"/>
+      <path d="M285,220 l11,5 l-10,7 z" fill="#5fa8d3"/>
+      <path d="M150,232 l48,-18 l4,11 l-48,18 z" fill="#8fd3b6"/>
+    </g>
+  </g>
+</svg>

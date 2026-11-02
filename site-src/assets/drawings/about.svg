@@ -1,0 +1,42 @@
+<svg class="art art-about" viewBox="0 0 300 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="about-t">
+  <title id="about-t">A cat wearing headphones and a dog sharing a microphone.</title>
+  <defs>
+    <filter id="about-wob" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="5"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.6"/>
+    </filter>
+  </defs>
+  <g filter="url(#about-wob)" stroke="#2b2a33" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M10,226 C80,220 160,230 230,224 S280,224 292,226" fill="none" stroke-width="3.5"/>
+    <!-- cat -->
+    <path class="cat-tail" d="M50,214 Q18,206 24,176" fill="none" stroke="#8d8d9b" stroke-width="9"/>
+    <path d="M44,224 Q36,150 80,146 Q122,150 114,224 Z" fill="#a3a3b1"/>
+    <path d="M58,100 L60,72 L78,90 Z M102,100 L100,72 L84,90 Z" fill="#a3a3b1"/>
+    <circle cx="80" cy="112" r="30" fill="#a3a3b1"/>
+    <path d="M66,110 q4,-5 8,0 M86,110 q4,-5 8,0" fill="none" stroke-width="2.6"/>
+    <path d="M77,120 l3,3 l3,-3 z" fill="#f08a9a" stroke-width="1.6"/>
+    <path d="M74,128 q6,6 12,0" fill="none" stroke-width="2.4"/>
+    <path d="M50,108 Q50,70 80,70 Q110,70 110,108" fill="none" stroke="#e4572e" stroke-width="6"/>
+    <rect x="42" y="100" width="12" height="22" rx="5" fill="#e4572e"/>
+    <rect x="106" y="100" width="12" height="22" rx="5" fill="#e4572e"/>
+    <!-- mic between them -->
+    <path d="M150,224 L150,150" fill="none" stroke-width="5"/>
+    <ellipse cx="150" cy="226" rx="24" ry="6" fill="#7d4e9e"/>
+    <rect x="137" y="108" width="26" height="46" rx="13" fill="#c3b1e1"/>
+    <!-- dog -->
+    <path class="dog-tail" d="M262,206 Q290,190 280,166" fill="none" stroke="#c98d47" stroke-width="9"/>
+    <path d="M186,224 Q180,152 224,148 Q266,152 262,224 Z" fill="#d9a35b"/>
+    <circle cx="222" cy="116" r="30" fill="#d9a35b"/>
+    <path d="M200,96 Q182,104 188,138 Q202,136 208,110 Z" fill="#a8672e"/>
+    <path d="M244,96 Q262,104 256,138 Q242,136 236,110 Z" fill="#a8672e"/>
+    <ellipse cx="216" cy="130" rx="14" ry="10" fill="#f1d3a0"/>
+    <circle cx="210" cy="125" r="5" fill="#2b2a33"/>
+    <circle cx="214" cy="108" r="3.4" fill="#2b2a33" stroke="none"/>
+    <circle cx="232" cy="108" r="3.4" fill="#2b2a33" stroke="none"/>
+    <path d="M196,8" fill="none"/>
+    <!-- speech bubble -->
+    <path d="M168,20 Q168,6 186,6 L270,6 Q288,6 288,20 L288,50 Q288,64 270,64 L214,64 L198,80 L200,64 L186,64 Q168,64 168,50 Z" fill="#fff"/>
+    <path class="float" d="M216,32 c-5,-9 -18,-2 -11,7 l11,11 l11,-11 c7,-9 -6,-16 -11,-7 z" fill="#f4978e" stroke-width="2.2"/>
+    <path d="M244,26 l3,8 l8,1 l-6,5 l2,8 l-7,-4 l-7,4 l2,-8 l-6,-5 l8,-1 z" fill="#ffd166" stroke-width="2"/>
+  </g>
+</svg>

@@ -1,0 +1,36 @@
+<svg class="art art-soon" viewBox="0 0 360 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="soon-t">
+  <title id="soon-t">A puppy napping next to a microphone, waiting for the first episode.</title>
+  <defs>
+    <filter id="soon-wob" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="3"/>
+      <feDisplacementMap in="SourceGraphic" scale="2.6"/>
+    </filter>
+  </defs>
+  <g filter="url(#soon-wob)" stroke="#2b2a33" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14,232 C90,226 170,236 250,230 S330,228 346,232" fill="none" stroke-width="3.5"/>
+    <!-- microphone on a stand -->
+    <path d="M86,230 L86,140" fill="none" stroke-width="6"/>
+    <ellipse cx="86" cy="232" rx="34" ry="8" fill="#7d4e9e"/>
+    <path d="M62,118 Q62,144 86,146 Q110,144 110,118" fill="none" stroke-width="4"/>
+    <rect x="66" y="44" width="40" height="78" rx="20" fill="#c3b1e1"/>
+    <path d="M70,66 h32 M70,80 h32 M70,94 h32" fill="none" stroke-width="2.2" opacity=".6"/>
+    <!-- sleepy pup curled up -->
+    <g class="pup">
+      <ellipse cx="230" cy="204" rx="78" ry="30" fill="#d9a35b"/>
+      <path class="pup-tail" d="M302,200 Q330,186 318,166" fill="none" stroke="#c98d47" stroke-width="10"/>
+      <path d="M200,186 Q226,170 258,182" fill="none" stroke="#b8793a" stroke-width="3" opacity=".7"/>
+      <circle cx="170" cy="196" r="28" fill="#d9a35b"/>
+      <path d="M156,176 Q138,180 142,210 Q156,210 162,188 Z" fill="#a8672e"/>
+      <ellipse cx="150" cy="206" rx="15" ry="11" fill="#f1d3a0"/>
+      <circle cx="139" cy="203" r="4.5" fill="#2b2a33"/>
+      <path d="M168,192 q6,5 12,0" fill="none" stroke-width="2.6"/>
+      <ellipse cx="196" cy="226" rx="20" ry="8" fill="#d9a35b"/>
+    </g>
+    <g class="zzz" fill="none" stroke="#7d4e9e" stroke-width="3">
+      <path class="z1" d="M196,140 h14 l-14,14 h14"/>
+      <path class="z2" d="M220,112 h18 l-18,18 h18"/>
+      <path class="z3" d="M250,78 h22 l-22,22 h22"/>
+    </g>
+    <path d="M300,60 l4,10 l10,2 l-8,6 l2,11 l-8,-6 l-9,5 l3,-10 l-8,-7 l11,-1 z" fill="#ffd166" stroke-width="2.2"/>
+  </g>
+</svg>

@@ -1,0 +1,143 @@
+<svg class="art art-hero" viewBox="0 56 820 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="hero-t">
+  <title id="hero-t">Three pet parents with their animals: a dog, a cat, a parakeet, a bunny and a turtle.</title>
+  <defs>
+    <filter id="hero-wob" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7"/>
+      <feDisplacementMap in="SourceGraphic" scale="3.2"/>
+    </filter>
+  </defs>
+  <g filter="url(#hero-wob)" stroke="#2b2a33" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- ground -->
+    <path d="M12,334 C120,328 210,338 330,332 S560,326 660,333 S770,330 808,334" fill="none" stroke-width="3.5"/>
+    <path d="M40,346 C90,343 120,347 160,345 M520,348 C560,345 600,349 640,346" fill="none" stroke-width="2" opacity=".5"/>
+
+    <!-- turtle -->
+    <g class="turtle">
+      <ellipse cx="62" cy="324" rx="12" ry="7" fill="#9fcf87"/>
+      <ellipse cx="92" cy="326" rx="10" ry="6" fill="#9fcf87"/>
+      <circle cx="106" cy="306" r="11" fill="#9fcf87"/>
+      <circle cx="109" cy="303" r="2.2" fill="#2b2a33" stroke="none"/>
+      <path d="M44,318 Q46,282 77,280 Q106,282 104,318 Z" fill="#5f9e55"/>
+      <path d="M60,300 L77,292 L92,300 L88,314 L66,314 Z" fill="#7cb26a" stroke-width="2.4"/>
+      <path d="M44,318 L104,318" fill="none"/>
+    </g>
+
+    <!-- person A: deep brown skin, curly puff, yellow shirt -->
+    <g class="person-a">
+      <path d="M128,250 L127,322 L146,322 L149,262 L152,262 L155,322 L174,322 L172,250 Z" fill="#3b5ba5"/>
+      <ellipse cx="135" cy="326" rx="14" ry="7" fill="#2b2a33"/>
+      <ellipse cx="166" cy="326" rx="14" ry="7" fill="#2b2a33"/>
+      <path d="M117,254 Q114,184 150,176 Q186,184 183,254 Z" fill="#ffd166"/>
+      <path d="M137,214 l7,-8 l7,8 l-7,10 z" fill="#ff8c69" stroke-width="2"/>
+      <path d="M121,196 Q102,226 108,250" fill="none" stroke="#7a4b2a" stroke-width="13"/>
+      <path d="M121,196 Q102,226 108,250" fill="none" stroke-width="3" opacity="0"/>
+      <path d="M180,198 Q206,220 222,246" fill="none" stroke="#7a4b2a" stroke-width="13"/>
+      <circle cx="150" cy="104" r="26" fill="#1d1a1a"/>
+      <circle cx="124" cy="116" r="19" fill="#1d1a1a"/>
+      <circle cx="176" cy="116" r="19" fill="#1d1a1a"/>
+      <circle cx="132" cy="96" r="17" fill="#1d1a1a"/>
+      <circle cx="168" cy="96" r="17" fill="#1d1a1a"/>
+      <rect x="142" y="160" width="16" height="20" fill="#7a4b2a" stroke="none"/>
+      <circle cx="150" cy="136" r="33" fill="#7a4b2a"/>
+      <circle cx="138" cy="134" r="3.6" fill="#1d1a1a" stroke="none"/>
+      <circle cx="162" cy="134" r="3.6" fill="#1d1a1a" stroke="none"/>
+      <circle cx="130" cy="147" r="5" fill="#e08a7a" stroke="none" opacity=".55"/>
+      <circle cx="170" cy="147" r="5" fill="#e08a7a" stroke="none" opacity=".55"/>
+      <path d="M140,150 Q150,159 160,150" fill="none" stroke="#1d1a1a"/>
+    </g>
+
+    <!-- dog -->
+    <g class="dog">
+      <path class="dog-tail" d="M212,280 Q186,258 196,232" fill="none" stroke="#c98d47" stroke-width="10"/>
+      <rect x="220" y="292" width="13" height="34" rx="6" fill="#d9a35b"/>
+      <rect x="240" y="294" width="13" height="32" rx="6" fill="#d9a35b"/>
+      <rect x="270" y="294" width="13" height="32" rx="6" fill="#d9a35b"/>
+      <rect x="289" y="292" width="13" height="34" rx="6" fill="#d9a35b"/>
+      <ellipse cx="258" cy="282" rx="50" ry="27" fill="#d9a35b"/>
+      <path d="M244,268 Q258,262 266,276 Q252,288 240,280 Z" fill="#b8793a" stroke="none" opacity=".6"/>
+      <path d="M296,262 Q302,270 312,266" fill="none" stroke="#e4572e" stroke-width="7"/>
+      <circle cx="306" cy="242" r="27" fill="#d9a35b"/>
+      <path class="dog-ear" d="M288,224 Q272,232 278,260 Q292,258 296,236 Z" fill="#a8672e"/>
+      <ellipse cx="326" cy="252" rx="15" ry="11" fill="#f1d3a0"/>
+      <circle cx="337" cy="247" r="5" fill="#2b2a33"/>
+      <circle cx="309" cy="236" r="3.6" fill="#2b2a33" stroke="none"/>
+      <path d="M320,262 Q324,272 330,264" fill="#f08a9a" stroke-width="2.4"/>
+    </g>
+
+    <!-- person B: light skin, black bob, mint shirt, holding a cat -->
+    <g class="person-b">
+      <path d="M404,254 L402,322 L420,322 L423,266 L426,266 L429,322 L447,322 L445,254 Z" fill="#7d4e9e"/>
+      <ellipse cx="410" cy="326" rx="13" ry="7" fill="#2b2a33"/>
+      <ellipse cx="440" cy="326" rx="13" ry="7" fill="#2b2a33"/>
+      <path d="M392,258 Q388,186 424,178 Q460,186 457,258 Z" fill="#8fd3b6"/>
+      <path d="M390,156 Q380,82 424,78 Q468,82 458,156 Q448,162 442,150 L406,150 Q400,162 390,156 Z" fill="#1d1a1a"/>
+      <rect x="416" y="162" width="16" height="20" fill="#f2cba6" stroke="none"/>
+      <circle cx="424" cy="138" r="31" fill="#f2cba6"/>
+      <path d="M394,124 Q404,96 430,98 Q452,100 455,124 Q440,108 422,112 Q404,114 394,124 Z" fill="#1d1a1a" stroke-width="2"/>
+      <path d="M410,138 q4,-4 8,0 M430,138 q4,-4 8,0" fill="none" stroke="#1d1a1a" stroke-width="2.6"/>
+      <circle cx="404" cy="150" r="5" fill="#ef8f8f" stroke="none" opacity=".55"/>
+      <circle cx="444" cy="150" r="5" fill="#ef8f8f" stroke="none" opacity=".55"/>
+      <path d="M416,152 Q424,159 432,152" fill="none" stroke="#1d1a1a"/>
+      <!-- cat -->
+      <g class="cat">
+        <path class="cat-tail" d="M392,226 Q368,240 374,268 Q378,280 388,276" fill="none" stroke="#8d8d9b" stroke-width="9"/>
+        <ellipse cx="418" cy="222" rx="36" ry="24" fill="#a3a3b1"/>
+        <path d="M402,206 l4,30 M418,202 l2,32 M434,206 l-2,28" fill="none" stroke="#7a7a88" stroke-width="3"/>
+        <path d="M436,182 L440,160 L452,176 Z" fill="#a3a3b1"/>
+        <path d="M462,180 L470,160 L476,184 Z" fill="#a3a3b1"/>
+        <circle cx="458" cy="196" r="21" fill="#a3a3b1"/>
+        <path class="cat-eye" d="M448,194 q4,4 8,0 M462,194 q4,4 8,0" fill="none" stroke="#2b2a33" stroke-width="2.6"/>
+        <path d="M456,202 l3,3 l3,-3 z" fill="#f08a9a" stroke-width="1.6"/>
+        <path d="M444,204 l-14,-2 M444,208 l-13,4 M474,204 l14,-2 M474,208 l13,4" fill="none" stroke-width="1.6"/>
+      </g>
+      <path d="M394,200 Q404,240 440,236" fill="none" stroke="#f2cba6" stroke-width="13"/>
+      <path d="M455,204 Q462,236 432,242" fill="none" stroke="#f2cba6" stroke-width="13"/>
+    </g>
+
+    <!-- person C: brown skin, lavender headscarf, coral shirt, parakeet on shoulder -->
+    <g class="person-c">
+      <path d="M583,256 L581,322 L600,322 L603,268 L606,268 L609,322 L628,322 L626,256 Z" fill="#2f6f73"/>
+      <ellipse cx="589" cy="326" rx="13" ry="7" fill="#2b2a33"/>
+      <ellipse cx="620" cy="326" rx="13" ry="7" fill="#2b2a33"/>
+      <path d="M570,260 Q566,186 604,178 Q642,186 638,260 Z" fill="#f4978e"/>
+      <path d="M574,204 Q556,232 566,256" fill="none" stroke="#a86b43" stroke-width="13"/>
+      <path d="M635,204 Q656,230 662,252" fill="none" stroke="#a86b43" stroke-width="13"/>
+      <path d="M566,138 Q564,92 604,90 Q646,92 644,138 Q646,182 604,190 Q562,182 566,138 Z" fill="#b9a3dd"/>
+      <ellipse cx="604" cy="142" rx="27" ry="31" fill="#a86b43"/>
+      <circle cx="594" cy="140" r="3.6" fill="#1d1a1a" stroke="none"/>
+      <circle cx="615" cy="140" r="3.6" fill="#1d1a1a" stroke="none"/>
+      <circle cx="586" cy="152" r="5" fill="#e08a7a" stroke="none" opacity=".55"/>
+      <circle cx="623" cy="152" r="5" fill="#e08a7a" stroke="none" opacity=".55"/>
+      <path d="M595,156 Q605,164 614,156" fill="none" stroke="#1d1a1a"/>
+      <!-- parakeet -->
+      <g class="bird">
+        <path d="M640,182 l-4,18 M648,182 l2,18" fill="none" stroke-width="2.4"/>
+        <ellipse cx="646" cy="168" rx="15" ry="19" fill="#5fa8d3"/>
+        <path d="M640,160 Q630,176 644,186 Q650,174 640,160 Z" fill="#3f86b5"/>
+        <circle cx="652" cy="146" r="12" fill="#ffe08a"/>
+        <circle cx="655" cy="144" r="2.4" fill="#2b2a33" stroke="none"/>
+        <path d="M662,146 l8,4 l-8,4 z" fill="#f2a541" stroke-width="2"/>
+        <path d="M640,184 l-6,16 l10,-6 z" fill="#3f86b5" stroke-width="2"/>
+      </g>
+    </g>
+
+    <!-- bunny -->
+    <g class="bunny">
+      <path d="M690,258 Q682,212 696,206 Q706,212 702,258 Z" fill="#fff"/>
+      <path d="M692,250 Q688,222 696,216 Q701,224 698,250 Z" fill="#f6b6c4" stroke="none"/>
+      <path d="M708,258 Q712,212 726,210 Q732,222 718,260 Z" fill="#fff"/>
+      <ellipse cx="716" cy="304" rx="36" ry="27" fill="#fff"/>
+      <circle cx="750" cy="300" r="10" fill="#fff"/>
+      <circle cx="704" cy="272" r="22" fill="#fff"/>
+      <circle cx="696" cy="268" r="3.2" fill="#2b2a33" stroke="none"/>
+      <path class="bunny-nose" d="M684,276 l4,4 l4,-4 z" fill="#f08a9a" stroke-width="1.8"/>
+      <ellipse cx="700" cy="328" rx="12" ry="5" fill="#fff"/>
+    </g>
+
+    <!-- little hearts -->
+    <path class="float h1" d="M360,96 c-6,-10 -20,-2 -12,8 l12,12 l12,-12 c8,-10 -6,-18 -12,-8 z" fill="#f4978e" stroke-width="2.4"/>
+    <path class="float h2" d="M526,70 c-4,-7 -14,-1 -8,6 l8,8 l8,-8 c6,-7 -4,-13 -8,-6 z" fill="#ffd166" stroke-width="2.2"/>
+    <path class="float h3" d="M232,150 c-4,-7 -14,-1 -8,6 l8,8 l8,-8 c6,-7 -4,-13 -8,-6 z" fill="#8fd3b6" stroke-width="2.2"/>
+  </g>
+</svg>
