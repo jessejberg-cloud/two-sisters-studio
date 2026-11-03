@@ -217,6 +217,70 @@ function gallery(items, emptyText) {
   </li>`).join('\n')}</ul>`;
 }
 
+// ---------- art galleries ----------
+const SEASONS = ['fall', 'winter', 'spring', 'summer'];
+const SEASON_LABEL = { fall: 'Fall', winter: 'Winter', spring: 'Spring', summer: 'Summer' };
+const SEASON_ICON = { fall: '🍂', winter: '❄️', spring: '🌷', summer: '☀️' };
+const yearLabel = (sy) => sy.replace('-', '–');
+const artLabel = (it) => [it.grade, it.season, niceDate(it.date)].filter(Boolean).join(' · ');
+
+function artPiece(kid, it, big) {
+  const cap = it.caption ? `<span class="art-cap">“${esc(it.caption)}”</span>` : '';
+  const search = [it.caption, it.season, yearLabel(it.schoolYear), it.grade].filter(Boolean).join(' ').toLowerCase();
+  return `<figure class="piece${big ? ' piece--big' : ''}" data-search="${esc(search)}">
+    <a class="piece-open" href="${asset(it.src)}" data-full="${asset(it.src)}" data-w="${it.w}" data-h="${it.h}"
+       data-caption="${esc(it.caption || '')}" data-label="${esc(artLabel(it))}" aria-label="Open ${esc(it.caption || 'this drawing')} big">
+      <img src="${asset(big ? it.src : (it.thumb || it.src))}" alt="${esc(it.alt || it.caption || `A drawing by ${kid.name}`)}" width="${it.w}" height="${it.h}" loading="lazy" decoding="async">
+      ${it.sample ? '<span class="sample-tag">Sample</span>' : ''}
+    </a>
+    <figcaption>${cap}<span class="art-label">${esc(artLabel(it))}</span></figcaption>
+  </figure>`;
+}
+
+function seasonBlock(kid, season, list) {
+  if (!list.length) return '';
+  const featured = list.filter((x) => x.featured).slice(0, 2);
+  const rest = list.filter((x) => !featured.includes(x));
+  return `<section class="season" data-season="${season}">
+    <h4 class="season-h"><span aria-hidden="true">${SEASON_ICON[season]}</span> ${SEASON_LABEL[season]}</h4>
+    ${featured.length ? `<div class="featured featured--${featured.length}">${featured.map((it) => artPiece(kid, it, true)).join('')}</div>` : ''}
+    ${rest.length ? `<div class="masonry">${rest.map((it) => artPiece(kid, it, false)).join('')}</div>` : ''}
+  </section>`;
+}
+
+function artGallery(kid, items) {
+  const years = [...new Set(items.map((x) => x.schoolYear))].sort().reverse();
+  const anySample = items.some((x) => x.sample);
+  const chips = (name, opts) => `<div class="chips" role="group" aria-label="${name}">${opts.map(([v, l], i) => `<button type="button" class="chip" data-filter="${name}" data-value="${v}" aria-pressed="${i === 0}">${esc(l)}</button>`).join('')}</div>`;
+  const filters = `<div class="filters" hidden>
+    ${chips('year', [['all', 'All years'], ...years.map((y) => [y, yearLabel(y)])])}
+    ${chips('season', [['all', 'All seasons'], ...SEASONS.map((s) => [s, SEASON_LABEL[s]])])}
+    <label class="find"><span>Find a word</span><input type="search" class="find-input" placeholder="like cat or rainbow" autocomplete="off"></label>
+    <p class="none-found" hidden>No pictures match. Try another word.</p>
+  </div>`;
+  const yearBlocks = years.map((y, i) => {
+    const inYear = items.filter((x) => x.schoolYear === y);
+    const school = ['fall', 'winter', 'spring'].map((s) => seasonBlock(kid, s, inYear.filter((x) => x.season === s))).join('');
+    const summer = seasonBlock(kid, 'summer', inYear.filter((x) => x.season === 'summer'));
+    return `<details class="year" data-year="${y}"${i === 0 ? ' open' : ''}>
+    <summary><h2 class="year-h">${yearLabel(y)}</h2><span class="year-count">${inYear.length} picture${inYear.length === 1 ? '' : 's'}</span></summary>
+    ${school ? `<div class="part"><h3 class="part-h">School Year</h3>${school}</div>` : ''}
+    ${summer ? `<div class="part"><h3 class="part-h">Summer</h3>${summer}</div>` : ''}
+  </details>`;
+  }).join('\n');
+  return `${anySample ? '<p class="sample-note">These are sample pictures, so you can see how the page will look. Real art is coming soon!</p>' : ''}
+${filters}
+<div class="gallery-area">
+${yearBlocks}
+</div>
+<dialog class="lightbox" aria-label="Picture">
+  <button type="button" class="lb-close" aria-label="Close">✕</button>
+  <button type="button" class="lb-prev" aria-label="Previous picture">‹</button>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span></figcaption></figure>
+  <button type="button" class="lb-next" aria-label="Next picture">›</button>
+</dialog>`;
+}
+
 // ---------- pages ----------
 const pages = {};
 
@@ -233,15 +297,17 @@ pages['index.html'] = page({
 </section>`,
 });
 
-// One gallery page per kid. (Phase 3 fills these with the art, by year and season.)
+// One gallery page per kid: school years newest first (newest open), each with School Year (fall, winter,
+// spring) and Summer. Each season: featured pieces large, then the rest in a masonry grid that never crops.
 for (const kid of KIDS) {
-  const items = art[kid.key] || [];
+  const items = (art[kid.key] || []).slice().sort((a, b) => b.date.localeCompare(a.date));
   pages[`${kid.key}/index.html`] = page({
     key: 'kid',
     section: kid.key,
+    bodyClass: `c-${kid.color}`,
     title: `${kid.name}'s Art`,
-    body: `<div class="page-head reveal"><h1>${esc(kid.name)}'s Art</h1></div>
-${gallery(items, `${kid.name}'s art will show up here soon!`)}`,
+    body: `<div class="page-head"><h1>${esc(kid.name)}'s Art</h1></div>
+${items.length ? artGallery(kid, items) : gallery([], `${kid.name}'s art will show up here soon!`)}`,
   });
 }
 
