@@ -80,26 +80,48 @@
   // ---------- Google sign-in (token in the address bar; it lasts about an hour) ----------
   function rand() { var a = new Uint8Array(16); crypto.getRandomValues(a); return Array.prototype.map.call(a, function (b) { return b.toString(16); }).join(''); }
   function signIn() {
-    var st = rand(); sessionStorage.setItem('tss-state', st);
-    location.href = AUTH + '?' + new URLSearchParams({
+    // Kept in localStorage (not per-tab), because on Android the Google page can come back in a different tab
+    // than the home-screen app that started it.
+    // Opened in a new window so the pictures already on this screen are not lost.
+    var st = rand(); store.set('state', st);
+    var url = AUTH + '?' + new URLSearchParams({
       client_id: cfg.clientId, response_type: 'token', redirect_uri: REDIRECT, scope: SCOPE,
-      state: st, include_granted_scopes: 'true', prompt: '',
+      state: st, include_granted_scopes: 'true',
     });
+    var w = window.open(url, 'tss-signin');
+    if (!w) location.href = url;   // pop-ups blocked: sign in in this window instead
   }
   function finishSignIn() {
     var h = new URLSearchParams(location.hash.slice(1));
     if (!h.get('access_token') && !h.get('error')) return;
     history.replaceState(null, '', '/upload/');
-    if (h.get('error')) { status('Google said: ' + h.get('error'), true); return; }
-    if (h.get('state') !== sessionStorage.getItem('tss-state')) { status('Sign-in did not match. Please try again.', true); return; }
-    sessionStorage.removeItem('tss-state');
+    if (h.get('error')) { note('Google said: ' + h.get('error') + '. Please try Sign in to Google again.'); return; }
+    if (!store.get('state') || h.get('state') !== store.get('state')) { note('That sign-in did not match. Please tap Sign in to Google again.'); return; }
+    store.set('state', null);
     store.set('access', h.get('access_token'));
     store.set('expires', String(Date.now() + ((+h.get('expires_in') || 3600) - 120) * 1000));
+    if (window.opener) {   // this is the sign-in window: hand back to the app and close
+      try { window.opener.postMessage('tss-signed-in', location.origin); } catch (e) {}
+      document.body.textContent = 'Signed in. You can close this and go back to the app.';
+      setTimeout(function () { window.close(); }, 400);
+      return 'popup';
+    }
   }
+  function refreshSignedIn() {
+    var yes = !!(cfg.clientId && token());
+    signedInUI(yes);
+    if (yes && !$('#signin2').hidden) { $('#signin2').hidden = true; status('Signed in. Tap Save again.'); }
+  }
+  window.addEventListener('message', function (e) { if (e.origin === location.origin && e.data === 'tss-signed-in') refreshSignedIn(); });
+  window.addEventListener('storage', function (e) { if (e.key === 'tss-access') refreshSignedIn(); });
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) refreshSignedIn(); });
+  function note(msg) { var a = $('#acct'); a.textContent = msg; a.classList.add('bad'); noted = true; }
+  var noted = false;
   function token() { return store.get('access') && Date.now() < +store.get('expires') ? store.get('access') : null; }
   function signedInUI(yes) {
     $('#signin').hidden = yes || !cfg.clientId; $('#signout').hidden = !yes;
-    $('#acct').textContent = !cfg.clientId ? '' : yes ? 'Connected to Google Drive.' : 'Sign in to Google, then Save sends pictures straight to Google Drive.';
+    if (!noted) $('#acct').textContent = !cfg.clientId ? '' : yes ? 'Signed in to Google Drive.' : 'Sign in to Google, then Save sends pictures straight to Google Drive.';
+    if (yes) { $('#acct').classList.remove('bad'); }
     if (!cfg.clientId) {   // Share-button mode: one big button that hands the pictures to the Drive app
       $('#save').hidden = true;
       $('#share').className = 'save wobbly';
@@ -108,6 +130,7 @@
     }
   }
   $('#signin').addEventListener('click', signIn);
+  $('#signin2').addEventListener('click', signIn);
   $('#signout').addEventListener('click', function () { store.set('access', null); store.set('expires', null); signedInUI(false); });
 
   // ---------- saving ----------
@@ -170,7 +193,7 @@
   $('#save').addEventListener('click', async function () {
     var btn = this; btn.disabled = true;
     try {
-      if (!token()) { status('Please sign in to Google first: tap Back, then Sign in to Google.', true); btn.disabled = false; return; }
+      if (!token()) { status('You are not signed in to Google right now. Tap \u201cSign in to Google\u201d below. Your pictures stay here.', true); $('#signin2').hidden = false; btn.disabled = false; return; }
       for (var i = 0; i < state.items.length; i++) {
         var it = state.items[i], pl = plan(it, i);
         status('Saving picture ' + (i + 1) + ' of ' + state.items.length + '…');
@@ -208,7 +231,7 @@
   });
 
   // ---------- start ----------
-  if (cfg.clientId) finishSignIn();
+  if (cfg.clientId && finishSignIn() === 'popup') return;
   signedInUI(!!(cfg.clientId && token()));
   show('s-kid');
 })();

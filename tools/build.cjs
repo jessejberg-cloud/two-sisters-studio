@@ -445,6 +445,7 @@ pages['upload/index.html'] = `<!doctype html>
     </div>
     <p class="share-help" id="share-help" hidden>Your phone's share list opens. Pick <strong>Drive</strong>, choose the <strong>${esc(site.uploadFolderName)}</strong> folder, and tap <strong>Save</strong>.</p>
     <p class="status" id="status" role="status" aria-live="polite"></p>
+    <p><button type="button" class="chip" id="signin2" hidden>Sign in to Google</button></p>
   </section>
 </main>
 </body>
