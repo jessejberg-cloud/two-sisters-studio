@@ -257,6 +257,17 @@
     opts = opts || {}; opts.headers = Object.assign({ Authorization: 'Bearer ' + tok }, opts.headers || {});
     var r = await fetch(url, opts);
     if (r.status === 401) { store.set('access', null); throw new Error('Your Google sign-in ran out.'); }
+    if (r.status === 403) {
+      var why = '';
+      try { var e = (await r.clone().json()).error || {}; why = ((e.errors && e.errors[0] && e.errors[0].reason) || e.status || '') + ' ' + (e.message || ''); } catch (x) {}
+      if (/accessNotConfigured|SERVICE_DISABLED|has not been used|is disabled/i.test(why))
+        throw new Error('Google Drive is not turned on for this app yet (Drive API). The pictures are still saved on this phone.');
+      if (/insufficient|scope/i.test(why)) {
+        store.set('access', null);
+        throw new Error('Google did not give this app permission to save. Sign in again and tick the box that lets it add files to your Drive.');
+      }
+      throw new Error('Google Drive said no (403' + (why.trim() ? ': ' + why.trim().slice(0, 120) : '') + '). The pictures are still saved on this phone.');
+    }
     return r;
   }
   var folderCache = {};
