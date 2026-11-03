@@ -9,6 +9,10 @@
       "icon": "palette",
       "grades": {
         "2026-27": "3rd grade"
+      },
+      "gradeBase": {
+        "grade": "3rd grade",
+        "schoolYear": "2026-27"
       }
     },
     {
@@ -18,6 +22,10 @@
       "icon": "crayon",
       "grades": {
         "2026-27": "K5"
+      },
+      "gradeBase": {
+        "grade": "K5",
+        "schoolYear": "2026-27"
       }
     }
   ],

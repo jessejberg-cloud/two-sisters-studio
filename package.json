@@ -1,0 +1,13 @@
+{
+  "name": "two-sisters-studio",
+  "private": true,
+  "type": "module",
+  "description": "Two Sisters Studio: the static site is built with no dependencies; the login and upload functions use Netlify Blobs.",
+  "scripts": {
+    "build": "node tools/build.cjs && node tools/audit.cjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "11.1.7"
+  }
+}

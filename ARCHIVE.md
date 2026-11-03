@@ -70,3 +70,35 @@ Claude downloads the new folders with the Google Drive connector, then runs
 `python3 tools/add.py moments <folder>`. The site keeps WebP copies (1600px and 640px) in `assets/moments/<event>/`
 and print copies (3000px JPEG) in `site-src/moments-print/<event>/` for the event's Download all zip.
 All metadata is removed; the originals in Drive are never changed.
+
+## The new archive (phases 4-6, 2026-11): Drive is the source of truth
+The site writes to Google Drive itself (a parent connects Drive once on `/parent/`; scope `drive.file`, so the site
+sees only files it made). Layout:
+
+```
+Two Sisters Studio/
+  Leora | Amaya | Both/
+    2026-27/
+      Fall | Winter | Spring | Summer/
+        2026-11-03_leora_fall_dog-in-the-rain.json            details file (Drive appProperties tss=piece)
+        2026-11-03_leora_fall_dog-in-the-rain-1-original.jpg  untouched photo, always kept
+        2026-11-03_leora_fall_dog-in-the-rain-1.jpg           edited photo, only if it was edited
+        2026-11-03_leora_fall_dog-in-the-rain-2-original.jpg  more photos of a 3D piece
+  _site/web/
+    2026-11-03_leora_fall_dog-in-the-rain-1.webp, -1-sm.webp  web copies, so the galleries can be rebuilt
+```
+
+Details file (`version: 1`): `id, kid (leora | amaya | both), date, schoolYear, season, grade, caption, starred,
+deleted (date or null), created, updated, photos: [{ n, w, h, fp (duplicate fingerprint), edits, original,
+edited, web, thumb }]` where the photo fields are Drive file ids.
+
+Grade comes from the date: `content/site.json` `kids[].gradeBase` holds each kid's grade for one school year and it
+moves up every September. Summer reads "summer after 3rd grade".
+
+**Rebuild:** `/parent/` → Rebuild now (function `rebuild-background`) reads every details file in Drive, copies
+the web copies back into Netlify Blobs and remakes the gallery index. Drive is never changed by a rebuild.
+Files dropped into Drive by hand are not seen by the site (drive.file); those still come through Claude.
+
+Three test pictures saved by the first version of the app (2026-11-03, `Leora/2026-27/School Year/`) were not
+imported. The first app also made its own "Two Sisters Studio" folder: Drive now has two with that name; the site
+uses the one the app made, and the empty one Jesse made by hand can be deleted.

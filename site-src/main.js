@@ -171,3 +171,19 @@
     if (Math.abs(dx) > 50) show(dx < 0 ? at + 1 : at - 1);
   });
 })();
+
+// ---------- login page: show the right words and errors, keep where the person was going ----------
+(function () {
+  var form = document.querySelector('.login-form');
+  if (!form) return;
+  var q = new URLSearchParams(location.search);
+  var next = q.get('next');
+  if (next && next.charAt(0) === '/' && next.charAt(1) !== '/') form.elements.next.value = next;
+  if (q.get('kind') === 'friend' || q.get('friend')) {
+    form.elements.kind.value = 'friend';
+    document.querySelector('[data-family]').hidden = true;
+    document.querySelector('[data-friend]').hidden = false;
+  }
+  var e = q.get('e');
+  if (e) { var m = document.querySelector('.login-error[data-e="' + e + '"]'); if (m) m.hidden = false; }
+})();

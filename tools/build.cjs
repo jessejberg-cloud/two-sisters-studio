@@ -42,6 +42,9 @@ const PP = '/pet-parents';
 // Content-Security-Policy is set per page (a meta tag), so the upload app can talk to Google Drive
 // while every other page can reach nothing outside this site.  (The upload app talks to Google Drive.)
 const CSP_STRICT = "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'";
+// Pages that talk to this site's own functions (login state, parent page, live galleries): still nothing outside.
+const CSP_SELF = CSP_STRICT.replace("connect-src 'none'", "connect-src 'self'");
+const CSP_LOGIN = CSP_STRICT.replace("form-action 'none'", "form-action 'self'");
 const CSP_UPLOAD = "default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; font-src 'self'; manifest-src 'self'; "
   + "connect-src https://www.googleapis.com; "
   + "form-action 'none'; base-uri 'self'; object-src 'none'";
@@ -56,6 +59,7 @@ function asset(rel) {
   return `/assets/${rel}?v=${hashes[rel]}`;
 }
 const cssHash = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'styles.css'))).digest('hex').slice(0, 8);
+const fileHash = (f) => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, f))).digest('hex').slice(0, 8);
 const jsHash = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'main.js'))).digest('hex').slice(0, 8);
 
 // Logo: if a drawn logo exists at site-src/assets/logo/logo.webp (or .png), it replaces the placeholder wordmark.
@@ -88,7 +92,7 @@ const ICONS = {
   mic: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><rect x="14" y="4" width="12" height="20" rx="6"/><path d="M9,18 Q9,29 20,29 Q31,29 31,18"/><path d="M20,29 L20,36 M14,36 L26,36"/></g></svg>',
 };
 
-function page({ key, title, body, section, bodyClass }) {
+function page({ key, title, body, section, bodyClass, csp = CSP_STRICT, tabs = true, scripts = [] }) {
   const fullTitle = title ? `${title} · ${site.siteName}` : site.siteName;
   const current = section || key;
   const nav = TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"${n.key === current ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('');
@@ -101,7 +105,7 @@ function page({ key, title, body, section, bodyClass }) {
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="${CSP_STRICT}">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
 <meta property="og:title" content="${esc(site.siteName)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(site.siteName)}">
@@ -119,12 +123,13 @@ function page({ key, title, body, section, bodyClass }) {
 <link rel="preload" href="${asset('fonts/nunito-latin-600-normal.woff2')}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css?v=${cssHash()}">
 <script src="/main.js?v=${jsHash()}" defer></script>
+${scripts.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).join('\n')}
 </head>
 <body class="page-${key}${section ? ' in-' + section : ''}${bodyClass ? ' ' + bodyClass : ''}">
 <a class="skip" href="#main">Skip to the main part</a>
 <header class="site-header">
   <a class="brand" href="/">${logo(false)}</a>
-  <nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li></ul></nav>
+  ${tabs ? '' : '<!--'}<nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li></ul></nav>${tabs ? '' : '-->'}
 </header>
 <main id="main">
 ${body}
@@ -469,6 +474,54 @@ ${blocks}
   });
 }
 
+// ---------- login (the gate sends everyone without a login here) ----------
+pages['login/index.html'] = page({
+  key: 'login', title: 'Log in', csp: CSP_LOGIN, tabs: false,
+  body: `<section class="login wobbly">
+  <h1>Welcome!</h1>
+  <p class="login-lead" data-family>Type the family password to come in.</p>
+  <p class="login-lead" data-friend hidden>Someone shared part of the site with you. Type the password they sent you.</p>
+  <form class="login-form" method="post" action="/api/login">
+    <label for="pw">Password</label>
+    <input id="pw" name="password" type="password" autocomplete="current-password" required autofocus>
+    <input type="hidden" name="next" value="/">
+    <input type="hidden" name="kind" value="family">
+    <button type="submit" class="btn-big">Come in</button>
+    <p class="login-error" data-e="pw" hidden>That password did not work. Try again?</p>
+    <p class="login-error" data-e="wait" hidden>Too many tries. Please wait 15 minutes and try again.</p>
+    <p class="login-error" data-e="link" hidden>This link has ended or was turned off. Ask for a new one.</p>
+  </form>
+</section>`,
+});
+
+// ---------- parent page: parent PIN, Google Drive, rebuild ----------
+pages['parent/index.html'] = page({
+  key: 'parent', title: 'For parents', csp: CSP_SELF, scripts: ['parent.js'],
+  body: `<div class="page-head"><h1>For parents</h1></div>
+<section class="parent-pin wobbly" id="pin-box">
+  <p>Type the parent PIN.</p>
+  <div class="pin-row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="Parent PIN"><button type="button" class="btn-big" id="pin-go">Open</button></div>
+  <p class="login-error" id="pin-msg" hidden></p>
+</section>
+<div id="parent-tools" hidden>
+  <section class="parent-card wobbly">
+    <h2>Google Drive</h2>
+    <p id="g-status">Checking…</p>
+    <p><a class="btn-big" id="g-connect" href="/api/google/start">Connect Google Drive</a></p>
+  </section>
+  <section class="parent-card wobbly">
+    <h2>Rebuild the galleries from Drive</h2>
+    <p>Only needed if something on the site was lost. Drive is never changed.</p>
+    <p><button type="button" class="btn-big" id="rebuild">Rebuild now</button></p>
+    <p id="rebuild-status"></p>
+  </section>
+  <section class="parent-card wobbly">
+    <h2>This device</h2>
+    <p><button type="button" class="linkish" id="logout">Log out of the site on this device</button></p>
+  </section>
+</div>`,
+});
+
 // ---------- upload app (for Jesse's phone; not in the tabs) ----------
 const uploadCfg = {
   clientId: site.googleClientId || '',
@@ -579,6 +632,7 @@ for (const [rel, html] of Object.entries(pages)) {
 fs.cpSync(path.join(SRC, 'assets'), path.join(DIST, 'assets'), { recursive: true, filter: (p) => !p.endsWith('.gitkeep') });
 fs.copyFileSync(path.join(SRC, 'styles.css'), path.join(DIST, 'styles.css'));
 fs.copyFileSync(path.join(SRC, 'main.js'), path.join(DIST, 'main.js'));
+fs.copyFileSync(path.join(SRC, 'parent.js'), path.join(DIST, 'parent.js'));
 fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'));
 fs.writeFileSync(path.join(DIST, 'upload/sw.js'), swCode);
 fs.writeFileSync(path.join(DIST, 'upload/manifest.webmanifest'), JSON.stringify(manifest, null, 2));
