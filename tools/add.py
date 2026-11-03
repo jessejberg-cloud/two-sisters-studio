@@ -4,6 +4,7 @@
   python3 tools/add.py new-art <archive folder>    every piece in the archive that is not on the site yet
   python3 tools/add.py art <kid> <image> --date 2026-11-03 [--caption "..."] [--featured]   one piece by hand
   python3 tools/add.py episode <folder>            audio + drawing + notes.txt -> new Pet Parents episode
+  python3 tools/add.py moments <folder>            Family Moments: each sub-folder "2026-06-14 Event title" is one event
   python3 tools/add.py check                       re-check every audio file and image on the site
 
 The archive (see ARCHIVE.md):  <Kid>/<2026-27>/<School Year|Summer>/<date_kid_season_short-title>.jpg
@@ -17,10 +18,15 @@ What it does for you
   Images -> turned upright, resized (max 1600px, plus a 640px copy for the grid), saved as WebP with
             ALL EXIF/GPS/metadata removed. The originals in Google Drive are never changed.
 
+Family Moments (real photos, only on that page): web copies like the art, plus a print copy (max 3000px JPEG,
+  metadata removed) for each event's "Download all" zip. Optional event.json in the event folder:
+  {"title", "date", "endDate", "note"}; optional photo .json beside a photo: {"caption", "date"}.
+
 What it can NOT do (people must):
   * Listen to the whole episode for spoken last names, school, teacher, places, ages, birthdays.
     Jesse does this before dropping the file in. Claude cannot hear audio.
   * Look at every image for signatures with last names, school names or other identifying text.
+    For photos also: street signs, house numbers, license plates, school logos or shirts, name tags.
     Claude opens each processed image and looks before committing; crop with --crop or flag it to Jesse.
 
 Needs: ffmpeg, ffprobe, Python 3 with Pillow.
@@ -33,6 +39,8 @@ ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "site-src" / "assets"
 EPISODES = ROOT / "content" / "episodes.json"
 ART = ROOT / "content" / "art.json"
+MOMENTS = ROOT / "content" / "moments.json"
+PRINT = ROOT / "site-src" / "moments-print"
 AUDIO_EXT = {".mp3", ".m4a", ".wav", ".aac", ".ogg", ".flac", ".aiff", ".aif", ".mp4", ".mov", ".webm"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif", ".gif", ".bmp", ".tif", ".tiff"}
 
@@ -75,7 +83,7 @@ def check_audio(p: Path):
             sys.exit(f"STOP: {p} has an encoder tag ({marker.decode()}).")
 
 # ---------------------------------------------------------------- images
-def process_image(src: Path, dest: Path, crop=None, max_side=1600):
+def process_image(src: Path, dest: Path, crop=None, max_side=1600, fmt="WEBP"):
     from PIL import Image, ImageOps
     try:
         import pillow_heif  # optional, for iPhone HEIC photos
@@ -91,7 +99,10 @@ def process_image(src: Path, dest: Path, crop=None, max_side=1600):
         im = im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB")
         im.thumbnail((max_side, max_side), Image.LANCZOS)
         clean = Image.frombytes(im.mode, im.size, im.tobytes())  # pixels only: no EXIF, GPS, XMP, ICC or comments
-        clean.save(dest, "WEBP", quality=84, method=6)
+        if fmt == "JPEG":
+            clean.convert("RGB").save(dest, "JPEG", quality=90, optimize=True)
+        else:
+            clean.save(dest, "WEBP", quality=84, method=6)
         w, h = clean.size
     check_image(dest)
     return w, h
@@ -266,11 +277,64 @@ def cmd_art(a):
         print(f"Added {entry['src']}. LOOK AT THIS IMAGE before committing: {ASSETS / entry['src']}" if entry else f"Already on the site: {src}")
     ART.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
+def taken_date(src: Path):
+    """The date a photo was taken, from its EXIF (read only, never copied to the site)."""
+    from PIL import Image
+    try:
+        with Image.open(src) as im:
+            ex = im.getexif()
+            raw = ex.get_ifd(0x8769).get(36867) or ex.get(306)
+        return raw[:10].replace(":", "-") if raw else None
+    except Exception:
+        return None
+
+def cmd_moments(a):
+    """Each sub-folder of <folder> is one event, named "2026-06-14 Event title" (or the folder itself is one event)."""
+    root = Path(a.folder)
+    data = json.loads(MOMENTS.read_text())
+    events = data.setdefault("events", [])
+    folders = [d for d in sorted(root.iterdir()) if d.is_dir()] or [root]
+    for folder in folders:
+        imgs = [p for p in folder.iterdir() if p.is_file() and p.suffix.lower() in IMAGE_EXT]
+        if not imgs:
+            continue
+        side = folder / "event.json"
+        meta = json.loads(side.read_text(encoding="utf-8-sig")) if side.exists() else {}
+        m = re.match(r"(\d{4}-\d{2}-\d{2})\s*[-_ ]?\s*(.*)", folder.name)
+        title = (meta.get("title") or (m.group(2) if m else folder.name)).strip() or "Family day"
+        dated = sorted(filter(None, (taken_date(p) for p in imgs)))
+        iso = parse_date(meta.get("date") or (m.group(1) if m else None) or (dated[0] if dated else None))
+        key = f"{iso}-{slug(title, 6)}"
+        ev = next((e for e in events if e["key"] == key), None)
+        if not ev:
+            ev = {"key": key, "title": title, "date": iso, "photos": []}
+            events.append(ev)
+        if meta.get("endDate"): ev["endDate"] = parse_date(meta["endDate"])
+        elif len(dated) > 1 and dated[-1] != iso and not ev.get("endDate"): ev["endDate"] = dated[-1]
+        if meta.get("note"): ev["note"] = meta["note"]
+        have = {ph.get("original") for ph in ev["photos"]}
+        for img in sorted(imgs, key=lambda p: (taken_date(p) or "", p.name)):
+            if img.name in have:
+                continue
+            pm_side = img.with_suffix(".json")
+            pm = json.loads(pm_side.read_text(encoding="utf-8-sig")) if pm_side.exists() else {}
+            n = len(ev["photos"]) + 1
+            pid = f"{key}-{n:02d}"
+            rel = f"moments/{key}/{pid}"
+            w, h = process_image(img, ASSETS / f"{rel}.webp")
+            process_image(img, ASSETS / f"{rel}-sm.webp", max_side=640)
+            process_image(img, PRINT / key / f"{pid}.jpg", max_side=3000, fmt="JPEG")
+            ev["photos"].append({"id": pid, "src": f"{rel}.webp", "thumb": f"{rel}-sm.webp", "print": f"{key}/{pid}.jpg",
+                                 "w": w, "h": h, "date": parse_date(pm.get("date") or taken_date(img) or iso),
+                                 "caption": (pm.get("caption") or "").strip(), "original": img.name})
+            print(f"Added {rel}.webp. LOOK AT THIS PHOTO before committing: {ASSETS / (rel + '.webp')}")
+    MOMENTS.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+
 def cmd_check(_a):
     n = 0
     for p in (ASSETS / "audio").glob("*.mp3"):
         check_audio(p); n += 1
-    for p in (ASSETS / "art").rglob("*"):
+    for p in [*(ASSETS / "art").rglob("*"), *(ASSETS / "moments").rglob("*"), *PRINT.rglob("*")]:
         if p.suffix.lower() in IMAGE_EXT:
             check_image(p); n += 1
     print(f"OK: {n} audio/image files have no metadata.")
@@ -290,9 +354,10 @@ def main():
     r.add_argument("--date"); r.add_argument("--caption"); r.add_argument("--featured", action="store_true")
     r.add_argument("--season", choices=SEASONS); r.add_argument("--crop", type=crop_arg); r.add_argument("--title"); r.add_argument("--alt")
     n = sub.add_parser("new-art"); n.add_argument("folder")
+    mo = sub.add_parser("moments"); mo.add_argument("folder")
     sub.add_parser("check")
     a = ap.parse_args()
-    {"episode": cmd_episode, "art": cmd_art, "new-art": cmd_new_art, "check": cmd_check}[a.cmd](a)
+    {"episode": cmd_episode, "art": cmd_art, "new-art": cmd_new_art, "moments": cmd_moments, "check": cmd_check}[a.cmd](a)
 
 if __name__ == "__main__":
     main()

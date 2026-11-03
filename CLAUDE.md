@@ -14,7 +14,7 @@ on every push to `main`.
 - **Names:** Leora (older; co-hosts the podcast) and Amaya (younger), and Jesse. First names only.
   No last names anywhere: pages, titles, metadata, file names, URLs, docs. `tools/names-check.cjs` enforces this
   with hashes only; add another last name with `--hash` (the word itself must never be written to a file).
-- **Structure:** Welcome page with three big buttons (Leora, Amaya, Pet Parents); the same three tabs on every page;
+- **Structure:** Welcome page with four big buttons (Leora, Amaya, Pet Parents, Family Moments); the same tabs on every page;
   simple enough for the youngest to tap through; tabs come from one list so more can be added later.
 - **Galleries:** by school year (Sept–Aug), newest open; School Year (fall, winter, spring) then Summer; labels are
   grade + season + date (grades are OK behind the password); 1–2 featured pieces large per season, masonry below,
@@ -38,7 +38,14 @@ on every push to `main`.
 ## Privacy rules (apply to the build and every update; never relax them)
 - First names only (the girls, Jesse, guests). Pet names are fine.
 - Never: last names, school, teacher, city/neighborhood/street, ages, birthdays.
-- No photos of family or of any real people. Drawings only.
+- Real photos only on the Family Moments page (Jesse, 2026-11-03; replaces "drawings only"). Everywhere else: drawings only.
+  Family Moments rules: special events only (a wedding, a trip to family), not everyday life; one page, one section per
+  event, newest first; event titles and captions use first names only and no city, school or address; check every
+  photo for street signs, house numbers, license plates, school logos or shirts, name tags (crop or leave it out);
+  metadata stripped like the art. Same family password. Each event has a "Download all" zip of print-size copies
+  (3000px JPEG, in site-src/moments-print/, zipped at build time into dist/moments/) for photo books.
+  Added with `python3 tools/add.py moments <folder>` from Drive "Two Sisters Studio/Family Moments/<2026-06-14 Event title>/".
+  Photos the girls take themselves: later, not now.
 - Audio: MP3 with all ID3/file metadata stripped. Images: all EXIF/GPS stripped (`tools/add.py` does both).
 - Inspect every image for signatures with last names, school names or other identifying text: crop it or flag it.
 - No transcripts. Claude can't hear audio: Jesse listens to each episode for spoken details first.

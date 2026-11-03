@@ -23,6 +23,15 @@ Plain steps for Jesse. The site is **twosistersstudio.com** (family password). C
 Each school year, tell Claude each girl's grade once (for example "Leora is in 5th grade this year"), so the
 labels say "5th grade · fall".
 
+## Add family photos (Family Moments)
+1. In Google Drive, open **Two Sisters Studio**, then make a folder **Family Moments** (once).
+2. Inside it, make one folder per event, named with the date and a short title, like **2026-06-14 Wedding**.
+   First names only in the title; no town or address.
+3. Copy the photos you want into that folder (from Google Photos: select them, Share, Drive, pick the folder).
+4. Tell Claude **"new family photos are in"**. Claude checks every photo for signs, house numbers, plates or
+   school logos, then puts them on the page. Each event gets a **Download all** button for photo books.
+5. Optional: a caption for a photo goes in a `.json` file with the same name, like `{"caption": "Dancing with Grandma"}`.
+
 ## Add a Pet Parents episode
 1. **Listen to the whole episode first.** Claude can't hear audio. Cut anything with last names, school or teacher
    names, places that show where you live, ages or birthdays.

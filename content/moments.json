@@ -1,0 +1,172 @@
+{
+  "events": [
+    {
+      "key": "2026-06-14-wedding",
+      "title": "Wedding",
+      "date": "2026-06-14",
+      "photos": [
+        {
+          "id": "2026-06-14-wedding-01",
+          "src": "moments/2026-06-14-wedding/2026-06-14-wedding-01.webp",
+          "thumb": "moments/2026-06-14-wedding/2026-06-14-wedding-01-sm.webp",
+          "print": "2026-06-14-wedding/2026-06-14-wedding-01.jpg",
+          "w": 1200,
+          "h": 1600,
+          "date": "2026-06-14",
+          "caption": "",
+          "original": "photo-1.jpg"
+        },
+        {
+          "id": "2026-06-14-wedding-02",
+          "src": "moments/2026-06-14-wedding/2026-06-14-wedding-02.webp",
+          "thumb": "moments/2026-06-14-wedding/2026-06-14-wedding-02-sm.webp",
+          "print": "2026-06-14-wedding/2026-06-14-wedding-02.jpg",
+          "w": 1600,
+          "h": 1067,
+          "date": "2026-06-14",
+          "caption": "",
+          "original": "photo-2.jpg"
+        },
+        {
+          "id": "2026-06-14-wedding-03",
+          "src": "moments/2026-06-14-wedding/2026-06-14-wedding-03.webp",
+          "thumb": "moments/2026-06-14-wedding/2026-06-14-wedding-03-sm.webp",
+          "print": "2026-06-14-wedding/2026-06-14-wedding-03.jpg",
+          "w": 1200,
+          "h": 1600,
+          "date": "2026-06-14",
+          "caption": "",
+          "original": "photo-3.jpg"
+        },
+        {
+          "id": "2026-06-14-wedding-04",
+          "src": "moments/2026-06-14-wedding/2026-06-14-wedding-04.webp",
+          "thumb": "moments/2026-06-14-wedding/2026-06-14-wedding-04-sm.webp",
+          "print": "2026-06-14-wedding/2026-06-14-wedding-04.jpg",
+          "w": 1200,
+          "h": 1600,
+          "date": "2026-06-14",
+          "caption": "",
+          "original": "photo-4.jpg"
+        }
+      ],
+      "sample": true,
+      "note": "A sample note: a line about the day, if you want one."
+    },
+    {
+      "key": "2026-08-02-trip-to-visit-family",
+      "title": "Trip to visit family",
+      "date": "2026-08-02",
+      "photos": [
+        {
+          "id": "2026-08-02-trip-to-visit-family-01",
+          "src": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-01.webp",
+          "thumb": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-01-sm.webp",
+          "print": "2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-01.jpg",
+          "w": 1600,
+          "h": 1067,
+          "date": "2026-08-02",
+          "caption": "",
+          "original": "photo-1.jpg"
+        },
+        {
+          "id": "2026-08-02-trip-to-visit-family-02",
+          "src": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-02.webp",
+          "thumb": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-02-sm.webp",
+          "print": "2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-02.jpg",
+          "w": 1200,
+          "h": 1600,
+          "date": "2026-08-02",
+          "caption": "",
+          "original": "photo-2.jpg"
+        },
+        {
+          "id": "2026-08-02-trip-to-visit-family-03",
+          "src": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-03.webp",
+          "thumb": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-03-sm.webp",
+          "print": "2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-03.jpg",
+          "w": 1600,
+          "h": 1200,
+          "date": "2026-08-02",
+          "caption": "",
+          "original": "photo-3.jpg"
+        },
+        {
+          "id": "2026-08-02-trip-to-visit-family-04",
+          "src": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-04.webp",
+          "thumb": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-04-sm.webp",
+          "print": "2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-04.jpg",
+          "w": 1600,
+          "h": 1200,
+          "date": "2026-08-02",
+          "caption": "",
+          "original": "photo-4.jpg"
+        },
+        {
+          "id": "2026-08-02-trip-to-visit-family-05",
+          "src": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-05.webp",
+          "thumb": "moments/2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-05-sm.webp",
+          "print": "2026-08-02-trip-to-visit-family/2026-08-02-trip-to-visit-family-05.jpg",
+          "w": 1200,
+          "h": 1600,
+          "date": "2026-08-02",
+          "caption": "",
+          "original": "photo-5.jpg"
+        }
+      ],
+      "sample": true
+    },
+    {
+      "key": "2026-10-18-fall-bonfire",
+      "title": "Fall bonfire",
+      "date": "2026-10-18",
+      "photos": [
+        {
+          "id": "2026-10-18-fall-bonfire-01",
+          "src": "moments/2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-01.webp",
+          "thumb": "moments/2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-01-sm.webp",
+          "print": "2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-01.jpg",
+          "w": 1200,
+          "h": 1600,
+          "date": "2026-10-18",
+          "caption": "",
+          "original": "photo-1.jpg"
+        },
+        {
+          "id": "2026-10-18-fall-bonfire-02",
+          "src": "moments/2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-02.webp",
+          "thumb": "moments/2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-02-sm.webp",
+          "print": "2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-02.jpg",
+          "w": 1600,
+          "h": 1067,
+          "date": "2026-10-18",
+          "caption": "",
+          "original": "photo-2.jpg"
+        },
+        {
+          "id": "2026-10-18-fall-bonfire-03",
+          "src": "moments/2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-03.webp",
+          "thumb": "moments/2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-03-sm.webp",
+          "print": "2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-03.jpg",
+          "w": 1600,
+          "h": 1067,
+          "date": "2026-10-18",
+          "caption": "",
+          "original": "photo-3.jpg"
+        },
+        {
+          "id": "2026-10-18-fall-bonfire-04",
+          "src": "moments/2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-04.webp",
+          "thumb": "moments/2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-04-sm.webp",
+          "print": "2026-10-18-fall-bonfire/2026-10-18-fall-bonfire-04.jpg",
+          "w": 1200,
+          "h": 1600,
+          "date": "2026-10-18",
+          "caption": "",
+          "original": "photo-4.jpg"
+        }
+      ],
+      "sample": true
+    }
+  ]
+}

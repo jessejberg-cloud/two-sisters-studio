@@ -75,7 +75,7 @@
     var a = list[at];
     img.src = a.dataset.full; img.width = +a.dataset.w; img.height = +a.dataset.h;
     img.alt = a.querySelector('img').alt;
-    cap.textContent = a.dataset.caption ? '“' + a.dataset.caption + '”' : '';
+    cap.textContent = !a.dataset.caption ? '' : a.closest('.moment') ? a.dataset.caption : '“' + a.dataset.caption + '”';
     label.textContent = a.dataset.label;
   }
   area.addEventListener('click', function (e) {

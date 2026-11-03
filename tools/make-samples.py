@@ -158,7 +158,14 @@ def remove():
         data[kid] = [x for x in data[kid] if not x.get("sample")]
         shutil.rmtree(ASSETS / "art" / kid / "samples", ignore_errors=True)
     ART.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-    print("Sample art removed.")
+    mom_path = ART.parent / "moments.json"
+    mom = json.loads(mom_path.read_text())
+    for ev in [e for e in mom.get("events", []) if e.get("sample")]:
+        shutil.rmtree(ASSETS / "moments" / ev["key"], ignore_errors=True)
+        shutil.rmtree(ROOT / "site-src" / "moments-print" / ev["key"], ignore_errors=True)
+    mom["events"] = [e for e in mom.get("events", []) if not e.get("sample")]
+    mom_path.write_text(json.dumps(mom, indent=2, ensure_ascii=False) + "\n")
+    print("Sample art and sample Family Moments removed.")
 
 if __name__ == "__main__":
     remove() if "--remove" in sys.argv else make()

@@ -387,3 +387,16 @@ main { max-width: var(--max); margin: 0 auto; padding: 8px 20px 40px; }
 .ed-wrap { overflow: hidden; padding: 20px; }
 .ed-tools { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
 .glow-chip[aria-pressed="true"] { background: var(--yellow); box-shadow: 0 0 14px 3px rgba(255, 209, 102, .9), 2px 2px 0 var(--ink); }
+
+/* ---------- Family Moments ---------- */
+.moment-jump ul { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; padding: 0; margin: 6px 0 18px; }
+.moment-jump a { display: inline-block; font-weight: 800; padding: 8px 16px; border: 3px solid var(--ink); border-radius: 999px; background: var(--yellow-soft); color: var(--ink); text-decoration: none; min-height: 48px; line-height: 26px; }
+.moment { padding: 18px 0 8px; border-top: 3px dashed rgba(0, 0, 0, .15); scroll-margin-top: 90px; }
+.moment:first-child { border-top: 0; }
+.moment-head { margin-bottom: 16px; }
+.moment-h { margin: 0; }
+.moment-date { margin: 2px 0 8px; font-weight: 800; opacity: .75; }
+.moment-note { margin: 0 0 10px; }
+.btn-download { display: inline-block; line-height: 1.35; min-height: 48px; padding: 8px 18px; border: 3px solid var(--ink); border-radius: var(--wobble); background: #fff; color: var(--ink); font-weight: 800; text-decoration: none; box-shadow: 4px 4px 0 var(--ink); }
+.btn-download:hover, .btn-download:focus-visible { background: var(--yellow-soft); }
+.dl-size { font-weight: 600; opacity: .7; white-space: nowrap; }

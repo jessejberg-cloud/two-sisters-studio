@@ -3,8 +3,9 @@
 //   content/site.json      site name, the kids (one tab and gallery each), extra sections (tabs), podcast names
 //   content/episodes.json  Pet Parents episodes (added by tools/add.py episode)
 //   content/art.json       the kids' art (added by tools/add.py)
+//   content/moments.json   Family Moments: events and their photos (added by tools/add.py moments)
 //   site-src/              styles, script, fonts, drawings, audio, art
-// Pages: /  (Welcome)   /<kid>/  (gallery)   /pet-parents/  /pet-parents/about/  /pet-parents/episodes/<n>/
+// Pages: /  (Welcome)   /<kid>/  (gallery)   /family-moments/   /pet-parents/  /pet-parents/about/  /pet-parents/episodes/<n>/
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -19,6 +20,7 @@ const json = (p) => JSON.parse(read(p));
 const site = json('content/site.json');
 const episodes = json('content/episodes.json').slice().sort((a, b) => b.number - a.number);
 const art = json('content/art.json');
+const moments = json('content/moments.json').events || [];
 // Link previews need a full address. Netlify sets URL to the site's main address during builds.
 const SITE_URL = (process.env.URL || site.url).replace(/\/$/, '');
 
@@ -82,6 +84,7 @@ const ICONS = {
   palette: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20,5 C10,5 4,12 4,20 C4,29 11,35 18,35 C22,35 22,31 20,29 C18,27 19,24 23,24 L28,24 C33,24 36,21 36,17 C36,10 29,5 20,5 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="12" cy="19" r="2.8" fill="#e4572e"/><circle cx="16" cy="11" r="2.8" fill="#ffd166"/><circle cx="25" cy="11" r="2.8" fill="#5fa8d3"/><circle cx="30" cy="18" r="2.8" fill="#8fd3b6"/></svg>',
   crayon: '<svg viewBox="0 0 40 40" aria-hidden="true"><g transform="rotate(-45 20 20)" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><path d="M2,15 L28,15 L28,25 L2,25 Z" fill="#c3b1e1"/><path d="M28,15 L38,20 L28,25 Z" fill="#7d4e9e"/><path d="M8,15 L8,25 M12,15 L12,25 M20,15 L20,25 M24,15 L24,25" fill="none" stroke-width="2"/></g></svg>',
   stars: '<svg viewBox="0 0 48 40" aria-hidden="true"><g stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><path d="M15,4 L18.6,12.4 L27.6,13.2 L20.8,19.2 L22.9,28 L15,23.3 L7.1,28 L9.2,19.2 L2.4,13.2 L11.4,12.4 Z" fill="#ffd166"/><path d="M35,14 L37.6,20 L44,20.6 L39.2,24.9 L40.6,31.2 L35,27.9 L29.4,31.2 L30.8,24.9 L26,20.6 L32.4,20 Z" fill="#f4978e"/></g></svg>',
+  heart: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20,34 C12,28 4,22 4,14 C4,8.5 8.2,5 12.6,5 C16,5 18.6,7 20,9.6 C21.4,7 24,5 27.4,5 C31.8,5 36,8.5 36,14 C36,22 28,28 20,34 Z" fill="#f4978e" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>',
   mic: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><rect x="14" y="4" width="12" height="20" rx="6"/><path d="M9,18 Q9,29 20,29 Q31,29 31,18"/><path d="M20,29 L20,36 M14,36 L26,36"/></g></svg>',
 };
 
@@ -291,13 +294,13 @@ ${yearBlocks}
 // ---------- pages ----------
 const pages = {};
 
-// Welcome: three big buttons, one per tab.
+// Welcome: one big button per tab.
 pages['index.html'] = page({
   key: 'welcome',
   title: '',
   body: `<section class="welcome">
   <h1 class="hero-logo">${logo(true)}</h1>
-  <p class="hero-tag">Art by ${esc(listWords(KIDS.map((k) => k.name)))}, and our podcast.</p>
+  <p class="hero-tag">Art by ${esc(listWords(KIDS.map((k) => k.name)))}, our podcast, and family moments.</p>
   <ul class="big-buttons">
     ${TABS.map((n) => `<li><a class="big-button wobbly c-${n.color}" href="${n.href}"><span class="big-icon">${ICONS[n.icon]}</span><span class="big-label">${esc(n.label)}</span></a></li>`).join('\n    ')}
   </ul>
@@ -390,6 +393,80 @@ pages['404.html'] = page({
   title: 'Page not found',
   body: `<div class="page-head reveal"><h1>Oops! This page ran off to chase a squirrel.</h1><p><a class="big-link" href="/">Go back home</a></p></div>`,
 });
+
+// ---------- Family Moments: one page, one section per special event, newest first ----------
+// Each event has a "Download all" zip of the print-size copies (site-src/moments-print/, never served one by one),
+// for photo books. The zips are made here, into dist/ only.
+const CRC = (() => { const t = new Int32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c; } return t; })();
+const crc32 = (buf) => { let c = -1; for (let i = 0; i < buf.length; i++) c = CRC[(c ^ buf[i]) & 255] ^ (c >>> 8); return (c ^ -1) >>> 0; };
+function zipStore(files) {   // files: [{ name, data }] -> a plain (stored, no compression) zip; JPEGs don't shrink anyway
+  const parts = [], central = []; let off = 0;
+  for (const f of files) {
+    const name = Buffer.from(f.name, 'utf8'), crc = crc32(f.data), n = f.data.length;
+    const h = Buffer.alloc(30); h.writeUInt32LE(0x04034b50, 0); h.writeUInt16LE(20, 4); h.writeUInt16LE(0x0800, 6);
+    h.writeUInt16LE(0, 8); h.writeUInt32LE(0, 10); h.writeUInt32LE(crc, 14); h.writeUInt32LE(n, 18); h.writeUInt32LE(n, 22); h.writeUInt16LE(name.length, 26);
+    const c = Buffer.alloc(46); c.writeUInt32LE(0x02014b50, 0); c.writeUInt16LE(20, 4); c.writeUInt16LE(20, 6); c.writeUInt16LE(0x0800, 8);
+    c.writeUInt32LE(crc, 16); c.writeUInt32LE(n, 20); c.writeUInt32LE(n, 24); c.writeUInt16LE(name.length, 28); c.writeUInt32LE(off, 42);
+    parts.push(h, name, f.data); central.push(c, name); off += 30 + name.length + n;
+  }
+  const cd = Buffer.concat(central), e = Buffer.alloc(22);
+  e.writeUInt32LE(0x06054b50, 0); e.writeUInt16LE(files.length, 8); e.writeUInt16LE(files.length, 10); e.writeUInt32LE(cd.length, 12); e.writeUInt32LE(off, 16);
+  return Buffer.concat([...parts, cd, e]);
+}
+const momentZips = {};
+const eventDates = (ev) => ev.endDate && ev.endDate !== ev.date ? `${niceDate(ev.date)} to ${niceDate(ev.endDate)}` : niceDate(ev.date);
+function momentPhoto(ev, ph) {
+  const label = [ph.date ? niceDate(ph.date) : '', ev.title].filter(Boolean).join(' · ');
+  return `<figure class="piece">
+    <a class="piece-open" href="${asset(ph.src)}" data-full="${asset(ph.src)}" data-w="${ph.w}" data-h="${ph.h}"
+       data-caption="${esc(ph.caption || '')}" data-label="${esc(label)}" aria-label="Open ${esc(ph.caption || 'this photo')} big">
+      <img src="${asset(ph.thumb || ph.src)}" alt="${esc(ph.alt || ph.caption || 'A photo from ' + ev.title)}" width="${ph.w}" height="${ph.h}" loading="lazy" decoding="async">
+      ${ev.sample ? '<span class="sample-tag">Sample</span>' : ''}
+    </a>
+    ${ph.caption ? `<figcaption><span class="art-cap">${esc(ph.caption)}</span></figcaption>` : ''}
+  </figure>`;
+}
+{
+  const events = moments.slice().sort((a, b) => b.date.localeCompare(a.date));
+  const blocks = events.map((ev) => {
+    const prints = (ev.photos || []).filter((ph) => ph.print);
+    let dl = '';
+    if (prints.length) {
+      const zipRel = `moments/${ev.key}.zip`;
+      momentZips[zipRel] = prints.map((ph) => ({ name: `${ev.key}/${path.basename(ph.print)}`, data: fs.readFileSync(path.join(SRC, 'moments-print', ph.print)) }));
+      const mb = Math.max(1, Math.round(momentZips[zipRel].reduce((t, f) => t + f.data.length, 0) / 1048576));
+      dl = `<a class="btn-download" href="/${zipRel}" download="${esc(ev.key)}.zip">⬇ Download all ${prints.length} photos <span class="dl-size">(about ${mb} MB)</span></a>`;
+    }
+    return `<section class="moment" id="${esc(ev.key)}">
+    <div class="moment-head">
+      <h2 class="moment-h">${esc(ev.title)}</h2>
+      <p class="moment-date">${eventDates(ev)}</p>
+      ${ev.note ? `<p class="moment-note">${esc(ev.note)}</p>` : ''}
+      ${dl}
+    </div>
+    <div class="masonry">${(ev.photos || []).map((ph) => momentPhoto(ev, ph)).join('')}</div>
+  </section>`;
+  }).join('\n');
+  const jump = events.length > 1 ? `<nav class="moment-jump" aria-label="Events"><ul>${events.map((ev) => `<li><a href="#${esc(ev.key)}">${esc(ev.title)}</a></li>`).join('')}</ul></nav>` : '';
+  pages['family-moments/index.html'] = page({
+    key: 'moments',
+    section: 'family-moments',
+    bodyClass: 'c-yellow',
+    title: 'Family Moments',
+    body: `<div class="page-head"><h1>Family Moments</h1><p>Photos from our special days.</p></div>
+${events.some((ev) => ev.sample) ? '<p class="sample-note">These are sample pictures, so you can see how the page will look. Real photos are coming soon!</p>' : ''}
+${events.length ? `${jump}
+<div class="gallery-area">
+${blocks}
+</div>
+<dialog class="lightbox" aria-label="Photo">
+  <button type="button" class="lb-close" aria-label="Close">✕</button>
+  <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span></figcaption></figure>
+  <button type="button" class="lb-next" aria-label="Next photo">›</button>
+</dialog>` : gallery([], 'Family photos will show up here soon!')}`,
+  });
+}
 
 // ---------- upload app (for Jesse's phone; not in the tabs) ----------
 const uploadCfg = {
@@ -501,5 +578,6 @@ fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'
 fs.writeFileSync(path.join(DIST, 'upload/sw.js'), swCode);
 fs.writeFileSync(path.join(DIST, 'upload/manifest.webmanifest'), JSON.stringify(manifest, null, 2));
 // Unlisted: block every crawler. No sitemap on purpose.
+for (const [rel, files] of Object.entries(momentZips)) { fs.mkdirSync(path.join(DIST, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(DIST, rel), zipStore(files)); }
 fs.writeFileSync(path.join(DIST, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
 console.log(`Built ${Object.keys(pages).length} pages, ${episodes.length} episode(s) -> dist/`);

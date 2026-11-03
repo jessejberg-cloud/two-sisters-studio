@@ -28,6 +28,13 @@
       "color": "mint",
       "icon": "paw",
       "href": "/pet-parents/"
+    },
+    {
+      "key": "family-moments",
+      "label": "Family Moments",
+      "color": "yellow",
+      "icon": "heart",
+      "href": "/family-moments/"
     }
   ],
   "podcastName": "Pet Parents",
