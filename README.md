@@ -1,4 +1,5 @@
-# Pet Parents
+# Two Sisters Studio
 
-A podcast site for family and friends. See [UPDATES.md](UPDATES.md) for adding episodes and art,
+A private family site (one family password, not indexed): Leora's and Amaya's art galleries and the Pet Parents podcast.
+See [HOW-TO.md](HOW-TO.md) for adding art and episodes, [ARCHIVE.md](ARCHIVE.md) for the OneDrive archive,
 and [CLAUDE.md](CLAUDE.md) for the rules and how it's built.
