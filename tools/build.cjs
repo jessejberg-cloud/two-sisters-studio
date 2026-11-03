@@ -46,7 +46,7 @@ const CSP_STRICT = "default-src 'self'; img-src 'self' data:; media-src 'self'; 
 const CSP_SELF = CSP_STRICT.replace("connect-src 'none'", "connect-src 'self'");
 const CSP_LOGIN = CSP_STRICT.replace("form-action 'none'", "form-action 'self'");
 const CSP_UPLOAD = "default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; font-src 'self'; manifest-src 'self'; "
-  + "connect-src https://www.googleapis.com; "
+  + "connect-src 'self' https://www.googleapis.com; "
   + "form-action 'none'; base-uri 'self'; object-src 'none'";
 
 // Cache-busting: every asset URL gets ?v=<hash of the file>.
@@ -524,9 +524,8 @@ pages['parent/index.html'] = page({
 
 // ---------- upload app (for Jesse's phone; not in the tabs) ----------
 const uploadCfg = {
-  clientId: site.googleClientId || '',
   folderName: site.uploadFolderName,
-  kids: Object.fromEntries(KIDS.map((k) => [k.key, { name: k.name, color: k.color, grades: k.grades || {} }])),
+  kids: Object.fromEntries(KIDS.map((k) => [k.key, { name: k.name, color: k.color }])),
 };
 const upJs = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'upload/app.js'))).digest('hex').slice(0, 8);
 pages['upload/index.html'] = `<!doctype html>
@@ -554,10 +553,9 @@ pages['upload/index.html'] = `<!doctype html>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
     <div class="up-kids">
       ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-kid="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
+      <button type="button" class="big-button wobbly c-yellow both-button" data-kid="both"><span class="big-label">Both, made together</span></button>
     </div>
-    <p class="acct" id="acct"></p>
-    <p class="acct-row"><button type="button" class="chip" id="signin" hidden>Sign in to Google</button>
-      <button type="button" class="linkish" id="signout" hidden>Sign out</button></p>
+    <p class="up-more"><button type="button" class="chip" id="recent">Recent uploads</button> <a class="linkish" href="/parent/">For parents</a></p>
     <nav class="up-look" aria-label="Look at the site"><p class="up-look-h">Look at the site</p>
       <ul>${TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('')}</ul>
     </nav>
@@ -565,7 +563,7 @@ pages['upload/index.html'] = `<!doctype html>
 
   <section class="screen" id="s-photos" hidden>
     <p><button type="button" class="linkish" id="back">← Back</button></p>
-    <h1 class="up-h2"><span id="who"></span>'s art</h1>
+    <h1 class="up-h2" id="who"></h1>
     <div class="up-add">
       <label class="big-pick wobbly"><input type="file" id="take" accept="image/*" capture="environment"><span>📷 Take a photo</span></label>
       <label class="big-pick wobbly"><input type="file" id="pick" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
@@ -574,12 +572,10 @@ pages['upload/index.html'] = `<!doctype html>
     <p class="count" id="count"></p>
     <ul class="up-list" id="list"></ul>
     <div class="up-actions">
-      <button type="button" class="save wobbly" id="save" disabled>Save to Google Drive</button>
-      <button type="button" class="linkish" id="share" disabled>Share to the Drive app instead</button>
+      <button type="button" class="save wobbly" id="save" disabled>Save</button>
+      <button type="button" class="linkish" id="share" disabled>If Save will not work: share to the Drive app</button>
     </div>
-    <p class="share-help" id="share-help" hidden>Your phone's share list opens. Pick <strong>Drive</strong>, choose the <strong>${esc(site.uploadFolderName)}</strong> folder, and tap <strong>Save</strong>.</p>
     <p class="status" id="status" role="status" aria-live="polite"></p>
-    <p><button type="button" class="chip" id="signin2" hidden>Sign in to Google</button></p>
   </section>
 
   <section class="screen" id="s-edit" hidden>
@@ -591,14 +587,29 @@ pages['upload/index.html'] = `<!doctype html>
     <div class="ed-tools">
       <button type="button" class="chip" id="ed-turn">↻ Turn</button>
       <button type="button" class="chip" id="ed-crop">✂ Crop</button>
-      <button type="button" class="chip glow-chip" id="ed-glow" aria-pressed="false">✨ Glow</button>
       <button type="button" class="linkish" id="ed-reset">Start over</button>
+    </div>
+    <div class="ed-tools ed-looks" role="group" aria-label="Look">
+      <button type="button" class="chip" data-look="auto" aria-pressed="false">Auto</button>
+      <button type="button" class="chip" data-look="paper" aria-pressed="false">Paper white</button>
+      <button type="button" class="chip" data-look="vivid" aria-pressed="false">Vivid</button>
+      <button type="button" class="chip glow-chip" data-look="glow" aria-pressed="false">✨ Glow</button>
     </div>
     <div class="up-actions">
       <button type="button" class="save wobbly" id="ed-done">Done</button>
       <button type="button" class="linkish" id="ed-cancel">Cancel</button>
     </div>
     <p class="share-help">The untouched original is always saved too.</p>
+  </section>
+
+  <section class="screen" id="s-recent" hidden>
+    <p><button type="button" class="linkish" id="recent-back">← Back</button></p>
+    <h1 class="up-h2">Recent uploads</h1>
+    <p class="share-help">Change a caption or date, star one to show it big, or put one away.</p>
+    <ul class="up-list" id="recent-list"></ul>
+    <h2 class="up-h3" id="deleted-h" hidden>Recently put away</h2>
+    <p class="share-help" id="deleted-help">Kept for 30 days, then cleared from the site. The originals in Google Drive are never touched.</p>
+    <ul class="up-list" id="deleted-list"></ul>
   </section>
 </main>
 </body>

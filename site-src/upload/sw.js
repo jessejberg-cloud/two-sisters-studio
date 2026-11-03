@@ -17,8 +17,10 @@ self.addEventListener('activate', (e) => {
 
 function saveShared(files) {
   return new Promise((ok, no) => {
-    const r = indexedDB.open('two-sisters-studio', 1);
-    r.onupgradeneeded = () => { r.result.createObjectStore('outbox', { keyPath: 'id' }); r.result.createObjectStore('shared', { keyPath: 'id' }); };
+    const r = indexedDB.open('two-sisters-studio', 2);   // same version and stores as upload/app.js
+    r.onupgradeneeded = () => {
+      for (const n of ['outbox', 'shared', 'outbox2']) if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n, { keyPath: 'id' });
+    };
     r.onerror = () => no(r.error);
     r.onsuccess = () => {
       const t = r.result.transaction('shared', 'readwrite'), s = t.objectStore('shared'), stamp = Date.now();

@@ -433,3 +433,23 @@ button.btn-download { font: inherit; font-weight: 800; cursor: pointer; backgrou
 .parent-card h2 { margin-top: 0; }
 .pin-row { display: flex; gap: 10px; flex-wrap: wrap; }
 .linkish { font: inherit; background: none; border: 0; padding: 0; color: var(--ink); text-decoration: underline; cursor: pointer; min-height: 44px; }
+
+/* Add art app, second version: pieces with several photos, Both, duplicates, recent uploads */
+.item-pics { grid-column: 1; grid-row: 1; display: grid; gap: 8px; }
+.more-photo { grid-column: 1; grid-row: 2; position: relative; display: grid; place-items: center; min-height: 48px; padding: 4px 6px; text-align: center;
+  font: 700 .95rem var(--body); color: var(--ink); background: var(--c-soft, #f7f6f3); border: 2px dashed var(--ink); border-radius: 10px; cursor: pointer; }
+.more-photo input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.more-photo:focus-within { outline: 4px dashed var(--plum); outline-offset: 3px; }
+.item > .item-text { grid-column: 2; grid-row: 1 / span 2; }
+.item.recent > .item-text { grid-row: 1; }
+.item-text input[type="date"] { margin-top: 8px; }
+.dupe { margin: 8px 0 0; padding: 6px 10px; background: var(--yellow-soft); border-radius: 10px; font-weight: 700; }
+.recent-pic { grid-column: 1; }
+.recent-who { margin: 0 0 6px; font-weight: 800; }
+.saved-note { font-weight: 800; color: #2d6a3a; min-width: 5em; }
+.muted { color: var(--ink-soft); }
+.up-kids .both-button { min-height: 80px; justify-content: center; }
+.up-more { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 18px; }
+.up-h3 { font-family: var(--hand); font-size: 1.5rem; margin: 22px 0 4px; }
+.ed-looks { margin-top: -4px; }
+@media (max-width: 380px) { .item { grid-template-columns: 90px 1fr; } .item img { width: 90px; height: 90px; } }

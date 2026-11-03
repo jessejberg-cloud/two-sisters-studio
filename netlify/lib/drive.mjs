@@ -65,9 +65,9 @@ export async function folder(context, parts) {
 }
 
 // A small file in one request (details .json, web copies).
-export async function putSmall(context, parentId, name, mime, bytes, fileId) {
+export async function putSmall(context, parentId, name, mime, bytes, fileId, appProperties) {
   const boundary = 'tss' + Math.random().toString(36).slice(2);
-  const meta = fileId ? { name } : { name, parents: [parentId] };
+  const meta = fileId ? { name } : { name, parents: [parentId], ...(appProperties ? { appProperties } : {}) };
   const head = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`;
   const body = new Blob([head, bytes, `\r\n--${boundary}--`]);
   const url = UPLOAD + '/files' + (fileId ? '/' + fileId : '') + '?uploadType=multipart&fields=id,name,size';

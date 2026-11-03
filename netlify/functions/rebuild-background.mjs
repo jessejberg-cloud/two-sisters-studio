@@ -20,8 +20,8 @@ export default async (req, context) => {
         const d = JSON.parse(new TextDecoder().decode(await readFile(context, f.id)));
         for (const ph of d.photos || []) {
           if (!ph.web) { report.problems.push(`${d.id}: photo ${ph.n} has no web copy in Drive`); continue; }
-          await images.set(webName(d.id, ph.n), await readFile(context, ph.web), { metadata: { type: 'image/webp', piece: d.id } });
-          if (ph.thumb) await images.set(webName(d.id, ph.n, true), await readFile(context, ph.thumb), { metadata: { type: 'image/webp', piece: d.id } });
+          await images.set(webName(d.id, ph.n), await readFile(context, ph.web), { metadata: { type: ph.webType || 'image/webp', piece: d.id } });
+          if (ph.thumb) await images.set(webName(d.id, ph.n, true), await readFile(context, ph.thumb), { metadata: { type: ph.webType || 'image/webp', piece: d.id } });
         }
         await pieces.setJSON('p/' + d.id, { ...d, detailsFile: f.id });
       } catch (e) { report.problems.push(`${f.name}: ${e.message}`); }
