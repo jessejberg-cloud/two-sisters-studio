@@ -48,8 +48,11 @@ on every push to `main`.
 
 ## Where things live
 - Names and tagline: `content/site.json`.
-- Episodes: `content/episodes.json` (written by `tools/add.py episode`). Art: `content/art.json`.
-- Audio: `site-src/assets/audio/`. Art: `site-src/assets/art/{episodes,daughter,sister}/`.
+- Episodes: `content/episodes.json` (written by `tools/add.py episode`). Art: `content/art.json`, one list per kid
+  (written by `tools/add.py new-art`). The archive format and the "add new art" steps: [ARCHIVE.md](ARCHIVE.md).
+- Each kid's grade per school year: `grades` in `content/site.json`.
+- Audio: `site-src/assets/audio/`. Art: `site-src/assets/art/<kid>/<school year>/`, episode drawings in `art/episodes/`.
+- Sample art: `tools/make-samples.py` (`--remove` takes it out once real art arrives).
 - Drawings (hand-drawn style SVG): `site-src/assets/drawings/`. Styles: `site-src/styles.css`.
 - Logo: placeholder wordmark. To use her drawing, save it as `site-src/assets/logo/logo.webp` (or .png,
   metadata stripped) and run `node tools/make-brand.cjs` to remake the link-preview image and icon.

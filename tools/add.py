@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""Add a new episode or new art to the Pet Parents site, with the privacy steps built in.
+"""Add new art or a new episode to Two Sisters Studio, with the privacy steps built in.
 
-  python3 tools/add.py episode <folder>            audio + drawing + notes.txt -> new episode
-  python3 tools/add.py art daughter <image> [...]  her other art  -> Artwork page
-  python3 tools/add.py art sister   <image> [...]  her sister's art -> "[Sister]'s Art" page
+  python3 tools/add.py new-art <archive folder>    every piece in the archive that is not on the site yet
+  python3 tools/add.py art <kid> <image> --date 2026-11-03 [--caption "..."] [--featured]   one piece by hand
+  python3 tools/add.py episode <folder>            audio + drawing + notes.txt -> new Pet Parents episode
   python3 tools/add.py check                       re-check every audio file and image on the site
+
+The archive (see ARCHIVE.md):  <Kid>/<2026-27>/<School Year|Summer>/<date_kid_season_short-title>.jpg
+with a .json of the same name beside it: kid, date, grade, season, caption, featured.
 
 Options for images:  --crop LEFT,TOP,RIGHT,BOTTOM   (pixels to cut off each edge, e.g. a signature)
                      --title "Title"   --alt "What the drawing shows"
 
 What it does for you
   Audio  -> MP3, mono, 64 kbps, volume evened out, and ALL tags/metadata removed (no ID3, no encoder tag).
-  Images -> turned upright, resized (max 1600px), saved as WebP with ALL EXIF/GPS/metadata removed.
+  Images -> turned upright, resized (max 1600px, plus a 640px copy for the grid), saved as WebP with
+            ALL EXIF/GPS/metadata removed. The originals in OneDrive are never changed.
 
 What it can NOT do (people must):
   * Listen to the whole episode for spoken last names, school, teacher, places, ages, birthdays.
@@ -175,17 +179,83 @@ def cmd_episode(a):
         print(f"LOOK AT THIS IMAGE before committing: {ASSETS / ep['drawing']}")
     print("Reminder: the audio was only cleaned of file metadata. Jesse must have listened to it for spoken details.")
 
+SITE = ROOT / "content" / "site.json"
+SEASONS = ("fall", "winter", "spring", "summer")
+
+def season_of(iso):
+    m = int(iso[5:7])
+    return "fall" if m in (9, 10, 11) else "winter" if m in (12, 1, 2) else "spring" if m in (3, 4, 5) else "summer"
+
+def school_year_of(iso):
+    y, m = int(iso[:4]), int(iso[5:7])
+    return f"{y}-{str(y + 1)[2:]}" if m >= 9 else f"{y - 1}-{str(y)[2:]}"
+
+def slug(s, n=5):
+    return "-".join("".join(ch if ch.isalnum() else " " for ch in (s or "").lower()).split()[:n]) or "untitled"
+
+def kids():
+    return {k["key"]: k for k in json.loads(SITE.read_text())["kids"]}
+
+def add_piece(data, kid, src, meta, crop=None):
+    """Make the web copies of one piece and add it to content/art.json. Returns the new entry, or None if already there."""
+    iso = parse_date(meta.get("date"))
+    season = (meta.get("season") or season_of(iso)).lower()
+    if season not in SEASONS:
+        sys.exit(f"{src}: season must be one of {', '.join(SEASONS)}")
+    sy = meta.get("schoolYear") or school_year_of(iso)
+    grade = (meta.get("grade") or kids()[kid].get("grades", {}).get(sy, "")).strip()
+    caption = (meta.get("caption") or "").strip()
+    pid = meta.get("id") or f"{iso}_{kid}_{season}_{slug(meta.get('title') or caption)}"
+    pid = re.sub(r"[^a-z0-9_-]", "-", pid.lower())
+    lst = data.setdefault(kid, [])
+    if any(x["id"] == pid or x.get("original") == src.name for x in lst):
+        return None
+    rel = f"art/{kid}/{sy}/{pid}"
+    w, h = process_image(src, ASSETS / f"{rel}.webp", crop)
+    process_image(src, ASSETS / f"{rel}-sm.webp", crop, max_side=640)
+    entry = {"id": pid, "src": f"{rel}.webp", "thumb": f"{rel}-sm.webp", "w": w, "h": h, "date": iso,
+             "schoolYear": sy, "season": season, "grade": grade, "caption": caption,
+             "alt": meta.get("alt") or caption or f"A drawing by {kids()[kid]['name']}",
+             "featured": bool(meta.get("featured")), "original": src.name}
+    lst.append(entry)
+    return entry
+
+def cmd_new_art(a):
+    """Walk the archive and add every piece that is not on the site yet. Never writes to the archive."""
+    root = Path(a.folder)
+    data = json.loads(ART.read_text())
+    names = {k["name"].lower(): key for key, k in kids().items()}
+    added = []
+    for img in sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXT):
+        kid = next((names[part.lower()] for part in img.relative_to(root).parts if part.lower() in names), None)
+        if not kid:
+            print(f"SKIP (not in a kid's folder): {img}"); continue
+        side = img.with_suffix(".json")
+        meta = json.loads(side.read_text(encoding="utf-8-sig")) if side.exists() else {}
+        if not meta.get("date"):
+            m = re.match(r"(\d{4}-\d{2}-\d{2})", img.name)
+            meta["date"] = m.group(1) if m else None
+            if not meta["date"]:
+                print(f"SKIP (no date in the name or .json): {img}"); continue
+        if re.match(r"\d{4}-\d{2}-\d{2}_", img.stem):
+            meta.setdefault("id", img.stem)
+        entry = add_piece(data, kid, img, meta)
+        if entry:
+            added.append(entry)
+    ART.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    print(f"Added {len(added)} new piece(s).")
+    for e in added:
+        print(f"LOOK AT THIS IMAGE before committing: {ASSETS / e['src']}")
+    missing = sorted({e['schoolYear'] for e in added if not e['grade']})
+    if missing:
+        print(f"No grade set for school year(s) {', '.join(missing)}: add it under \"grades\" in content/site.json.")
+
 def cmd_art(a):
     data = json.loads(ART.read_text())
-    lst = data.setdefault(a.who, [])
     for src in map(Path, a.images):
-        n = 1 + max([int(re.search(r"(\d+)", Path(x["src"]).stem).group(1)) for x in lst] or [0])
-        rel = f"art/{a.who}/{a.who}-{n:03d}.webp"
-        w, h = process_image(src, ASSETS / rel, a.crop)
-        title = a.title or ""
-        lst.insert(0, {"src": rel, "title": title, "alt": a.alt or title or "A drawing", "w": w, "h": h,
-                       "added": date.today().isoformat()})
-        print(f"Added {rel}. LOOK AT THIS IMAGE before committing: {ASSETS / rel}")
+        entry = add_piece(data, a.kid, src, {"date": a.date, "caption": a.caption, "featured": a.featured,
+                                             "title": a.title, "alt": a.alt, "season": a.season}, a.crop)
+        print(f"Added {entry['src']}. LOOK AT THIS IMAGE before committing: {ASSETS / entry['src']}" if entry else f"Already on the site: {src}")
     ART.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 def cmd_check(_a):
@@ -208,11 +278,13 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     e = sub.add_parser("episode"); e.add_argument("folder"); e.add_argument("--crop", type=crop_arg)
     e.add_argument("--alt"); e.add_argument("--replace", action="store_true")
-    r = sub.add_parser("art"); r.add_argument("who", choices=["daughter", "sister"]); r.add_argument("images", nargs="+")
-    r.add_argument("--crop", type=crop_arg); r.add_argument("--title"); r.add_argument("--alt")
+    r = sub.add_parser("art"); r.add_argument("kid"); r.add_argument("images", nargs="+")
+    r.add_argument("--date"); r.add_argument("--caption"); r.add_argument("--featured", action="store_true")
+    r.add_argument("--season", choices=SEASONS); r.add_argument("--crop", type=crop_arg); r.add_argument("--title"); r.add_argument("--alt")
+    n = sub.add_parser("new-art"); n.add_argument("folder")
     sub.add_parser("check")
     a = ap.parse_args()
-    {"episode": cmd_episode, "art": cmd_art, "check": cmd_check}[a.cmd](a)
+    {"episode": cmd_episode, "art": cmd_art, "new-art": cmd_new_art, "check": cmd_check}[a.cmd](a)
 
 if __name__ == "__main__":
     main()

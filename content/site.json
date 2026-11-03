@@ -6,13 +6,19 @@
       "key": "leora",
       "name": "Leora",
       "color": "coral",
-      "icon": "palette"
+      "icon": "palette",
+      "grades": {
+        "2026-27": ""
+      }
     },
     {
       "key": "amaya",
       "name": "Amaya",
       "color": "lav",
-      "icon": "crayon"
+      "icon": "crayon",
+      "grades": {
+        "2026-27": ""
+      }
     }
   ],
   "sections": [
