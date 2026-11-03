@@ -10,6 +10,7 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "site-src" / "assets"
 ART = ROOT / "content" / "art.json"
+GRADES = {k["key"]: k.get("grades", {}) for k in json.loads((ART.parent / "site.json").read_text())["kids"]}
 
 PAPERS = [(255, 253, 247), (250, 246, 236), (246, 250, 255), (255, 250, 240)]
 CRAYONS = [(228, 87, 46), (255, 190, 60), (95, 168, 211), (110, 190, 140), (125, 78, 158), (240, 120, 160), (60, 60, 70)]
@@ -144,7 +145,7 @@ def make():
             fw, fh = save_webp(im, ASSETS / f"{rel}.webp", 1600)
             save_webp(im, ASSETS / f"{rel}-sm.webp", 640)
             lst.append({"id": name, "src": f"{rel}.webp", "thumb": f"{rel}-sm.webp", "w": fw, "h": fh, "date": iso,
-                        "schoolYear": sy, "season": season, "grade": "[grade]", "caption": caption,
+                        "schoolYear": sy, "season": season, "grade": GRADES.get(kid, {}).get(sy, ""), "caption": caption,
                         "alt": caption or "A drawing", "featured": featured, "sample": True})
         data[kid] = lst
     data.pop("daughter", None); data.pop("sister", None)
