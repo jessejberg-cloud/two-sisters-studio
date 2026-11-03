@@ -17,8 +17,7 @@ Plain steps for Jesse. The site is **twosistersstudio.com** (family password). C
 7. Tap **Save to Google Drive**. The pictures are kept on the phone first, so this works with no internet and
    without being signed in. They go to Google Drive by themselves once you're online and signed in. If some are
    waiting, the first screen says so, with a **Send now** button.
-8. When you want them on the site, tell Claude **"new art is in"**. Claude checks every picture for last names
-   or school names, adds them, and tells you what went up.
+8. When you want them on the site, tell Claude **"new art is in"**. Claude adds them and tells you what went up.
 
 Each school year, tell Claude each girl's grade once (for example "Leora is in 5th grade this year"), so the
 labels say "5th grade · fall".
@@ -26,16 +25,12 @@ labels say "5th grade · fall".
 ## Add family photos (Family Moments)
 1. In Google Drive, open **Two Sisters Studio**, then make a folder **Family Moments** (once).
 2. Inside it, make one folder per event, named with the date and a short title, like **2026-06-14 Wedding**.
-   First names only in the title; no town or address.
 3. Copy the photos you want into that folder (from Google Photos: select them, Share, Drive, pick the folder).
-4. Tell Claude **"new family photos are in"**. Claude checks every photo for signs, house numbers, plates or
-   school logos, then puts them on the page. Each event gets a **Download all** button for photo books.
+4. Tell Claude **"new family photos are in"**. Claude puts them on the page. Each event gets a **Download all** button for photo books.
 5. Optional: a caption for a photo goes in a `.json` file with the same name, like `{"caption": "Dancing with Grandma"}`.
 
 ## Add a Pet Parents episode
-1. **Listen to the whole episode first.** Claude can't hear audio. Cut anything with last names, school or teacher
-   names, places that show where you live, ages or birthdays.
-2. Make a folder for the episode in the Pet Parents incoming folder with the audio, the drawing, and `notes.txt`:
+1. Make a folder for the episode in the Pet Parents incoming folder with the audio, the drawing, and `notes.txt`:
    ```
    Title: Biscuit the Very Good Boy
    Date: 11/15/2026
@@ -43,13 +38,11 @@ labels say "5th grade · fall".
    Guests: Maya
    Pets: Biscuit (dog), Pepper (cat)
    ```
-   First names only.
-3. Tell Claude **"new episode is in"**.
+2. Tell Claude **"new episode is in"**.
 
 ## If something breaks
 - **The site shows an old version, or a change didn't appear:** open [Deploys](https://app.netlify.com/projects/two-sisters-studio/deploys).
-  If the top one says **Failed**, tell Claude "the deploy failed". The old site stays up until it's fixed, and
-  the privacy check stops any deploy that would show a last name.
+  If the top one says **Failed**, tell Claude "the deploy failed". The old site stays up until it's fixed.
 - **The password page doesn't appear or the password stopped working:** [Visitor access](https://app.netlify.com/projects/two-sisters-studio/configuration/general#visitor-access)
   → Password protection. You can change the password there any time.
 - **The Add art app asks you to sign in to Google again:** that's normal. The sign-in lasts about an hour; it's one tap.

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Checks the built site (dist/) against the privacy and "unlisted" rules. Run after every build:
+// Checks the built site (dist/) against the "unlisted" and no-tracking rules. Run after every build:
 //   node tools/build.cjs && node tools/audit.cjs
 'use strict';
 const fs = require('fs');
@@ -47,9 +47,6 @@ const toml = fs.readFileSync(path.join(__dirname, '..', 'netlify.toml'), 'utf8')
 if (!/X-Robots-Tag = "noindex/.test(toml)) problems.push('netlify.toml is missing the X-Robots-Tag header');
 if (/^\s*Content-Security-Policy\s*=/m.test(toml)) problems.push('netlify.toml sets a Content-Security-Policy header; it must stay in the page meta tags');
 
-// Last names: the separate check covers every file and file name in the repo and dist/.
-try { require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'names-check.cjs')], { stdio: 'pipe' }); }
-catch (e) { problems.push(String(e.stderr || e.stdout || 'last-name check failed').trim()); }
 
 if (problems.length) { console.error('PROBLEMS:\n- ' + problems.join('\n- ')); process.exit(1); }
-console.log(`Audit OK: ${files.length} files, noindex everywhere, no outside links, no forms, no trackers, no sitemap, no last names.`);
+console.log(`Audit OK: ${files.length} files, noindex everywhere, no outside links, no forms, no trackers, no sitemap.`);

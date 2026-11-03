@@ -32,7 +32,7 @@ Two Sisters Studio/
 
 ## File names
 `date_kid_season_short-title`, all lowercase, no spaces: `2026-11-03_leora_fall_blue-cat.jpg`.
-First names only. If two pieces would get the same name, the upload app adds `-2`, `-3`.
+If two pieces would get the same name, the upload app adds `-2`, `-3`.
 
 ## Edited pictures
 If Jesse crops, turns or adds glow in the app, it saves the edited picture as `name.jpg` and the untouched one as
@@ -60,16 +60,13 @@ Jesse says "new art is in". Claude then:
    moves or deletes anything there).
 2. Runs `python3 tools/add.py new-art <copied folder>`. It skips pieces already on the site, turns photos upright,
    makes a 1600px and a 640px WebP with no photo data, and lists every new image.
-3. Opens every new image at full size and looks for last names, school names or other identifying text.
-   Crops it (`tools/add.py art ... --crop`) or flags it to Jesse and leaves that piece out.
-4. Checks captions for last names, school, teacher, places, ages and birthdays.
-5. Runs `node tools/build.cjs && node tools/audit.cjs && python3 tools/add.py check`, commits, pushes.
-6. Tells Jesse what went up and anything left out.
+3. Runs `node tools/build.cjs && node tools/audit.cjs && python3 tools/add.py check`, commits, pushes.
+4. Tells Jesse what went up.
 
 ## Family Moments (real photos)
 Drive: `Two Sisters Studio/Family Moments/<YYYY-MM-DD Event title>/` with the photos inside. Optional `event.json`
 in the event folder: `{"title", "date", "endDate", "note"}`. Optional photo `.json` beside a photo: `{"caption", "date"}`.
-Claude downloads the new folders with the Google Drive connector, looks at every photo, then runs
+Claude downloads the new folders with the Google Drive connector, then runs
 `python3 tools/add.py moments <folder>`. The site keeps WebP copies (1600px and 640px) in `assets/moments/<event>/`
 and print copies (3000px JPEG) in `site-src/moments-print/<event>/` for the event's Download all zip.
 All metadata is removed; the originals in Drive are never changed.

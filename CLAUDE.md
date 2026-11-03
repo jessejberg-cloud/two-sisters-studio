@@ -11,9 +11,7 @@ on every push to `main`.
   (id 271d83f2-9273-47b1-be88-e195689f2cb8, Pro team, so the site-wide password is a Netlify setting).
 - **Access:** one shared family password for the whole site, set by Jesse in Netlify. Never put it in the repo or chat.
 - **Not indexed:** noindex meta + `X-Robots-Tag` + robots.txt disallow + no sitemap.
-- **Names:** Leora (older; co-hosts the podcast) and Amaya (younger), and Jesse. First names only.
-  No last names anywhere: pages, titles, metadata, file names, URLs, docs. `tools/names-check.cjs` enforces this
-  with hashes only; add another last name with `--hash` (the word itself must never be written to a file).
+- **Names:** Leora (older; co-hosts the podcast) and Amaya (younger), and Jesse.
 - **Structure:** Welcome page with four big buttons (Leora, Amaya, Pet Parents, Family Moments); the same tabs on every page;
   simple enough for the youngest to tap through; tabs come from one list so more can be added later.
 - **Galleries:** by school year (Sept–Aug), newest open; School Year (fall, winter, spring) then Summer; labels are
@@ -30,33 +28,29 @@ on every push to `main`.
   phone first (IndexedDB) and sends it when online and signed in; a service worker (`site-src/upload/sw.js`) keeps
   the app working offline and receives shared pictures. Edited pictures keep the original too. Save to Google Drive (`drive.file` only; client ID in `content/site.json` googleClientId;
   until it is set, Save opens the phone's share list to the Drive app). New art reaches the site by a manual
-  "add new art" step: Claude downloads new files with the Google Drive connector, checks every piece for names or
-  school text first, then runs `tools/add.py new-art`. A weekly routine can be added later.
+  "add new art" step: Claude downloads new files with the Google Drive connector, then runs `tools/add.py new-art`. A weekly routine can be added later.
 - **Updates:** go straight to `main` after the checks pass.
 - The older rules "Netlify subdomain only" and "no password" are replaced. Everything else below still applies.
 
-## Privacy rules (apply to the build and every update; never relax them)
-- First names only (the girls, Jesse, guests). Pet names are fine.
-- Never: last names, school, teacher, city/neighborhood/street, ages, birthdays.
-- Real photos only on the Family Moments page (Jesse, 2026-11-03; replaces "drawings only"). Everywhere else: drawings only.
-  Family Moments rules: special events only (a wedding, a trip to family), not everyday life; one page, one section per
-  event, newest first; event titles and captions use first names only and no city, school or address; check every
-  photo for street signs, house numbers, license plates, school logos or shirts, name tags (crop or leave it out);
-  metadata stripped like the art. Same family password. Each event has a "Download all" zip of print-size copies
+## Personal information (Jesse, 2026-11-03; replaces the older privacy rules)
+- Personal information is allowed: last names, school, places, ages, birthdays, family photos. The whole site is
+  behind the family password, and Jesse monitors what goes on it himself. Claude does not screen art, photos,
+  captions or audio for personal information, and does not crop or leave things out for that reason.
+- Family Moments: special events only (a wedding, a trip to family), not everyday life; one page, one section per
+  event, newest first. Same family password. Each event has a "Download all" zip of print-size copies
   (3000px JPEG, in site-src/moments-print/, zipped at build time into dist/moments/) for photo books.
   Added with `python3 tools/add.py moments <folder>` from Drive "Two Sisters Studio/Family Moments/<2026-06-14 Event title>/".
   Photos the girls take themselves: later, not now.
-- Audio: MP3 with all ID3/file metadata stripped. Images: all EXIF/GPS stripped (`tools/add.py` does both).
-- Inspect every image for signatures with last names, school names or other identifying text: crop it or flag it.
-- No transcripts. Claude can't hear audio: Jesse listens to each episode for spoken details first.
+- `tools/add.py` still strips file metadata (EXIF/GPS, ID3) as a housekeeping default: smaller files, no
+  hidden location. Jesse can ask to drop that.
 
 ## Unlisted, no tracking
 - noindex meta on every page + `X-Robots-Tag` header (`netlify.toml`), `robots.txt` disallows all, no sitemap.
 - Link previews show only the name and logo (`og:title` + `og-image.png`; no description).
 - No links to Jesse's other sites or socials. No analytics, cookies, trackers, comments, forms, Netlify Forms
   or third-party embeds. Fonts are self-hosted. The Content-Security-Policy only allows this site's own files.
-- Custom domain twosistersstudio.com; the Netlify subdomain must not contain a last name. Family password on (Netlify setting).
-- `node tools/audit.cjs` checks most of this, including last names. Run it after every build (Netlify runs it too).
+- Custom domain twosistersstudio.com. Family password on (Netlify setting).
+- `node tools/audit.cjs` checks the unlisted and no-tracking rules. Run it after every build (Netlify runs it too).
 
 ## Where things live
 - Names and tagline: `content/site.json`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Add new art or a new episode to Two Sisters Studio, with the privacy steps built in.
+"""Add new art or a new episode to Two Sisters Studio, and strip file metadata.
 
   python3 tools/add.py new-art <archive folder>    every piece in the archive that is not on the site yet
   python3 tools/add.py art <kid> <image> --date 2026-11-03 [--caption "..."] [--featured]   one piece by hand
@@ -18,16 +18,10 @@ What it does for you
   Images -> turned upright, resized (max 1600px, plus a 640px copy for the grid), saved as WebP with
             ALL EXIF/GPS/metadata removed. The originals in Google Drive are never changed.
 
-Family Moments (real photos, only on that page): web copies like the art, plus a print copy (max 3000px JPEG,
+Family Moments (photos by event): web copies like the art, plus a print copy (max 3000px JPEG,
   metadata removed) for each event's "Download all" zip. Optional event.json in the event folder:
   {"title", "date", "endDate", "note"}; optional photo .json beside a photo: {"caption", "date"}.
 
-What it can NOT do (people must):
-  * Listen to the whole episode for spoken last names, school, teacher, places, ages, birthdays.
-    Jesse does this before dropping the file in. Claude cannot hear audio.
-  * Look at every image for signatures with last names, school names or other identifying text.
-    For photos also: street signs, house numbers, license plates, school logos or shirts, name tags.
-    Claude opens each processed image and looks before committing; crop with --crop or flag it to Jesse.
 
 Needs: ffmpeg, ffprobe, Python 3 with Pillow.
 """
@@ -186,9 +180,6 @@ def cmd_episode(a):
     eps.sort(key=lambda e: e["number"])
     EPISODES.write_text(json.dumps(eps, indent=2, ensure_ascii=False) + "\n")
     print(f"Added episode {num}: {ep['title']} ({ep['minutes']} min)")
-    if images:
-        print(f"LOOK AT THIS IMAGE before committing: {ASSETS / ep['drawing']}")
-    print("Reminder: the audio was only cleaned of file metadata. Jesse must have listened to it for spoken details.")
 
 SITE = ROOT / "content" / "site.json"
 SEASONS = ("fall", "winter", "spring", "summer")
@@ -264,7 +255,7 @@ def cmd_new_art(a):
     ART.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
     print(f"Added {len(added)} new piece(s).")
     for e in added:
-        print(f"LOOK AT THIS IMAGE before committing: {ASSETS / e['src']}")
+        print(f"Added {e['src']}")
     missing = sorted({e['schoolYear'] for e in added if not e['grade']})
     if missing:
         print(f"No grade set for school year(s) {', '.join(missing)}: add it under \"grades\" in content/site.json.")
@@ -274,7 +265,7 @@ def cmd_art(a):
     for src in map(Path, a.images):
         entry = add_piece(data, a.kid, src, {"date": a.date, "caption": a.caption, "featured": a.featured,
                                              "title": a.title, "alt": a.alt, "season": a.season}, a.crop)
-        print(f"Added {entry['src']}. LOOK AT THIS IMAGE before committing: {ASSETS / entry['src']}" if entry else f"Already on the site: {src}")
+        print(f"Added {entry['src']}." if entry else f"Already on the site: {src}")
     ART.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 def taken_date(src: Path):
@@ -327,7 +318,7 @@ def cmd_moments(a):
             ev["photos"].append({"id": pid, "src": f"{rel}.webp", "thumb": f"{rel}-sm.webp", "print": f"{key}/{pid}.jpg",
                                  "w": w, "h": h, "date": parse_date(pm.get("date") or taken_date(img) or iso),
                                  "caption": (pm.get("caption") or "").strip(), "original": img.name})
-            print(f"Added {rel}.webp. LOOK AT THIS PHOTO before committing: {ASSETS / (rel + '.webp')}")
+            print(f"Added {rel}.webp")
     MOMENTS.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
 
 def cmd_check(_a):

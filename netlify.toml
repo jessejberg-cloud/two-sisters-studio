@@ -1,6 +1,6 @@
 # Netlify builds the site from source on every push.
 #   main -> the live site; other branches / pull requests -> preview links.
-#   The audit runs too: if it finds a problem (like a last name), the deploy stops and the old site stays up.
+#   The audit runs too: if it finds a problem (like an outside link or tracker), the deploy stops and the old site stays up.
 [build]
   command = "node tools/build.cjs && node tools/audit.cjs"
   publish = "dist"
