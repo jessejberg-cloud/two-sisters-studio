@@ -56,7 +56,7 @@ on every push to `main`.
 - Drawings (hand-drawn style SVG): `site-src/assets/drawings/`. Styles: `site-src/styles.css`.
 - Logo: placeholder wordmark. To use her drawing, save it as `site-src/assets/logo/logo.webp` (or .png,
   metadata stripped) and run `node tools/make-brand.cjs` to remake the link-preview image and icon.
-- How updates work: [UPDATES.md](UPDATES.md).
+- How-to for Jesse (add art, add an episode, if something breaks, OneDrive setup): [HOW-TO.md](HOW-TO.md).
 
 ## Design
 Hand-drawn, neat and orderly, kid-friendly, not Office-looking. Motif: pets and their people. Any people drawn are
