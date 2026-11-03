@@ -1,7 +1,34 @@
-# Pet Parents podcast site: notes for Claude
+# Two Sisters Studio: notes for Claude
 
-A small, unlisted site for family and friends. Kids 10–12 are the audience. Built by `tools/build.cjs`
-(no dependencies) into `dist/`; Netlify runs the build on every push to `main`.
+A private family site for Leora and Amaya, behind one family password, not indexed. Its main job is to
+display and archive the girls' artwork over many years, to be passed down to them. The Pet Parents podcast is
+one section. Built by `tools/build.cjs` (no dependencies) into `dist/`; Netlify runs the build and the audit
+on every push to `main`.
+
+## Jesse's decisions (2026-11-03; these replace the older Pet Parents-only rules where they differ)
+- **Name:** Two Sisters Studio. **Domain:** twosistersstudio.com (registered in Netlify on this project).
+- **Repo:** `two-sisters-studio` on Jesse's GitHub account (private; was `pet-parents-site`). **Netlify project:** `two-sisters-studio`
+  (id 271d83f2-9273-47b1-be88-e195689f2cb8, Pro team, so the site-wide password is a Netlify setting).
+- **Access:** one shared family password for the whole site, set by Jesse in Netlify. Never put it in the repo or chat.
+- **Not indexed:** noindex meta + `X-Robots-Tag` + robots.txt disallow + no sitemap.
+- **Names:** Leora (older; co-hosts the podcast) and Amaya (younger), and Jesse. First names only.
+  No last names anywhere: pages, titles, metadata, file names, URLs, docs. `tools/names-check.cjs` enforces this
+  with hashes only; add another last name with `--hash` (the word itself must never be written to a file).
+- **Structure:** Welcome page with three big buttons (Leora, Amaya, Pet Parents); the same three tabs on every page;
+  simple enough for the youngest to tap through; tabs come from one list so more can be added later.
+- **Galleries:** by school year (Sept–Aug), newest open; School Year (fall, winter, spring) then Summer; labels are
+  grade + season + date (grades are OK behind the password); 1–2 featured pieces large per season, masonry below,
+  never cropped; tap opens a lightbox with the caption (one optional line in the kid's own words); filter by year,
+  season, caption. Gallery area plain and neutral; hand-drawn style in header, buttons, tabs.
+  Later, not now: a birthday "year in art" recap per kid.
+- **Archive:** full-quality originals stay in OneDrive (`Apps / Two Sisters Studio`), never in the repo. Folders
+  kid / school year / season. File names `date_kid_season_short-title`. A `.json` beside each piece: kid, date,
+  grade, season, caption, featured. The site uses resized WebP copies with all metadata stripped, lazy-loaded.
+- **Upload app:** a phone web app (PWA) at `/upload/` behind the same password, for Jesse's Android phone: pick a kid,
+  take photos, caption each, Save to OneDrive. New art reaches the site by a manual "add new art" step
+  (Claude checks every piece for names or school text first); a weekly routine can be added later.
+- **Updates:** go straight to `main` after the checks pass.
+- The older rules "Netlify subdomain only" and "no password" are replaced. Everything else below still applies.
 
 ## Privacy rules (apply to the build and every update; never relax them)
 - First names only (the girls, Jesse, guests). Pet names are fine.
@@ -16,11 +43,11 @@ A small, unlisted site for family and friends. Kids 10–12 are the audience. Bu
 - Link previews show only the name and logo (`og:title` + `og-image.png`; no description).
 - No links to Jesse's other sites or socials. No analytics, cookies, trackers, comments, forms, Netlify Forms
   or third-party embeds. Fonts are self-hosted. The Content-Security-Policy only allows this site's own files.
-- Netlify subdomain only; it must not contain a last name. No password for now (can be switched on later).
-- `node tools/audit.cjs` checks most of this. Run it after every build.
+- Custom domain twosistersstudio.com; the Netlify subdomain must not contain a last name. Family password on (Netlify setting).
+- `node tools/audit.cjs` checks most of this, including last names. Run it after every build (Netlify runs it too).
 
 ## Where things live
-- Names and tagline: `content/site.json`. Placeholders in [brackets] until Jesse gives names.
+- Names and tagline: `content/site.json`.
 - Episodes: `content/episodes.json` (written by `tools/add.py episode`). Art: `content/art.json`.
 - Audio: `site-src/assets/audio/`. Art: `site-src/assets/art/{episodes,daughter,sister}/`.
 - Drawings (hand-drawn style SVG): `site-src/assets/drawings/`. Styles: `site-src/styles.css`.

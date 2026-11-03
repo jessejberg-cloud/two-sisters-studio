@@ -1,8 +1,9 @@
 {
-  "url": "https://pet-parents-podcast.netlify.app",
+  "url": "https://twosistersstudio.com",
+  "siteName": "Two Sisters Studio",
   "podcastName": "Pet Parents",
-  "daughterName": "[Daughter]",
-  "sisterName": "[Sister]",
+  "daughterName": "Leora",
+  "sisterName": "Amaya",
   "hostName": "Jesse",
   "tagline": "A podcast for people who love pets, have pets, or are thinking about getting one. We interview pet parents to discover what it's like to live with a pet."
 }

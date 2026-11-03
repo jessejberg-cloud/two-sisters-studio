@@ -37,5 +37,9 @@ const toml = fs.readFileSync(path.join(__dirname, '..', 'netlify.toml'), 'utf8')
 if (!/X-Robots-Tag = "noindex/.test(toml)) problems.push('netlify.toml is missing the X-Robots-Tag header');
 if (!/Content-Security-Policy = "default-src 'self'/.test(toml)) problems.push('netlify.toml is missing the self-only Content-Security-Policy');
 
+// Last names: the separate check covers every file and file name in the repo and dist/.
+try { require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'names-check.cjs')], { stdio: 'pipe' }); }
+catch (e) { problems.push(String(e.stderr || e.stdout || 'last-name check failed').trim()); }
+
 if (problems.length) { console.error('PROBLEMS:\n- ' + problems.join('\n- ')); process.exit(1); }
-console.log(`Audit OK: ${files.length} files, noindex everywhere, no outside links, no forms, no trackers, no sitemap.`);
+console.log(`Audit OK: ${files.length} files, noindex everywhere, no outside links, no forms, no trackers, no sitemap, no last names.`);
