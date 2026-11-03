@@ -15,19 +15,29 @@ const rel = (f) => path.relative(DIST, f);
 const BLOCKED = /divergenttherapy|intrinsicchange|jessemade|brainspotting|facebook\.|instagram\.|twitter\.|x\.com|tiktok\.|youtube\.|linkedin\./i;
 const siteHost = new URL(process.env.URL || site.url).host;
 
+// Only the upload app may talk to Microsoft (sign-in and OneDrive).
+const UPLOAD_HOSTS = /^(login\.microsoftonline\.com|graph\.microsoft\.com|\*\.(1drv\.com|microsoftpersonalcontent\.com|onedrive\.com|sharepoint\.com|live\.net);?)$/;
+const isUpload = (f) => rel(f).split(path.sep)[0] === 'upload';
+
 for (const f of files.filter((f) => /\.(html|css|js)$/.test(f))) {
   const t = fs.readFileSync(f, 'utf8');
   if (BLOCKED.test(t)) problems.push(`${rel(f)}: mentions a blocked site`);
   for (const m of t.matchAll(/https?:\/\/[^\s"'<>)]+/g)) {
     const u = m[0];
     if (u.startsWith('http://www.w3.org/')) continue; // SVG namespace, not a request
+    if (isUpload(f) && UPLOAD_HOSTS.test(u.replace(/^https?:\/\//, '').replace(/[\/;].*$/, ''))) continue;
+    if (u.includes('${') || u.includes("' +")) continue; // a template, checked by host above
     if (new URL(u).host !== siteHost) problems.push(`${rel(f)}: outside address ${u}`);
   }
   if (f.endsWith('.html')) {
     if (!/<meta name="robots" content="noindex/.test(t)) problems.push(`${rel(f)}: missing noindex meta`);
     if (/<form|<iframe|<embed|<object|data-netlify|netlify-honeypot/i.test(t)) problems.push(`${rel(f)}: has a form or embed`);
     if (/document\.cookie|localStorage|sessionStorage|gtag|analytics/i.test(t)) problems.push(`${rel(f)}: tracking/cookie code`);
-    if (/<script(?![^>]*src="\/main\.js)/.test(t)) problems.push(`${rel(f)}: unexpected script`);
+    const okScript = isUpload(f) ? /<script(?![^>]*src="\/upload\/app\.js)(?![^>]*type="application\/json")/ : /<script(?![^>]*src="\/main\.js)/;
+    if (okScript.test(t)) problems.push(`${rel(f)}: unexpected script`);
+    const csp = (t.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/) || [])[1] || '';
+    if (!csp.startsWith("default-src 'self'")) problems.push(`${rel(f)}: missing the Content-Security-Policy meta tag`);
+    if (!isUpload(f) && !/connect-src 'none'/.test(csp)) problems.push(`${rel(f)}: page may reach outside the site`);
   }
 }
 const robots = fs.readFileSync(path.join(DIST, 'robots.txt'), 'utf8');
@@ -35,7 +45,7 @@ if (!/Disallow: \/\s*$/m.test(robots)) problems.push('robots.txt does not disall
 if (files.some((f) => /sitemap/i.test(f))) problems.push('a sitemap exists');
 const toml = fs.readFileSync(path.join(__dirname, '..', 'netlify.toml'), 'utf8');
 if (!/X-Robots-Tag = "noindex/.test(toml)) problems.push('netlify.toml is missing the X-Robots-Tag header');
-if (!/Content-Security-Policy = "default-src 'self'/.test(toml)) problems.push('netlify.toml is missing the self-only Content-Security-Policy');
+if (/^\s*Content-Security-Policy\s*=/m.test(toml)) problems.push('netlify.toml sets a Content-Security-Policy header; it must stay in the page meta tags');
 
 // Last names: the separate check covers every file and file name in the repo and dist/.
 try { require('child_process').execFileSync(process.execPath, [path.join(__dirname, 'names-check.cjs')], { stdio: 'pipe' }); }

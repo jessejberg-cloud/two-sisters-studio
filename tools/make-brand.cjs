@@ -44,6 +44,15 @@ body { width:1200px; height:630px; display:flex; flex-direction:column; align-it
   const icon = await b.newPage({ viewport: { width: 180, height: 180 } });
   await icon.goto('file://' + iconHtml);
   await icon.screenshot({ path: path.join(SRC, 'assets/brand/apple-touch-icon.png') });
+  // Upload app icons (Android home screen). Full-bleed background so they work as "maskable" icons.
+  for (const size of [192, 512]) {
+    const f = path.join(os.tmpdir(), `tss-app-${size}.html`);
+    fs.writeFileSync(f, `<body style="margin:0;width:${size}px;height:${size}px;background:#ece4f7;display:grid;place-items:center">`
+      + `<div style="width:${Math.round(size * 0.6)}px">${stars}</div></body>`);
+    const pg = await b.newPage({ viewport: { width: size, height: size } });
+    await pg.goto('file://' + f);
+    await pg.screenshot({ path: path.join(SRC, `assets/brand/app-${size}.png`) });
+  }
   await b.close();
   console.log('Wrote site-src/assets/brand/og-image.png');
 })();

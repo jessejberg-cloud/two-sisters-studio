@@ -37,6 +37,12 @@ const TABS = [
   ...site.sections,
 ];
 const PP = '/pet-parents';
+// Content-Security-Policy is set per page (a meta tag), so the upload app can talk to Microsoft
+// while every other page can reach nothing outside this site.
+const CSP_STRICT = "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'";
+const CSP_UPLOAD = "default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; font-src 'self'; manifest-src 'self'; "
+  + "connect-src https://login.microsoftonline.com https://graph.microsoft.com https://*.1drv.com https://*.microsoftpersonalcontent.com https://*.onedrive.com https://*.sharepoint.com https://*.live.net; "
+  + "form-action 'none'; base-uri 'self'; object-src 'none'";
 
 // Cache-busting: every asset URL gets ?v=<hash of the file>.
 const hashes = {};
@@ -92,6 +98,7 @@ function page({ key, title, body, section, bodyClass }) {
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="${CSP_STRICT}">
 <meta property="og:title" content="${esc(site.siteName)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(site.siteName)}">
@@ -384,6 +391,70 @@ pages['404.html'] = page({
   body: `<div class="page-head reveal"><h1>Oops! This page ran off to chase a squirrel.</h1><p><a class="big-link" href="/">Go back home</a></p></div>`,
 });
 
+// ---------- upload app (for Jesse's phone; not in the tabs) ----------
+const uploadCfg = {
+  clientId: site.onedriveClientId || '',
+  folderName: site.uploadFolderName,
+  kids: Object.fromEntries(KIDS.map((k) => [k.key, { name: k.name, color: k.color, grades: k.grades || {} }])),
+};
+const upJs = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'upload/app.js'))).digest('hex').slice(0, 8);
+pages['upload/index.html'] = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Add art · ${esc(site.siteName)}</title>
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="${CSP_UPLOAD}">
+<meta name="theme-color" content="#fdf8ef">
+<link rel="manifest" href="/upload/manifest.webmanifest" crossorigin="use-credentials">
+<link rel="icon" href="${asset('brand/favicon.svg')}" type="image/svg+xml">
+<link rel="apple-touch-icon" href="${asset('brand/app-192.png')}">
+<link rel="stylesheet" href="/styles.css?v=${cssHash()}">
+<script type="application/json" id="cfg">${JSON.stringify(uploadCfg).replace(/</g, '\\u003c')}</script>
+<script src="/upload/app.js?v=${upJs()}" defer></script>
+</head>
+<body class="up">
+<main id="main" class="up-main">
+  <section class="screen" id="s-kid">
+    <h1 class="up-h">${logo(false)}</h1>
+    <p class="up-lead">Whose art is it?</p>
+    <div class="up-kids">
+      ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-kid="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
+    </div>
+    <p class="acct" id="acct"></p>
+    <p class="acct-row"><button type="button" class="chip" id="signin" hidden>Sign in to Microsoft</button>
+      <button type="button" class="linkish" id="signout" hidden>Sign out</button></p>
+    <p class="up-home"><a href="/">Go to the site</a></p>
+  </section>
+
+  <section class="screen" id="s-photos" hidden>
+    <p><button type="button" class="linkish" id="back">← Back</button></p>
+    <h1 class="up-h2"><span id="who"></span>'s art</h1>
+    <div class="up-add">
+      <label class="big-pick wobbly"><input type="file" id="take" accept="image/*" capture="environment"><span>📷 Take a photo</span></label>
+      <label class="big-pick wobbly"><input type="file" id="pick" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
+    </div>
+    <label class="up-date">Date it was made <input type="date" id="date"></label>
+    <p class="count" id="count"></p>
+    <ul class="up-list" id="list"></ul>
+    <div class="up-actions">
+      <button type="button" class="save wobbly" id="save" disabled>Save to OneDrive</button>
+      <button type="button" class="linkish" id="share" disabled>Share to OneDrive app instead</button>
+    </div>
+    <p class="status" id="status" role="status" aria-live="polite"></p>
+  </section>
+</main>
+</body>
+</html>
+`;
+const manifest = {
+  name: `${site.siteName}: Add art`, short_name: 'Add art', start_url: '/upload/', scope: '/upload/', display: 'standalone',
+  background_color: '#fdf8ef', theme_color: '#fdf8ef',
+  icons: [{ src: '/assets/brand/app-192.png', sizes: '192x192', type: 'image/png' }, { src: '/assets/brand/app-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
+};
+
 // ---------- write ----------
 fs.rmSync(DIST, { recursive: true, force: true });
 for (const [rel, html] of Object.entries(pages)) {
@@ -394,6 +465,8 @@ for (const [rel, html] of Object.entries(pages)) {
 fs.cpSync(path.join(SRC, 'assets'), path.join(DIST, 'assets'), { recursive: true, filter: (p) => !p.endsWith('.gitkeep') });
 fs.copyFileSync(path.join(SRC, 'styles.css'), path.join(DIST, 'styles.css'));
 fs.copyFileSync(path.join(SRC, 'main.js'), path.join(DIST, 'main.js'));
+fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'));
+fs.writeFileSync(path.join(DIST, 'upload/manifest.webmanifest'), JSON.stringify(manifest, null, 2));
 // Unlisted: block every crawler. No sitemap on purpose.
 fs.writeFileSync(path.join(DIST, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
 console.log(`Built ${Object.keys(pages).length} pages, ${episodes.length} episode(s) -> dist/`);

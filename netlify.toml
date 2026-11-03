@@ -27,8 +27,8 @@
   status = 301
 
 # Unlisted: ask every search engine and crawler not to index, follow, cache or preview anything.
-# Content-Security-Policy only allows files from this site, so no third-party scripts,
-# fonts, trackers or embeds can load even by accident.
+# The Content-Security-Policy is a meta tag on each page (tools/build.cjs): every page allows only this
+# site's own files; only the upload app may also talk to Microsoft sign-in and OneDrive.
 [[headers]]
   for = "/*"
   [headers.values]
@@ -37,9 +37,13 @@
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), interest-cohort=(), browsing-topics=()"
-    Content-Security-Policy = "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; form-action 'none'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
 
 [[headers]]
   for = "/assets/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/upload/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
