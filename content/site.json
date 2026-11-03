@@ -34,7 +34,6 @@
   "podcastCohost": "leora",
   "hostName": "Jesse",
   "tagline": "A podcast for people who love pets, have pets, or are thinking about getting one. We interview pet parents to discover what it's like to live with a pet.",
-  "onedriveClientId": "",
   "uploadFolderName": "Two Sisters Studio",
-  "onedriveTenant": "consumers"
+  "googleClientId": ""
 }

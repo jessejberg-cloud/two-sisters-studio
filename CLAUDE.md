@@ -21,12 +21,15 @@ on every push to `main`.
   never cropped; tap opens a lightbox with the caption (one optional line in the kid's own words); filter by year,
   season, caption. Gallery area plain and neutral; hand-drawn style in header, buttons, tabs.
   Later, not now: a birthday "year in art" recap per kid.
-- **Archive:** full-quality originals stay in OneDrive (`Apps / Two Sisters Studio`), never in the repo. Folders
-  kid / school year / season. File names `date_kid_season_short-title`. A `.json` beside each piece: kid, date,
+- **Archive:** full-quality originals stay in Jesse's personal Google Drive (`Two Sisters Studio` folder), never in
+  the repo (OneDrive was dropped 2026-11-03: his Microsoft account can't register an app without Azure). Folders
+  kid / school year / season when the app saves by itself; one flat folder in Share-button mode. File names `date_kid_season_short-title`. A `.json` beside each piece: kid, date,
   grade, season, caption, featured. The site uses resized WebP copies with all metadata stripped, lazy-loaded.
 - **Upload app:** a phone web app (PWA) at `/upload/` behind the same password, for Jesse's Android phone: pick a kid,
-  take photos, caption each, Save to OneDrive. New art reaches the site by a manual "add new art" step
-  (Claude checks every piece for names or school text first); a weekly routine can be added later.
+  take photos, caption each, Save to Google Drive (`drive.file` only; client ID in `content/site.json` googleClientId;
+  until it is set, Save opens the phone's share list to the Drive app). New art reaches the site by a manual
+  "add new art" step: Claude downloads new files with the Google Drive connector, checks every piece for names or
+  school text first, then runs `tools/add.py new-art`. A weekly routine can be added later.
 - **Updates:** go straight to `main` after the checks pass.
 - The older rules "Netlify subdomain only" and "no password" are replaced. Everything else below still applies.
 
@@ -56,7 +59,7 @@ on every push to `main`.
 - Drawings (hand-drawn style SVG): `site-src/assets/drawings/`. Styles: `site-src/styles.css`.
 - Logo: placeholder wordmark. To use her drawing, save it as `site-src/assets/logo/logo.webp` (or .png,
   metadata stripped) and run `node tools/make-brand.cjs` to remake the link-preview image and icon.
-- How-to for Jesse (add art, add an episode, if something breaks, OneDrive setup): [HOW-TO.md](HOW-TO.md).
+- How-to for Jesse (add art, add an episode, if something breaks, Google Drive setup): [HOW-TO.md](HOW-TO.md).
 
 ## Design
 Hand-drawn, neat and orderly, kid-friendly, not Office-looking. Motif: pets and their people. Any people drawn are

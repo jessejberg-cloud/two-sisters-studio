@@ -28,7 +28,7 @@
 
 # Unlisted: ask every search engine and crawler not to index, follow, cache or preview anything.
 # The Content-Security-Policy is a meta tag on each page (tools/build.cjs): every page allows only this
-# site's own files; only the upload app may also talk to Microsoft sign-in and OneDrive.
+# site's own files; only the upload app may also talk to Google sign-in and Google Drive.
 [[headers]]
   for = "/*"
   [headers.values]

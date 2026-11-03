@@ -1,13 +1,15 @@
-// Two Sisters Studio upload app: pick a kid, take photos, caption each, Save to OneDrive.
-// Full-quality photos and a .json for each go to OneDrive / Apps / Two Sisters Studio / <Kid> / <year> / <School Year|Summer>.
-// Sign-in: Microsoft's own page (OAuth with PKCE). The app can only reach its own OneDrive folder (Files.ReadWrite.AppFolder).
-// No client ID yet? The app still works through the phone's Share button (to the OneDrive app).
+// Two Sisters Studio upload app: pick a kid, take photos, caption each, Save to Google Drive.
+// Full-quality photos and a .json for each go to Google Drive / Two Sisters Studio / <Kid> / <year> / <School Year|Summer>.
+// Sign-in: Google's own page. The app asks only for "drive.file": it can see and change only the files it made.
+// No client ID yet? The app still works through the phone's Share button (to the Google Drive app).
 (function () {
   'use strict';
   var cfg = JSON.parse(document.getElementById('cfg').textContent);
-  var AUTH = 'https://login.microsoftonline.com/' + encodeURIComponent(cfg.tenant || 'consumers') + '/oauth2/v2.0';
-  var GRAPH = 'https://graph.microsoft.com/v1.0/me/drive/special/approot';
-  var SCOPE = 'Files.ReadWrite.AppFolder offline_access';
+  var AUTH = 'https://accounts.google.com/o/oauth2/v2/auth';
+  var API = 'https://www.googleapis.com/drive/v3';
+  var UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
+  var SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  var FOLDER = 'application/vnd.google-apps.folder';
   var REDIRECT = location.origin + '/upload/';
   var $ = function (s) { return document.querySelector(s); };
   var store = {
@@ -75,107 +77,114 @@
     $('#share').disabled = !state.items.length;
   }
 
-  // ---------- Microsoft sign-in (authorization code + PKCE) ----------
-  function b64url(buf) { return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
-  function rand() { var a = new Uint8Array(32); crypto.getRandomValues(a); return b64url(a); }
-  async function signIn() {
-    var verifier = rand(), st = rand();
-    var challenge = b64url(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
-    sessionStorage.setItem('tss-pkce', verifier); sessionStorage.setItem('tss-state', st);
-    location.href = AUTH + '/authorize?' + new URLSearchParams({
-      client_id: cfg.clientId, response_type: 'code', redirect_uri: REDIRECT, scope: SCOPE,
-      code_challenge: challenge, code_challenge_method: 'S256', state: st, prompt: 'select_account',
+  // ---------- Google sign-in (token in the address bar; it lasts about an hour) ----------
+  function rand() { var a = new Uint8Array(16); crypto.getRandomValues(a); return Array.prototype.map.call(a, function (b) { return b.toString(16); }).join(''); }
+  function signIn() {
+    var st = rand(); sessionStorage.setItem('tss-state', st);
+    location.href = AUTH + '?' + new URLSearchParams({
+      client_id: cfg.clientId, response_type: 'token', redirect_uri: REDIRECT, scope: SCOPE,
+      state: st, include_granted_scopes: 'true', prompt: '',
     });
   }
-  async function tokenRequest(body) {
-    var r = await fetch(AUTH + '/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams(Object.assign({ client_id: cfg.clientId, scope: SCOPE, redirect_uri: REDIRECT }, body)) });
-    var j = await r.json();
-    if (!r.ok) throw new Error(j.error_description || j.error || 'Sign-in failed');
-    store.set('access', j.access_token); store.set('expires', String(Date.now() + (j.expires_in - 120) * 1000));
-    if (j.refresh_token) store.set('refresh', j.refresh_token);
-    return j.access_token;
-  }
-  async function finishSignIn() {
-    var q = new URLSearchParams(location.search);
-    if (!q.get('code') && !q.get('error')) return;
+  function finishSignIn() {
+    var h = new URLSearchParams(location.hash.slice(1));
+    if (!h.get('access_token') && !h.get('error')) return;
     history.replaceState(null, '', '/upload/');
-    if (q.get('error')) { status('Microsoft said: ' + (q.get('error_description') || q.get('error')), true); return; }
-    if (q.get('state') !== sessionStorage.getItem('tss-state')) { status('Sign-in did not match. Please try again.', true); return; }
-    await tokenRequest({ grant_type: 'authorization_code', code: q.get('code'), code_verifier: sessionStorage.getItem('tss-pkce') });
-    sessionStorage.removeItem('tss-pkce'); sessionStorage.removeItem('tss-state');
+    if (h.get('error')) { status('Google said: ' + h.get('error'), true); return; }
+    if (h.get('state') !== sessionStorage.getItem('tss-state')) { status('Sign-in did not match. Please try again.', true); return; }
+    sessionStorage.removeItem('tss-state');
+    store.set('access', h.get('access_token'));
+    store.set('expires', String(Date.now() + ((+h.get('expires_in') || 3600) - 120) * 1000));
   }
-  async function token() {
-    if (store.get('access') && Date.now() < +store.get('expires')) return store.get('access');
-    if (store.get('refresh')) {
-      try { return await tokenRequest({ grant_type: 'refresh_token', refresh_token: store.get('refresh') }); }
-      catch (e) { store.set('refresh', null); }
-    }
-    return null;
-  }
+  function token() { return store.get('access') && Date.now() < +store.get('expires') ? store.get('access') : null; }
   function signedInUI(yes) {
     $('#signin').hidden = yes || !cfg.clientId; $('#signout').hidden = !yes;
-    $('#acct').textContent = !cfg.clientId ? 'OneDrive is not connected yet. Use “Share to OneDrive app” for now.'
-      : yes ? 'Connected to OneDrive.' : 'Sign in to Microsoft once, then Save sends pictures straight to OneDrive.';
+    $('#acct').textContent = !cfg.clientId ? '' : yes ? 'Connected to Google Drive.' : 'Sign in to Google, then Save sends pictures straight to Google Drive.';
+    if (!cfg.clientId) {   // Share-button mode: one big button that hands the pictures to the Drive app
+      $('#save').hidden = true;
+      $('#share').className = 'save wobbly';
+      $('#share').textContent = 'Save to Google Drive';
+      $('#share-help').hidden = false;
+    }
   }
   $('#signin').addEventListener('click', signIn);
-  $('#signout').addEventListener('click', function () { ['access', 'refresh', 'expires'].forEach(function (k) { store.set(k, null); }); signedInUI(false); });
+  $('#signout').addEventListener('click', function () { store.set('access', null); store.set('expires', null); signedInUI(false); });
 
   // ---------- saving ----------
   function status(msg, bad) { var s = $('#status'); s.textContent = msg; s.className = bad ? 'status bad' : 'status'; }
-  function path(p) { return p.split('/').map(encodeURIComponent).join('/'); }
-  async function api(tok, url, opts) {
+  async function api(url, opts) {
+    var tok = token(); if (!tok) throw new Error('Your Google sign-in ran out. Tap Back, then Sign in to Google.');
     opts = opts || {}; opts.headers = Object.assign({ Authorization: 'Bearer ' + tok }, opts.headers || {});
-    return fetch(url, opts);
+    var r = await fetch(url, opts);
+    if (r.status === 401) { store.set('access', null); throw new Error('Your Google sign-in ran out. Tap Back, then Sign in to Google.'); }
+    return r;
   }
-  async function exists(tok, p) { var r = await api(tok, GRAPH + ':/' + path(p)); return r.ok; }
-  async function freeName(tok, folder, base, ext) {
-    for (var n = 1; n < 50; n++) {
-      var name = base + (n > 1 ? '-' + n : '');
-      if (!(await exists(tok, folder + '/' + name + '.' + ext))) return name;
+  var folderCache = {};
+  async function folderId(parts) {   // finds or makes Two Sisters Studio / Kid / year / part
+    var parent = 'root', key = '';
+    for (var i = 0; i < parts.length; i++) {
+      key += '/' + parts[i];
+      if (folderCache[key]) { parent = folderCache[key]; continue; }
+      var q = "name = '" + parts[i].replace(/'/g, "\\'") + "' and mimeType = '" + FOLDER + "' and '" + parent + "' in parents and trashed = false";
+      var r = await api(API + '/files?' + new URLSearchParams({ q: q, fields: 'files(id)', spaces: 'drive' }));
+      var j = await r.json(), id = j.files && j.files[0] && j.files[0].id;
+      if (!id) {
+        r = await api(API + '/files?fields=id', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: parts[i], mimeType: FOLDER, parents: [parent] }) });
+        if (!r.ok) throw new Error('Google Drive would not make the folder (' + r.status + ').');
+        id = (await r.json()).id;
+      }
+      parent = folderCache[key] = id;
     }
+    return parent;
+  }
+  async function freeName(parent, base, ext) {
+    var r = await api(API + '/files?' + new URLSearchParams({ q: "'" + parent + "' in parents and trashed = false and name contains '" + base + "'", fields: 'files(name)' }));
+    var taken = ((await r.json()).files || []).map(function (f) { return f.name; });
+    for (var n = 1; n < 50; n++) { var name = base + (n > 1 ? '-' + n : ''); if (taken.indexOf(name + '.' + ext) === -1) return name; }
     throw new Error('Too many pictures with the same name.');
   }
-  async function uploadBig(tok, p, file, onPart) {
-    var r = await api(tok, GRAPH + ':/' + path(p) + ':/createUploadSession', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'fail' } }) });
-    if (!r.ok) throw new Error('OneDrive would not start the upload (' + r.status + ').');
-    var url = (await r.json()).uploadUrl, size = file.size, CH = 320 * 1024 * 10, start = 0;
-    while (start < size) {
+  async function upload(parent, name, blob, type, onPart) {
+    var r = await api(UPLOAD + '?uploadType=resumable', { method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': type, 'X-Upload-Content-Length': String(blob.size) },
+      body: JSON.stringify({ name: name, parents: [parent] }) });
+    if (!r.ok) throw new Error('Google Drive would not start the upload (' + r.status + ').');
+    var url = r.headers.get('Location'), size = blob.size, CH = 256 * 1024 * 16, start = 0;
+    while (start < size || size === 0) {
       var end = Math.min(start + CH, size), tries = 0, res;
       for (;;) {   // retry a piece a few times on a weak signal
         try {
-          res = await fetch(url, { method: 'PUT', headers: { 'Content-Range': 'bytes ' + start + '-' + (end - 1) + '/' + size }, body: file.slice(start, end) });
-          if (res.ok || res.status === 202 || res.status === 201 || res.status === 200) break;
+          res = await fetch(url, { method: 'PUT', headers: { 'Content-Range': size ? 'bytes ' + start + '-' + (end - 1) + '/' + size : 'bytes */0' }, body: blob.slice(start, end) });
+          if (res.ok || res.status === 308) break;
         } catch (e) { /* network blip */ }
         if (++tries > 4) throw new Error('The connection dropped. Nothing was lost on the phone; tap Save again.');
         await new Promise(function (ok) { setTimeout(ok, 1500 * tries); });
       }
-      start = end; onPart(start / size);
+      if (res.ok) { if (onPart) onPart(1); return; }
+      var got = res.headers.get('Range');   // what Google has so far
+      start = got ? +got.split('-')[1] + 1 : end;
+      if (onPart) onPart(start / size);
+      if (size === 0) return;
     }
-  }
-  async function putSmall(tok, p, text) {
-    var r = await api(tok, GRAPH + ':/' + path(p) + ':/content', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: text });
-    if (!r.ok) throw new Error('OneDrive would not save the caption (' + r.status + ').');
   }
   $('#save').addEventListener('click', async function () {
     var btn = this; btn.disabled = true;
     try {
-      var tok = await token();
-      if (!tok) { status('Please sign in to Microsoft first (button below).', true); btn.disabled = false; return; }
+      if (!token()) { status('Please sign in to Google first: tap Back, then Sign in to Google.', true); btn.disabled = false; return; }
       for (var i = 0; i < state.items.length; i++) {
         var it = state.items[i], pl = plan(it, i);
         status('Saving picture ' + (i + 1) + ' of ' + state.items.length + '…');
-        var name = await freeName(tok, pl.folder, pl.base, pl.ext);
-        await uploadBig(tok, pl.folder + '/' + name + '.' + pl.ext, it.file, function (f) {
+        var parent = await folderId([cfg.folderName].concat(pl.folder.split('/')));
+        var name = await freeName(parent, pl.base, pl.ext);
+        await upload(parent, name + '.' + pl.ext, it.file, it.file.type || 'image/jpeg', function (f) {
           status('Saving picture ' + (i + 1) + ' of ' + state.items.length + ' (' + Math.round(f * 100) + '%)');
         });
-        await putSmall(tok, pl.folder + '/' + name + '.json', JSON.stringify(pl.meta, null, 2));
+        await upload(parent, name + '.json', new Blob([JSON.stringify(pl.meta, null, 2)], { type: 'application/json' }), 'application/json');
         it.saved = true;
       }
       var n = state.items.length;
       state.items.forEach(function (it) { URL.revokeObjectURL(it.url); }); state.items = [];
-      renderList(); status('Saved ' + n + ' picture' + (n > 1 ? 's' : '') + ' to OneDrive. Tell Claude “new art is in” when you want them on the site.');
+      renderList(); status('Saved ' + n + ' picture' + (n > 1 ? 's' : '') + ' to Google Drive. Tell Claude “new art is in” when you want them on the site.');
     } catch (e) {
       state.items = state.items.filter(function (it) { return !it.saved; }); renderList();
       status(e.message + ' Pictures that were saved are off the list; the rest are still here.', true);
@@ -183,7 +192,7 @@
     btn.disabled = !state.items.length;
   });
 
-  // Fallback: hand the photos and their .json files to the OneDrive app through Android's Share button.
+  // Fallback: hand the photos and their .json files to the Google Drive app through Android's Share button.
   $('#share').addEventListener('click', async function () {
     var files = [];
     state.items.forEach(function (it, i) {
@@ -191,19 +200,15 @@
       files.push(new File([it.file], pl.base + '.' + pl.ext, { type: it.file.type }));
       files.push(new File([JSON.stringify(pl.meta, null, 2)], pl.base + '.json', { type: 'application/json' }));
     });
-    var folder = plan(state.items[0], 0).folder;
     if (!navigator.canShare || !navigator.canShare({ files: files })) {
       status('This phone can’t share files from here. Use Save instead.', true); return;
     }
-    status('In the share list, pick OneDrive, then open Apps › ' + cfg.folderName + ' › ' + folder + '.');
+    status('Pick Drive, choose the “' + cfg.folderName + '” folder, then tap Save. After that, tell Claude “new art is in”.');
     try { await navigator.share({ files: files, title: cfg.folderName }); } catch (e) { /* closed the share sheet */ }
   });
 
   // ---------- start ----------
-  (async function () {
-    if (cfg.clientId) { try { await finishSignIn(); } catch (e) { status(e.message, true); } }
-    var tok = cfg.clientId ? await token() : null;
-    signedInUI(!!tok);
-    show('s-kid');
-  })();
+  if (cfg.clientId) finishSignIn();
+  signedInUI(!!(cfg.clientId && token()));
+  show('s-kid');
 })();

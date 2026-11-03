@@ -9,12 +9,11 @@ Plain steps for Jesse. The site is **twosistersstudio.com** (family password). C
 4. Under each picture, type a caption in her own words if she has one. It's optional.
    Tap **Show big** on the one or two best pieces of the season.
 5. Check **Date it was made** (it starts as today).
-6. Tap **Save to OneDrive**. Wait for "Saved".
+6. Tap **Save to Google Drive**.
+   - Once Google sign-in is set up, it saves by itself. Wait for "Saved".
+   - Until then, your phone's share list opens: pick **Drive**, choose the **Two Sisters Studio** folder, tap **Save**.
 7. When you want them on the site, tell Claude **"new art is in"**. Claude checks every picture for last names
    or school names, adds them, and tells you what went up.
-
-Not signed in to Microsoft, or Save isn't working? Tap **Share to OneDrive app instead**, pick OneDrive,
-and open the folder the app names (Apps › Two Sisters Studio › the girl › the year › School Year or Summer).
 
 Each school year, tell Claude each girl's grade once (for example "Leora is in 5th grade this year"), so the
 labels say "5th grade · fall".
@@ -39,21 +38,28 @@ labels say "5th grade · fall".
   the privacy check stops any deploy that would show a last name.
 - **The password page doesn't appear or the password stopped working:** [Visitor access](https://app.netlify.com/projects/two-sisters-studio/configuration/general#visitor-access)
   → Password protection. You can change the password there any time.
-- **The Add art app asks you to sign in again:** that's normal. Microsoft makes this kind of app sign in again
-  about once a day; it's one tap.
-- **Anything else:** tell Claude what you saw. Nothing on the site can delete the originals in OneDrive.
+- **The Add art app asks you to sign in to Google again:** that's normal. The sign-in lasts about an hour; it's one tap.
+- **Anything else:** tell Claude what you saw. Nothing on the site can delete the originals in Google Drive.
 
-## One-time: connect the Add art app to OneDrive
-1. Open [App registrations](https://entra.microsoft.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade)
-   and sign in with the Microsoft account whose OneDrive should hold the art.
-   If Microsoft says you need an Azure account, a directory, or a credit card, **stop** and tell Claude.
-   The Share button keeps working without this.
-2. Click **New registration**.
-   - Name: `Two Sisters Studio`
-   - Who can use it: **Personal Microsoft accounts only**
-   - Redirect URI: choose **Single-page application (SPA)** and type `https://twosistersstudio.com/upload/`
-   - Click **Register**.
-3. Copy the **Application (client) ID** (a long code with dashes) and send it to Claude. It isn't a secret.
-4. After Claude says it's live: on your phone, open twosistersstudio.com/upload/, enter the family password,
-   tap **Sign in to Microsoft**, and allow it. The app can only see its own folder, `Apps / Two Sisters Studio`.
-5. To put it on your home screen: in Chrome, tap **⋮** → **Add to Home screen** (or **Install app**).
+## One-time: make the Two Sisters Studio folder
+In [Google Drive](https://drive.google.com/) (your personal Gmail), click **New** → **New folder**, name it
+`Two Sisters Studio`. That's where the originals live.
+
+## One-time: let the Add art app save to Google Drive by itself (optional, about 10 minutes)
+Without this, the Share button works fine. With it, Save files everything into the right folders for you.
+Sign in to each link with your personal Gmail.
+1. [Make a project](https://console.cloud.google.com/projectcreate): name it `Two Sisters Studio`, click **Create**.
+2. [Turn on the Drive API](https://console.cloud.google.com/apis/library/drive.googleapis.com): check the top says
+   Two Sisters Studio, click **Enable**.
+3. [Set up sign-in](https://console.cloud.google.com/auth/overview): click **Get started**. App name
+   `Two Sisters Studio`, support email your Gmail, Audience **External**, contact email your Gmail, agree, **Create**.
+4. [Add yourself as a tester](https://console.cloud.google.com/auth/audience): under **Test users**, click
+   **Add users**, type your Gmail, **Save**.
+5. [Make the app's ID](https://console.cloud.google.com/auth/clients): **Create client** → type
+   **Web application**, name `Two Sisters Studio`.
+   - Authorized JavaScript origins: `https://twosistersstudio.com`
+   - Authorized redirect URIs: `https://twosistersstudio.com/upload/`
+   - Click **Create** and send Claude the **Client ID** (ends in `.apps.googleusercontent.com`; not a secret).
+6. After Claude says it's live: open twosistersstudio.com/upload/ on your phone, enter the family password,
+   tap **Sign in to Google**. Google may say the app isn't verified: tap **Continue** (it's your own app).
+7. To put it on your home screen: in Chrome, tap **⋮** → **Add to Home screen** (or **Install app**).

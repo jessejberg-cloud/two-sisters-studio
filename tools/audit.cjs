@@ -15,8 +15,8 @@ const rel = (f) => path.relative(DIST, f);
 const BLOCKED = /divergenttherapy|intrinsicchange|jessemade|brainspotting|facebook\.|instagram\.|twitter\.|x\.com|tiktok\.|youtube\.|linkedin\./i;
 const siteHost = new URL(process.env.URL || site.url).host;
 
-// Only the upload app may talk to Microsoft (sign-in and OneDrive).
-const UPLOAD_HOSTS = /^(login\.microsoftonline\.com|graph\.microsoft\.com|\*\.(1drv\.com|microsoftpersonalcontent\.com|onedrive\.com|sharepoint\.com|live\.net);?)$/;
+// Only the upload app may talk to Google (sign-in and Drive).
+const UPLOAD_HOSTS = /^(accounts\.google\.com|www\.googleapis\.com)$/;
 const isUpload = (f) => rel(f).split(path.sep)[0] === 'upload';
 
 for (const f of files.filter((f) => /\.(html|css|js)$/.test(f))) {

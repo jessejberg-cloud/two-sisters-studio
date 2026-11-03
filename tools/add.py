@@ -15,7 +15,7 @@ Options for images:  --crop LEFT,TOP,RIGHT,BOTTOM   (pixels to cut off each edge
 What it does for you
   Audio  -> MP3, mono, 64 kbps, volume evened out, and ALL tags/metadata removed (no ID3, no encoder tag).
   Images -> turned upright, resized (max 1600px, plus a 640px copy for the grid), saved as WebP with
-            ALL EXIF/GPS/metadata removed. The originals in OneDrive are never changed.
+            ALL EXIF/GPS/metadata removed. The originals in Google Drive are never changed.
 
 What it can NOT do (people must):
   * Listen to the whole episode for spoken last names, school, teacher, places, ages, birthdays.
@@ -227,11 +227,14 @@ def cmd_new_art(a):
     names = {k["name"].lower(): key for key, k in kids().items()}
     added = []
     for img in sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXT):
-        kid = next((names[part.lower()] for part in img.relative_to(root).parts if part.lower() in names), None)
-        if not kid:
-            print(f"SKIP (not in a kid's folder): {img}"); continue
         side = img.with_suffix(".json")
         meta = json.loads(side.read_text(encoding="utf-8-sig")) if side.exists() else {}
+        # Which kid: the .json, then the file name (date_kid_season_title), then a folder named for her.
+        m = re.match(r"\d{4}-\d{2}-\d{2}_([a-z]+)_", img.name.lower())
+        kid = (meta.get("kid") if meta.get("kid") in kids() else None) or (m.group(1) if m and m.group(1) in kids() else None) \
+            or next((names[part.lower()] for part in img.relative_to(root).parts if part.lower() in names), None)
+        if not kid:
+            print(f"SKIP (can't tell whose art it is): {img}"); continue
         if not meta.get("date"):
             m = re.match(r"(\d{4}-\d{2}-\d{2})", img.name)
             meta["date"] = m.group(1) if m else None

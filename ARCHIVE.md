@@ -1,10 +1,16 @@
 # The art archive
 
-The girls' full-quality originals live in OneDrive, **not** in this repo and not on the site.
+The girls' full-quality originals live in Jesse's personal Google Drive, **not** in this repo and not on the site.
 The site only shows resized copies (WebP, all photo data removed) that `tools/add.py` makes from them.
 
 ## Where
-`OneDrive / Apps / Two Sisters Studio /` (the upload app can only write inside this folder).
+`Google Drive / Two Sisters Studio /` on Jesse's personal Google account (decided 2026-11-03; OneDrive was tried
+first, but his Microsoft account can't register an app without Azure).
+
+- **With the Google sign-in set up**, the app's Save files each piece into the folders below by itself.
+  The app only has `drive.file` access: it can see only what it made.
+- **Before that (Share-button mode)**, Jesse shares the photos to the Drive app into the one
+  `Two Sisters Studio` folder. That is fine: the file names and the .json say whose art it is and when.
 
 ```
 Two Sisters Studio/
@@ -46,7 +52,8 @@ First names only. If two pieces would get the same name, the upload app adds `-2
 
 ## Adding new art to the site
 Jesse says "new art is in". Claude then:
-1. Copies the new files from the archive (read only; never changes, moves or deletes anything there).
+1. Downloads the new files from the Drive folder with the Google Drive connector (read only; never changes,
+   moves or deletes anything there).
 2. Runs `python3 tools/add.py new-art <copied folder>`. It skips pieces already on the site, turns photos upright,
    makes a 1600px and a 640px WebP with no photo data, and lists every new image.
 3. Opens every new image at full size and looks for last names, school names or other identifying text.

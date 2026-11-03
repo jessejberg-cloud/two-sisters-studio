@@ -372,3 +372,4 @@ main { max-width: var(--max); margin: 0 auto; padding: 8px 20px 40px; }
 .save:disabled { opacity: .5; cursor: default; }
 .status { font-weight: 800; min-height: 1.6em; margin-top: 10px; }
 .status.bad { color: #a12a1c; }
+.share-help { color: var(--ink-soft); font-size: 1.05rem; margin-top: 10px; }

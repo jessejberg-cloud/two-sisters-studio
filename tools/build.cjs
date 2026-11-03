@@ -37,11 +37,11 @@ const TABS = [
   ...site.sections,
 ];
 const PP = '/pet-parents';
-// Content-Security-Policy is set per page (a meta tag), so the upload app can talk to Microsoft
-// while every other page can reach nothing outside this site.
+// Content-Security-Policy is set per page (a meta tag), so the upload app can talk to Google Drive
+// while every other page can reach nothing outside this site.  (The upload app talks to Google Drive.)
 const CSP_STRICT = "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'";
 const CSP_UPLOAD = "default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; font-src 'self'; manifest-src 'self'; "
-  + "connect-src https://login.microsoftonline.com https://graph.microsoft.com https://*.1drv.com https://*.microsoftpersonalcontent.com https://*.onedrive.com https://*.sharepoint.com https://*.live.net; "
+  + "connect-src https://www.googleapis.com; "
   + "form-action 'none'; base-uri 'self'; object-src 'none'";
 
 // Cache-busting: every asset URL gets ?v=<hash of the file>.
@@ -393,8 +393,7 @@ pages['404.html'] = page({
 
 // ---------- upload app (for Jesse's phone; not in the tabs) ----------
 const uploadCfg = {
-  clientId: site.onedriveClientId || '',
-  tenant: site.onedriveTenant || 'consumers',   // 'consumers' for a personal account, or the work account's Directory (tenant) ID
+  clientId: site.googleClientId || '',
   folderName: site.uploadFolderName,
   kids: Object.fromEntries(KIDS.map((k) => [k.key, { name: k.name, color: k.color, grades: k.grades || {} }])),
 };
@@ -425,7 +424,7 @@ pages['upload/index.html'] = `<!doctype html>
       ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-kid="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
     </div>
     <p class="acct" id="acct"></p>
-    <p class="acct-row"><button type="button" class="chip" id="signin" hidden>Sign in to Microsoft</button>
+    <p class="acct-row"><button type="button" class="chip" id="signin" hidden>Sign in to Google</button>
       <button type="button" class="linkish" id="signout" hidden>Sign out</button></p>
     <p class="up-home"><a href="/">Go to the site</a></p>
   </section>
@@ -441,9 +440,10 @@ pages['upload/index.html'] = `<!doctype html>
     <p class="count" id="count"></p>
     <ul class="up-list" id="list"></ul>
     <div class="up-actions">
-      <button type="button" class="save wobbly" id="save" disabled>Save to OneDrive</button>
-      <button type="button" class="linkish" id="share" disabled>Share to OneDrive app instead</button>
+      <button type="button" class="save wobbly" id="save" disabled>Save to Google Drive</button>
+      <button type="button" class="linkish" id="share" disabled>Share to the Drive app instead</button>
     </div>
+    <p class="share-help" id="share-help" hidden>Your phone's share list opens. Pick <strong>Drive</strong>, choose the <strong>${esc(site.uploadFolderName)}</strong> folder, and tap <strong>Save</strong>.</p>
     <p class="status" id="status" role="status" aria-live="polite"></p>
   </section>
 </main>
