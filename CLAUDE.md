@@ -26,7 +26,9 @@ on every push to `main`.
   kid / school year / season when the app saves by itself; one flat folder in Share-button mode. File names `date_kid_season_short-title`. A `.json` beside each piece: kid, date,
   grade, season, caption, featured. The site uses resized WebP copies with all metadata stripped, lazy-loaded.
 - **Upload app:** a phone web app (PWA) at `/upload/` behind the same password, for Jesse's Android phone: pick a kid,
-  take photos, caption each, Save to Google Drive (`drive.file` only; client ID in `content/site.json` googleClientId;
+  take photos (or Share in from Google Photos), crop / turn / glow, caption each, Save. Save keeps everything on the
+  phone first (IndexedDB) and sends it when online and signed in; a service worker (`site-src/upload/sw.js`) keeps
+  the app working offline and receives shared pictures. Edited pictures keep the original too. Save to Google Drive (`drive.file` only; client ID in `content/site.json` googleClientId;
   until it is set, Save opens the phone's share list to the Drive app). New art reaches the site by a manual
   "add new art" step: Claude downloads new files with the Google Drive connector, checks every piece for names or
   school text first, then runs `tools/add.py new-art`. A weekly routine can be added later.

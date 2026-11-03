@@ -34,6 +34,10 @@ Two Sisters Studio/
 `date_kid_season_short-title`, all lowercase, no spaces: `2026-11-03_leora_fall_blue-cat.jpg`.
 First names only. If two pieces would get the same name, the upload app adds `-2`, `-3`.
 
+## Edited pictures
+If Jesse crops, turns or adds glow in the app, it saves the edited picture as `name.jpg` and the untouched one as
+`name-original.<ext>`; the .json says `"edited": true` and names the original. `tools/add.py new-art` uses the edited one.
+
 ## The .json beside each piece
 ```json
 {

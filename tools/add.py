@@ -226,7 +226,12 @@ def cmd_new_art(a):
     data = json.loads(ART.read_text())
     names = {k["name"].lower(): key for key, k in kids().items()}
     added = []
-    for img in sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXT):
+    images = sorted(p for p in root.rglob("*") if p.is_file() and p.suffix.lower() in IMAGE_EXT)
+    stems = {p.with_suffix("") for p in images}
+    for img in images:
+        # The app saves an edited picture as name.jpg and the untouched one as name-original.ext: use the edited one.
+        if img.stem.endswith("-original") and img.with_name(img.stem[:-9]) in stems:
+            continue
         side = img.with_suffix(".json")
         meta = json.loads(side.read_text(encoding="utf-8-sig")) if side.exists() else {}
         # Which kid: the .json, then the file name (date_kid_season_title), then a folder named for her.

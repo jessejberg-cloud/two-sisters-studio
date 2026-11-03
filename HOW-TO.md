@@ -5,14 +5,19 @@ Plain steps for Jesse. The site is **twosistersstudio.com** (family password). C
 ## Add art
 1. On your phone, open the **Add art** app (twosistersstudio.com/upload/, or its home-screen icon).
 2. Tap **Leora** or **Amaya**.
-3. Tap **Take a photo** (once per picture) or **Choose photos** (several at once).
-4. Under each picture, type a caption in her own words if she has one. It's optional.
+3. Tap **Take a photo** (it opens your Pixel camera) or **Choose photos** (several at once).
+   Or start in **Google Photos**: open a picture, tap **Share**, pick **Add art**, then pick the girl
+   (this shows up once the app is on your home screen).
+   (Edit in Google Photos first if you want bigger fixes.)
+4. Tap a picture to **Crop**, **Turn** it, or add **Glow** (brighter colors with a soft glow). The untouched
+   original is always saved too.
+5. Under each picture, type a caption in her own words if she has one. It's optional.
    Tap **Show big** on the one or two best pieces of the season.
-5. Check **Date it was made** (it starts as today).
-6. Tap **Save to Google Drive**.
-   - Once Google sign-in is set up, it saves by itself. Wait for "Saved".
-   - Until then, your phone's share list opens: pick **Drive**, choose the **Two Sisters Studio** folder, tap **Save**.
-7. When you want them on the site, tell Claude **"new art is in"**. Claude checks every picture for last names
+6. Check **Date it was made** (it starts as today).
+7. Tap **Save to Google Drive**. The pictures are kept on the phone first, so this works with no internet and
+   without being signed in. They go to Google Drive by themselves once you're online and signed in. If some are
+   waiting, the first screen says so, with a **Send now** button.
+8. When you want them on the site, tell Claude **"new art is in"**. Claude checks every picture for last names
    or school names, adds them, and tells you what went up.
 
 Each school year, tell Claude each girl's grade once (for example "Leora is in 5th grade this year"), so the

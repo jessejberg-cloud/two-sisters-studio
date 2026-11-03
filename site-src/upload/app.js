@@ -1,7 +1,9 @@
-// Two Sisters Studio upload app: pick a kid, take photos, caption each, Save to Google Drive.
-// Full-quality photos and a .json for each go to Google Drive / Two Sisters Studio / <Kid> / <year> / <School Year|Summer>.
+// Two Sisters Studio upload app: pick a kid, take photos (or share them in from Google Photos), crop / turn /
+// glow if wanted, caption each, Save.
+// Save first keeps everything on the phone (IndexedDB "outbox"), then sends it to Google Drive / Two Sisters Studio /
+// <Kid> / <year> / <School Year|Summer> whenever there is internet and a Google sign-in. Works with no signal.
+// Edited pictures are saved twice: the edited one (name.jpg) and the untouched original (name-original.ext).
 // Sign-in: Google's own page. The app asks only for "drive.file": it can see and change only the files it made.
-// No client ID yet? The app still works through the phone's Share button (to the Google Drive app).
 (function () {
   'use strict';
   var cfg = JSON.parse(document.getElementById('cfg').textContent);
@@ -16,7 +18,7 @@
     get: function (k) { try { return localStorage.getItem('tss-' + k); } catch (e) { return null; } },
     set: function (k, v) { try { v == null ? localStorage.removeItem('tss-' + k) : localStorage.setItem('tss-' + k, v); } catch (e) {} },
   };
-  var state = { kid: null, items: [] };   // items: { file, url, caption, featured }
+  var state = { kid: null, items: [] };   // items: { file, url, caption, featured, edit: {rot, crop, glow}, edited: Blob|null }
 
   // ---------- dates, seasons, names ----------
   function today() { var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
@@ -27,28 +29,53 @@
   function plan(item, i) {
     var kid = cfg.kids[state.kid], iso = $('#date').value || today(), s = season(iso), sy = schoolYear(iso);
     var base = iso + '_' + state.kid + '_' + s + '_' + slug(item.caption || ('picture ' + (i + 1)));
-    return {
-      folder: kid.name + '/' + sy + '/' + (s === 'summer' ? 'Summer' : 'School Year'),
-      base: base, ext: ext(item.file),
-      meta: { kid: state.kid, date: iso, schoolYear: sy, grade: (kid.grades || {})[sy] || '', season: s, caption: item.caption.trim(), featured: item.featured },
-    };
+    var meta = { kid: state.kid, date: iso, schoolYear: sy, grade: (kid.grades || {})[sy] || '', season: s, caption: item.caption.trim(), featured: item.featured };
+    if (item.edited) { meta.edited = true; if (item.edit.glow) meta.glow = true; }
+    return { folder: kid.name + '/' + sy + '/' + (s === 'summer' ? 'Summer' : 'School Year'), base: base, ext: ext(item.file), meta: meta };
   }
 
+  // ---------- keeping things on the phone (IndexedDB) ----------
+  var dbp = null;
+  function db() {
+    if (!dbp) dbp = new Promise(function (ok, no) {
+      var r = indexedDB.open('two-sisters-studio', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('outbox', { keyPath: 'id' }); r.result.createObjectStore('shared', { keyPath: 'id' }); };
+      r.onsuccess = function () { ok(r.result); }; r.onerror = function () { no(r.error); };
+    });
+    return dbp;
+  }
+  function tx(name, mode, fn) {
+    return db().then(function (d) {
+      return new Promise(function (ok, no) {
+        var t = d.transaction(name, mode), s = t.objectStore(name), out = fn(s);
+        t.oncomplete = function () { ok(out && out.result !== undefined ? out.result : out); }; t.onerror = function () { no(t.error); };
+      });
+    });
+  }
+  var put = function (name, v) { return tx(name, 'readwrite', function (s) { s.put(v); }); };
+  var del = function (name, id) { return tx(name, 'readwrite', function (s) { s.delete(id); }); };
+  var all = function (name) { return tx(name, 'readonly', function (s) { return s.getAll(); }); };
+
   // ---------- screens ----------
-  function show(id) { document.querySelectorAll('.screen').forEach(function (s) { s.hidden = s.id !== id; }); }
+  function show(id) { document.querySelectorAll('.screen').forEach(function (s) { s.hidden = s.id !== id; }); window.scrollTo(0, 0); }
   function setKid(k) {
-    state.kid = k; state.items = [];
+    state.kid = k;
     $('#who').textContent = cfg.kids[k].name;
     document.body.className = 'up c-' + cfg.kids[k].color;
-    $('#date').value = today(); renderList(); show('s-photos');
+    if (!$('#date').value) $('#date').value = today();
+    renderList(); show('s-photos');
   }
   document.querySelectorAll('[data-kid]').forEach(function (b) { b.addEventListener('click', function () { setKid(b.dataset.kid); }); });
-  $('#back').addEventListener('click', function () { if (!state.items.length || confirm('Leave without saving these pictures?')) show('s-kid'); });
+  $('#back').addEventListener('click', function () {
+    if (state.items.length && !confirm('Leave without saving these pictures?')) return;
+    clearItems(); show('s-kid'); refreshOutbox();
+  });
+  function clearItems() { state.items.forEach(function (it) { URL.revokeObjectURL(it.url); }); state.items = []; $('#date').value = ''; }
 
   function addFiles(list) {
     Array.prototype.forEach.call(list, function (f) {
       if (!/^image\//.test(f.type)) return;
-      state.items.push({ file: f, url: URL.createObjectURL(f), caption: '', featured: false });
+      state.items.push({ file: f, url: URL.createObjectURL(f), caption: '', featured: false, edit: { rot: 0, crop: null, glow: false }, edited: null });
     });
     renderList();
   }
@@ -56,10 +83,14 @@
   $('#pick').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
 
   function renderList() {
+    if (!state.kid) return;   // shared-in pictures wait until a kid is picked
     var ul = $('#list'); ul.textContent = '';
     state.items.forEach(function (it, i) {
       var li = document.createElement('li'); li.className = 'item';
-      var img = document.createElement('img'); img.src = it.url; img.alt = 'Picture ' + (i + 1);
+      var pic = document.createElement('button'); pic.type = 'button'; pic.className = 'item-pic'; pic.setAttribute('aria-label', 'Edit picture ' + (i + 1));
+      var img = document.createElement('img'); img.src = it.url; img.alt = '';
+      var tag = document.createElement('span'); tag.className = 'edit-tag'; tag.textContent = it.edited ? '✎ Edited' : '✎ Edit';
+      pic.append(img, tag); pic.addEventListener('click', function () { openEditor(it); });
       var cap = document.createElement('input'); cap.type = 'text'; cap.placeholder = 'Caption, in ' + cfg.kids[state.kid].name + '’s words (optional)';
       cap.value = it.caption; cap.maxLength = 140; cap.setAttribute('aria-label', 'Caption for picture ' + (i + 1));
       cap.addEventListener('input', function () { it.caption = cap.value; });
@@ -70,12 +101,97 @@
       rm.addEventListener('click', function () { URL.revokeObjectURL(it.url); state.items.splice(i, 1); renderList(); });
       var row = document.createElement('div'); row.className = 'item-row'; row.append(star, rm);
       var box = document.createElement('div'); box.className = 'item-text'; box.append(cap, row);
-      li.append(img, box); ul.append(li);
+      li.append(pic, box); ul.append(li);
     });
-    $('#count').textContent = state.items.length ? state.items.length + ' picture' + (state.items.length > 1 ? 's' : '') : 'No pictures yet';
+    $('#count').textContent = state.items.length ? state.items.length + ' picture' + (state.items.length > 1 ? 's' : '') + '. Tap a picture to crop, turn or add glow.' : 'No pictures yet';
     $('#save').disabled = !state.items.length;
     $('#share').disabled = !state.items.length;
   }
+
+  // ---------- editor: turn, crop, glow ----------
+  var ed = { item: null, bmp: null, rot: 0, crop: null, glow: false, cropping: false };
+  var cv = $('#ed-canvas'), cx = cv.getContext('2d');
+  function rotatedSize(b, rot) { return rot % 2 ? { w: b.height, h: b.width } : { w: b.width, h: b.height }; }
+  // Draw the picture turned and cropped, at a scale, onto a context. Glow: brighter, richer colors plus a soft halo.
+  function paint(ctx, bmp, rot, crop, glow, scale) {
+    var R = rotatedSize(bmp, rot), c = crop || { x: 0, y: 0, w: 1, h: 1 };
+    var W = Math.round(R.w * c.w * scale), H = Math.round(R.h * c.h * scale);
+    ctx.canvas.width = W; ctx.canvas.height = H;
+    function draw(filter, alpha, op) {
+      ctx.save(); ctx.filter = filter; ctx.globalAlpha = alpha; ctx.globalCompositeOperation = op;
+      ctx.translate(-c.x * R.w * scale, -c.y * R.h * scale); ctx.scale(scale, scale);
+      ctx.translate(R.w / 2, R.h / 2); ctx.rotate(rot * Math.PI / 2); ctx.drawImage(bmp, -bmp.width / 2, -bmp.height / 2);
+      ctx.restore();
+    }
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
+    if (!glow) { draw('none', 1, 'source-over'); return; }
+    draw('brightness(1.07) contrast(1.08) saturate(1.3)', 1, 'source-over');
+    draw('blur(' + Math.max(4, Math.round(Math.max(W, H) / 90)) + 'px) brightness(1.15) saturate(1.5)', 0.45, 'screen');
+  }
+  function edScale() { var R = rotatedSize(ed.bmp, ed.rot), c = ed.cropping ? { w: 1, h: 1 } : (ed.crop || { w: 1, h: 1 }); return Math.min(1, (Math.min(window.innerWidth, 640) - 32) / (R.w * c.w), (window.innerHeight * 0.55) / (R.h * c.h)); }
+  function edDraw() {
+    paint(cx, ed.bmp, ed.rot, ed.cropping ? null : ed.crop, ed.glow, edScale());
+    $('#ed-box').hidden = !ed.cropping;
+    if (ed.cropping) placeBox();
+    $('#ed-glow').setAttribute('aria-pressed', String(ed.glow));
+    $('#ed-crop').textContent = ed.cropping ? '✓ Done cropping' : '✂ Crop';
+  }
+  async function openEditor(it) {
+    ed.item = it; ed.rot = it.edit.rot; ed.crop = it.edit.crop; ed.glow = it.edit.glow; ed.cropping = false;
+    try { ed.bmp = await createImageBitmap(it.file, { imageOrientation: 'from-image' }); }
+    catch (e) { status('This picture can’t be edited here, but it can still be saved.', true); return; }
+    show('s-edit'); edDraw();
+  }
+  $('#ed-turn').addEventListener('click', function () { ed.rot = (ed.rot + 1) % 4; ed.crop = null; ed.cropping = false; edDraw(); });
+  $('#ed-glow').addEventListener('click', function () { ed.glow = !ed.glow; edDraw(); });
+  $('#ed-crop').addEventListener('click', function () {
+    if (!ed.cropping) { ed.box = ed.crop ? Object.assign({}, ed.crop) : { x: .05, y: .05, w: .9, h: .9 }; ed.cropping = true; }
+    else { ed.crop = ed.box; ed.cropping = false; }
+    edDraw();
+  });
+  $('#ed-reset').addEventListener('click', function () { ed.rot = 0; ed.crop = null; ed.glow = false; ed.cropping = false; edDraw(); });
+  $('#ed-cancel').addEventListener('click', function () { ed.bmp && ed.bmp.close && ed.bmp.close(); show('s-photos'); });
+  $('#ed-done').addEventListener('click', function () {
+    if (ed.cropping) { ed.crop = ed.box; ed.cropping = false; }
+    var it = ed.item, changed = ed.rot || ed.crop || ed.glow;
+    it.edit = { rot: ed.rot, crop: ed.crop, glow: ed.glow };
+    if (!changed) { it.edited = null; URL.revokeObjectURL(it.url); it.url = URL.createObjectURL(it.file); show('s-photos'); renderList(); return; }
+    // Full-size edited copy (up to 4000px on the long side), saved as a high-quality JPEG.
+    var R = rotatedSize(ed.bmp, ed.rot), c = ed.crop || { w: 1, h: 1 };
+    var scale = Math.min(1, 4000 / Math.max(R.w * c.w, R.h * c.h));
+    var big = document.createElement('canvas'); paint(big.getContext('2d'), ed.bmp, ed.rot, ed.crop, ed.glow, scale);
+    big.toBlob(function (b) {
+      it.edited = b; URL.revokeObjectURL(it.url); it.url = URL.createObjectURL(b);
+      ed.bmp.close && ed.bmp.close(); show('s-photos'); renderList();
+    }, 'image/jpeg', 0.92);
+  });
+  // Crop box: drag a corner to resize, drag the middle to move. Positions are fractions of the picture.
+  var box = $('#ed-box');
+  function placeBox() {
+    var b = ed.box, r = cv.getBoundingClientRect(), wrap = $('#ed-wrap').getBoundingClientRect();
+    box.style.left = (r.left - wrap.left + b.x * r.width) + 'px'; box.style.top = (r.top - wrap.top + b.y * r.height) + 'px';
+    box.style.width = (b.w * r.width) + 'px'; box.style.height = (b.h * r.height) + 'px';
+  }
+  var drag = null;
+  box.addEventListener('pointerdown', function (e) {
+    var r = cv.getBoundingClientRect();
+    drag = { mode: e.target.dataset.h || 'move', x0: e.clientX, y0: e.clientY, b0: Object.assign({}, ed.box), W: r.width, H: r.height };
+    box.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  box.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    var dx = (e.clientX - drag.x0) / drag.W, dy = (e.clientY - drag.y0) / drag.H, b = Object.assign({}, drag.b0), MIN = 0.08;
+    if (drag.mode === 'move') { b.x = Math.min(Math.max(0, b.x + dx), 1 - b.w); b.y = Math.min(Math.max(0, b.y + dy), 1 - b.h); }
+    else {
+      if (drag.mode.indexOf('l') > -1) { var nx = Math.min(Math.max(0, b.x + dx), b.x + b.w - MIN); b.w += b.x - nx; b.x = nx; }
+      if (drag.mode.indexOf('r') > -1) { b.w = Math.min(Math.max(MIN, b.w + dx), 1 - b.x); }
+      if (drag.mode.indexOf('t') > -1) { var ny = Math.min(Math.max(0, b.y + dy), b.y + b.h - MIN); b.h += b.y - ny; b.y = ny; }
+      if (drag.mode.indexOf('b') > -1) { b.h = Math.min(Math.max(MIN, b.h + dy), 1 - b.y); }
+    }
+    ed.box = b; placeBox();
+  });
+  box.addEventListener('pointerup', function () { drag = null; });
+  window.addEventListener('resize', function () { if (!$('#s-edit').hidden) edDraw(); });
 
   // ---------- Google sign-in (token in the address bar; it lasts about an hour) ----------
   function rand() { var a = new Uint8Array(16); crypto.getRandomValues(a); return Array.prototype.map.call(a, function (b) { return b.toString(16); }).join(''); }
@@ -110,7 +226,8 @@
   function refreshSignedIn() {
     var yes = !!(cfg.clientId && token());
     signedInUI(yes);
-    if (yes && !$('#signin2').hidden) { $('#signin2').hidden = true; status('Signed in. Tap Save again.'); }
+    if (yes && !$('#signin2').hidden) { $('#signin2').hidden = true; }
+    if (yes) sendOutbox(); else refreshOutbox();
   }
   window.addEventListener('message', function (e) { if (e.origin === location.origin && e.data === 'tss-signed-in') refreshSignedIn(); });
   window.addEventListener('storage', function (e) { if (e.key === 'tss-access') refreshSignedIn(); });
@@ -133,13 +250,13 @@
   $('#signin2').addEventListener('click', signIn);
   $('#signout').addEventListener('click', function () { store.set('access', null); store.set('expires', null); signedInUI(false); });
 
-  // ---------- saving ----------
+  // ---------- saving: first onto the phone, then to Google Drive ----------
   function status(msg, bad) { var s = $('#status'); s.textContent = msg; s.className = bad ? 'status bad' : 'status'; }
   async function api(url, opts) {
-    var tok = token(); if (!tok) throw new Error('Your Google sign-in ran out. Tap Back, then Sign in to Google.');
+    var tok = token(); if (!tok) throw new Error('Your Google sign-in ran out.');
     opts = opts || {}; opts.headers = Object.assign({ Authorization: 'Bearer ' + tok }, opts.headers || {});
     var r = await fetch(url, opts);
-    if (r.status === 401) { store.set('access', null); throw new Error('Your Google sign-in ran out. Tap Back, then Sign in to Google.'); }
+    if (r.status === 401) { store.set('access', null); throw new Error('Your Google sign-in ran out.'); }
     return r;
   }
   var folderCache = {};
@@ -193,34 +310,67 @@
   $('#save').addEventListener('click', async function () {
     var btn = this; btn.disabled = true;
     try {
-      if (!token()) { status('You are not signed in to Google right now. Tap \u201cSign in to Google\u201d below. Your pictures stay here.', true); $('#signin2').hidden = false; btn.disabled = false; return; }
-      for (var i = 0; i < state.items.length; i++) {
+      var n = state.items.length, stamp = Date.now();
+      for (var i = 0; i < n; i++) {
         var it = state.items[i], pl = plan(it, i);
-        status('Saving picture ' + (i + 1) + ' of ' + state.items.length + '…');
-        var parent = await folderId([cfg.folderName].concat(pl.folder.split('/')));
-        var name = await freeName(parent, pl.base, pl.ext);
-        await upload(parent, name + '.' + pl.ext, it.file, it.file.type || 'image/jpeg', function (f) {
-          status('Saving picture ' + (i + 1) + ' of ' + state.items.length + ' (' + Math.round(f * 100) + '%)');
-        });
-        await upload(parent, name + '.json', new Blob([JSON.stringify(pl.meta, null, 2)], { type: 'application/json' }), 'application/json');
-        it.saved = true;
+        await put('outbox', { id: stamp + '-' + i, folder: pl.folder, base: pl.base, ext: pl.ext, meta: pl.meta,
+          original: it.file, originalType: it.file.type || 'image/jpeg', edited: it.edited || null });
       }
-      var n = state.items.length;
-      state.items.forEach(function (it) { URL.revokeObjectURL(it.url); }); state.items = [];
-      renderList(); status('Saved ' + n + ' picture' + (n > 1 ? 's' : '') + ' to Google Drive. Tell Claude “new art is in” when you want them on the site.');
-    } catch (e) {
-      state.items = state.items.filter(function (it) { return !it.saved; }); renderList();
-      status(e.message + ' Pictures that were saved are off the list; the rest are still here.', true);
-    }
+      clearItems(); renderList();
+      status('Saved ' + n + ' picture' + (n > 1 ? 's' : '') + ' on this phone.' + (navigator.onLine && token() ? ' Sending to Google Drive…' : ' They will go to Google Drive next time there is internet and you are signed in.'));
+      sendOutbox();
+    } catch (e) { status('Could not save on this phone: ' + e.message, true); }
     btn.disabled = !state.items.length;
   });
+
+  var sending = false;
+  async function refreshOutbox() {
+    var waiting = (await all('outbox')).length, bar = $('#outbox');
+    bar.hidden = !waiting;
+    $('#outbox-text').textContent = waiting + ' picture' + (waiting > 1 ? 's' : '') + ' saved on this phone, waiting to go to Google Drive.';
+    $('#outbox-send').textContent = token() ? 'Send now' : 'Sign in to Google and send';
+    return waiting;
+  }
+  async function sendOutbox() {
+    if (sending || !cfg.clientId) { refreshOutbox(); return; }
+    var list = await all('outbox');
+    if (!list.length) { refreshOutbox(); return; }
+    if (!navigator.onLine || !token()) { refreshOutbox(); return; }
+    sending = true; var done = 0;
+    try {
+      for (var i = 0; i < list.length; i++) {
+        var q = list[i];
+        status('Sending picture ' + (i + 1) + ' of ' + list.length + ' to Google Drive…');
+        var parent = await folderId([cfg.folderName].concat(q.folder.split('/')));
+        var name = await freeName(parent, q.base, q.edited ? 'jpg' : q.ext);
+        var meta = Object.assign({}, q.meta);
+        if (q.edited) {
+          meta.original = name + '-original.' + q.ext;
+          await upload(parent, name + '.jpg', q.edited, 'image/jpeg');
+          await upload(parent, meta.original, q.original, q.originalType);
+        } else {
+          await upload(parent, name + '.' + q.ext, q.original, q.originalType, function (f) {
+            status('Sending picture ' + (i + 1) + ' of ' + list.length + ' (' + Math.round(f * 100) + '%)');
+          });
+        }
+        await upload(parent, name + '.json', new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' }), 'application/json');
+        await del('outbox', q.id); done++;
+      }
+      status('All sent to Google Drive. Tell Claude “new art is in” when you want them on the site.');
+    } catch (e) {
+      status((done ? done + ' sent. ' : '') + e.message + ' The rest are still saved on this phone.', true);
+    }
+    sending = false; refreshOutbox();
+  }
+  $('#outbox-send').addEventListener('click', function () { if (token()) sendOutbox(); else signIn(); });
+  window.addEventListener('online', sendOutbox);
 
   // Fallback: hand the photos and their .json files to the Google Drive app through Android's Share button.
   $('#share').addEventListener('click', async function () {
     var files = [];
     state.items.forEach(function (it, i) {
       var pl = plan(it, i);
-      files.push(new File([it.file], pl.base + '.' + pl.ext, { type: it.file.type }));
+      files.push(new File([it.edited || it.file], pl.base + '.' + (it.edited ? 'jpg' : pl.ext), { type: it.edited ? 'image/jpeg' : it.file.type }));
       files.push(new File([JSON.stringify(pl.meta, null, 2)], pl.base + '.json', { type: 'application/json' }));
     });
     if (!navigator.canShare || !navigator.canShare({ files: files })) {
@@ -230,8 +380,19 @@
     try { await navigator.share({ files: files, title: cfg.folderName }); } catch (e) { /* closed the share sheet */ }
   });
 
+  // ---------- pictures shared in from Google Photos (the service worker stores them) ----------
+  async function takeShared() {
+    var got = await all('shared');
+    if (!got.length) return;
+    got.forEach(function (s) { addFiles([s.file]); });
+    await Promise.all(got.map(function (s) { return del('shared', s.id); }));
+    $('#kid-lead').textContent = got.length + ' picture' + (got.length > 1 ? 's' : '') + ' shared in. Whose art is it?';
+  }
+
   // ---------- start ----------
   if (cfg.clientId && finishSignIn() === 'popup') return;
   signedInUI(!!(cfg.clientId && token()));
   show('s-kid');
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/upload/sw.js', { scope: '/upload/' }).catch(function () {});
+  takeShared().then(refreshOutbox).then(sendOutbox);
 })();

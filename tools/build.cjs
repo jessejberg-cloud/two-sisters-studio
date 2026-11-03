@@ -419,7 +419,8 @@ pages['upload/index.html'] = `<!doctype html>
 <main id="main" class="up-main">
   <section class="screen" id="s-kid">
     <h1 class="up-h">${logo(false)}</h1>
-    <p class="up-lead">Whose art is it?</p>
+    <p class="up-lead" id="kid-lead">Whose art is it?</p>
+    <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
     <div class="up-kids">
       ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-kid="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
     </div>
@@ -447,6 +448,25 @@ pages['upload/index.html'] = `<!doctype html>
     <p class="status" id="status" role="status" aria-live="polite"></p>
     <p><button type="button" class="chip" id="signin2" hidden>Sign in to Google</button></p>
   </section>
+
+  <section class="screen" id="s-edit" hidden>
+    <h1 class="up-h2">Fix up the picture</h1>
+    <div class="ed-wrap" id="ed-wrap">
+      <canvas id="ed-canvas" class="ed-canvas" aria-label="The picture"></canvas>
+      <div class="ed-box" id="ed-box" hidden><span data-h="tl"></span><span data-h="tr"></span><span data-h="bl"></span><span data-h="br"></span></div>
+    </div>
+    <div class="ed-tools">
+      <button type="button" class="chip" id="ed-turn">↻ Turn</button>
+      <button type="button" class="chip" id="ed-crop">✂ Crop</button>
+      <button type="button" class="chip glow-chip" id="ed-glow" aria-pressed="false">✨ Glow</button>
+      <button type="button" class="linkish" id="ed-reset">Start over</button>
+    </div>
+    <div class="up-actions">
+      <button type="button" class="save wobbly" id="ed-done">Done</button>
+      <button type="button" class="linkish" id="ed-cancel">Cancel</button>
+    </div>
+    <p class="share-help">The untouched original is always saved too.</p>
+  </section>
 </main>
 </body>
 </html>
@@ -455,7 +475,17 @@ const manifest = {
   name: `${site.siteName}: Add art`, short_name: 'Add art', start_url: '/upload/', scope: '/upload/', display: 'standalone',
   background_color: '#fdf8ef', theme_color: '#fdf8ef',
   icons: [{ src: '/assets/brand/app-192.png', sizes: '192x192', type: 'image/png' }, { src: '/assets/brand/app-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
+  // Shows "Add art" in the phone's Share list (for example from Google Photos). The service worker catches it.
+  share_target: { action: '/upload/share', method: 'POST', enctype: 'multipart/form-data', params: { files: [{ name: 'photos', accept: ['image/*'] }] } },
 };
+// The service worker: keeps the app working with no signal, and receives pictures shared from other apps.
+const swFonts = ['kalam-latin-700-normal', 'kalam-latin-400-normal', 'nunito-latin-600-normal', 'nunito-latin-800-normal'];
+const swShell = ['/upload/', `/upload/app.js?v=${upJs()}`, `/styles.css?v=${cssHash()}`, '/upload/manifest.webmanifest',
+  ...swFonts.map((f) => `/assets/fonts/${f}.woff2`),   // as the stylesheet asks for them
+  asset('brand/favicon.svg'), asset('brand/app-192.png'), '/assets/brand/app-192.png', '/assets/brand/app-512.png'];
+const swCode = fs.readFileSync(path.join(SRC, 'upload/sw.js'), 'utf8')
+  .replace('__SHELL__', JSON.stringify(swShell))
+  .replace('__VERSION__', crypto.createHash('sha1').update(JSON.stringify(swShell)).digest('hex').slice(0, 8));
 
 // ---------- write ----------
 fs.rmSync(DIST, { recursive: true, force: true });
@@ -468,6 +498,7 @@ fs.cpSync(path.join(SRC, 'assets'), path.join(DIST, 'assets'), { recursive: true
 fs.copyFileSync(path.join(SRC, 'styles.css'), path.join(DIST, 'styles.css'));
 fs.copyFileSync(path.join(SRC, 'main.js'), path.join(DIST, 'main.js'));
 fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'));
+fs.writeFileSync(path.join(DIST, 'upload/sw.js'), swCode);
 fs.writeFileSync(path.join(DIST, 'upload/manifest.webmanifest'), JSON.stringify(manifest, null, 2));
 // Unlisted: block every crawler. No sitemap on purpose.
 fs.writeFileSync(path.join(DIST, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
