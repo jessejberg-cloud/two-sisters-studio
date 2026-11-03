@@ -35,7 +35,7 @@ for (const f of files.filter((f) => /\.(html|css|js)$/.test(f))) {
     if (/<iframe|<embed|<object|data-netlify|netlify-honeypot/i.test(t) || (!isLogin && /<form/i.test(t))) problems.push(`${rel(f)}: has a form or embed`);
     if (isLogin && !/<form class="login-form" method="post" action="\/api\/login">/.test(t)) problems.push(`${rel(f)}: the login form must post to /api/login`);
     if (/document\.cookie|localStorage|sessionStorage|gtag|analytics/i.test(t)) problems.push(`${rel(f)}: tracking/cookie code`);
-    const okScript = isUpload(f) ? /<script(?![^>]*src="\/upload\/app\.js)(?![^>]*type="application\/json")/ : /<script(?![^>]*src="\/(main|parent)\.js)/;
+    const okScript = isUpload(f) ? /<script(?![^>]*src="\/upload\/app\.js)(?![^>]*type="application\/json")/ : /<script(?![^>]*src="\/(main|parent)\.js)(?![^>]*type="application\/json")/;
     if (okScript.test(t)) problems.push(`${rel(f)}: unexpected script`);
     const csp = (t.match(/<meta http-equiv="Content-Security-Policy" content="([^"]*)"/) || [])[1] || '';
     if (!csp.startsWith("default-src 'self'")) problems.push(`${rel(f)}: missing the Content-Security-Policy meta tag`);

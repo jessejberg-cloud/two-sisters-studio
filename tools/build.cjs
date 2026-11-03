@@ -235,63 +235,27 @@ function gallery(items, emptyText) {
 // ---------- art galleries ----------
 const SEASONS = ['fall', 'winter', 'spring', 'summer'];
 const SEASON_LABEL = { fall: 'Fall', winter: 'Winter', spring: 'Spring', summer: 'Summer' };
-const SEASON_ICON = { fall: '🍂', winter: '❄️', spring: '🌷', summer: '☀️' };
-const yearLabel = (sy) => sy.replace('-', '–');
-const artLabel = (it) => [it.grade, it.season, niceDate(it.date)].filter(Boolean).join(' · ');
 
-function artPiece(kid, it, big) {
-  const cap = it.caption ? `<span class="art-cap">“${esc(it.caption)}”</span>` : '';
-  const search = [it.caption, it.season, yearLabel(it.schoolYear), it.grade].filter(Boolean).join(' ').toLowerCase();
-  return `<figure class="piece${big ? ' piece--big' : ''}" data-search="${esc(search)}">
-    <a class="piece-open" href="${asset(it.src)}" data-full="${asset(it.src)}" data-dl="${asset(it.src)}" data-name="${esc(it.id)}" data-w="${it.w}" data-h="${it.h}"
-       data-caption="${esc(it.caption || '')}" data-label="${esc(artLabel(it))}" aria-label="Open ${esc(it.caption || 'this drawing')} big">
-      <img src="${asset(big ? it.src : (it.thumb || it.src))}" alt="${esc(it.alt || it.caption || `A drawing by ${kid.name}`)}" width="${it.w}" height="${it.h}" loading="lazy" decoding="async">
-      ${it.sample ? '<span class="sample-tag">Sample</span>' : ''}
-    </a>
-    <figcaption>${cap}<span class="art-label">${esc(artLabel(it))}</span></figcaption>
-  </figure>`;
-}
-
-function seasonBlock(kid, season, list) {
-  if (!list.length) return '';
-  const featured = list.filter((x) => x.featured).slice(0, 2);
-  const rest = list.filter((x) => !featured.includes(x));
-  return `<section class="season" data-season="${season}">
-    <h4 class="season-h"><span aria-hidden="true">${SEASON_ICON[season]}</span> ${SEASON_LABEL[season]}</h4>
-    ${featured.length ? `<div class="featured featured--${featured.length}">${featured.map((it) => artPiece(kid, it, true)).join('')}</div>` : ''}
-    ${rest.length ? `<div class="masonry">${rest.map((it) => artPiece(kid, it, false)).join('')}</div>` : ''}
-  </section>`;
-}
-
+// The gallery itself is drawn on the page (main.js): art saved from the app comes live from the site's art list
+// (/api/pieces), and older art added by hand comes from the list below, so both show together.
 function artGallery(kid, items) {
-  const years = [...new Set(items.map((x) => x.schoolYear))].sort().reverse();
-  const anySample = items.some((x) => x.sample);
-  const chips = (name, opts) => `<div class="chips" role="group" aria-label="${name}">${opts.map(([v, l], i) => `<button type="button" class="chip" data-filter="${name}" data-value="${v}" aria-pressed="${i === 0}">${esc(l)}</button>`).join('')}</div>`;
-  const filters = `<div class="filters" hidden>
-    ${chips('year', [['all', 'All years'], ...years.map((y) => [y, yearLabel(y)])])}
-    ${chips('season', [['all', 'All seasons'], ...SEASONS.map((s) => [s, SEASON_LABEL[s]])])}
-    <label class="find"><span>Find a word</span><input type="search" class="find-input" placeholder="like cat or rainbow" autocomplete="off"></label>
-    <p class="none-found" hidden>No pictures match. Try another word.</p>
-  </div>`;
-  const yearBlocks = years.map((y, i) => {
-    const inYear = items.filter((x) => x.schoolYear === y);
-    const school = ['fall', 'winter', 'spring'].map((s) => seasonBlock(kid, s, inYear.filter((x) => x.season === s))).join('');
-    const summer = seasonBlock(kid, 'summer', inYear.filter((x) => x.season === 'summer'));
-    return `<details class="year" data-year="${y}"${i === 0 ? ' open' : ''}>
-    <summary><h2 class="year-h">${yearLabel(y)}</h2><span class="year-count">${inYear.length} picture${inYear.length === 1 ? '' : 's'}</span></summary>
-    ${school ? `<div class="part"><h3 class="part-h">School Year</h3>${school}</div>` : ''}
-    ${summer ? `<div class="part"><h3 class="part-h">Summer</h3>${summer}</div>` : ''}
-  </details>`;
-  }).join('\n');
-  return `${anySample ? '<p class="sample-note">These are sample pictures, so you can see how the page will look. Real art is coming soon!</p>' : ''}
-${filters}
-<div class="gallery-area">
-${yearBlocks}
+  const data = items.map((it) => ({ id: it.id, date: it.date, schoolYear: it.schoolYear, season: it.season, grade: it.grade || '',
+    caption: it.caption || '', alt: it.alt || '', starred: !!it.featured, sample: !!it.sample, kid: kid.key,
+    photos: [{ full: asset(it.src), thumb: asset(it.thumb || it.src), w: it.w, h: it.h }] }));
+  return `<script type="application/json" id="art-data">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>
+<div class="art-live" data-kid="${kid.key}" data-name="${esc(kid.name)}" data-empty="${esc(`${kid.name}'s art will show up here soon!`)}"></div>
+<button type="button" class="chip filter-toggle" aria-expanded="false" hidden>🔎 Filter</button>
+<div class="filters" hidden>
+  <div class="chips" role="group" aria-label="year" data-group="year"></div>
+  <div class="chips" role="group" aria-label="season">${[['all', 'All seasons'], ...SEASONS.map((x) => [x, SEASON_LABEL[x]])].map(([v, l], i) => `<button type="button" class="chip" data-filter="season" data-value="${v}" aria-pressed="${i === 0}">${esc(l)}</button>`).join('')}</div>
+  <label class="find"><span>Find a word</span><input type="search" class="find-input" placeholder="like cat or rainbow" autocomplete="off"></label>
+  <p class="none-found" hidden>No pictures match. Try another word.</p>
 </div>
+<div class="gallery-area"><p class="loading">Getting the pictures…</p></div>
 <dialog class="lightbox" aria-label="Picture">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous picture">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next picture">›</button>
 </dialog>`;
 }
@@ -321,8 +285,9 @@ for (const kid of KIDS) {
     section: kid.key,
     bodyClass: `c-${kid.color}`,
     title: `${kid.name}'s Art`,
+    csp: CSP_SELF,
     body: `<div class="page-head"><h1>${esc(kid.name)}'s Art</h1></div>
-${items.length ? artGallery(kid, items) : gallery([], `${kid.name}'s art will show up here soon!`)}`,
+${artGallery(kid, items)}`,
   });
 }
 
