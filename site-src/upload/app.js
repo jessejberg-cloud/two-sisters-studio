@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   var cfg = JSON.parse(document.getElementById('cfg').textContent);
-  var AUTH = 'https://login.microsoftonline.com/consumers/oauth2/v2.0';
+  var AUTH = 'https://login.microsoftonline.com/' + encodeURIComponent(cfg.tenant || 'consumers') + '/oauth2/v2.0';
   var GRAPH = 'https://graph.microsoft.com/v1.0/me/drive/special/approot';
   var SCOPE = 'Files.ReadWrite.AppFolder offline_access';
   var REDIRECT = location.origin + '/upload/';

@@ -394,6 +394,7 @@ pages['404.html'] = page({
 // ---------- upload app (for Jesse's phone; not in the tabs) ----------
 const uploadCfg = {
   clientId: site.onedriveClientId || '',
+  tenant: site.onedriveTenant || 'consumers',   // 'consumers' for a personal account, or the work account's Directory (tenant) ID
   folderName: site.uploadFolderName,
   kids: Object.fromEntries(KIDS.map((k) => [k.key, { name: k.name, color: k.color, grades: k.grades || {} }])),
 };
