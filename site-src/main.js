@@ -77,7 +77,76 @@
     img.alt = a.querySelector('img').alt;
     cap.textContent = !a.dataset.caption ? '' : a.closest('.moment') ? a.dataset.caption : '“' + a.dataset.caption + '”';
     label.textContent = a.dataset.label;
+    prepareSave(a);
   }
+
+  // ---------- Save to a phone or computer ----------
+  // iPhone: the Share sheet's "Save Image" puts it in Photos (a plain download would land in Files).
+  // Android and computers: a normal download (Android shows it in Photos / Gallery under Downloads).
+  // Pictures are turned into JPEG on the page itself, so nothing outside this site is needed.
+  var IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var useShare = IOS && !!navigator.canShare && navigator.canShare({ files: [new File([''], 'x.jpg', { type: 'image/jpeg' })] });
+  function jpegFile(url, name) {
+    return new Promise(function (ok, fail) {
+      var im = new Image();
+      im.onload = function () {
+        var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+        var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0);
+        c.toBlob(function (bl) { bl ? ok(new File([bl], name + '.jpg', { type: 'image/jpeg' })) : fail(new Error('no picture')); }, 'image/jpeg', 0.92);
+      };
+      im.onerror = function () { fail(new Error('could not load')); };
+      im.src = url;
+    });
+  }
+  function download(file) {
+    var u = URL.createObjectURL(file), link = document.createElement('a');
+    link.href = u; link.download = file.name; document.body.appendChild(link); link.click(); link.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 30000);
+  }
+  async function saveFiles(files) {
+    if (useShare) {
+      try { await navigator.share({ files: files }); } catch (e) { if (e.name !== 'AbortError') throw e; }
+    } else {
+      for (var i = 0; i < files.length; i++) { download(files[i]); await new Promise(function (r) { setTimeout(r, 400); }); }
+    }
+  }
+  var saveBtn = box.querySelector('.lb-save'), ready = null, readyFor = null;
+  function prepareSave(a) {
+    readyFor = a; ready = null;
+    if (!saveBtn) return;
+    saveBtn.disabled = true; saveBtn.textContent = 'Getting it ready…';
+    jpegFile(a.dataset.dl, a.dataset.name || 'picture').then(function (f) {
+      if (readyFor !== a) return;
+      ready = f; saveBtn.disabled = false; saveBtn.textContent = '⬇ Save this picture';
+    }, function () { if (readyFor === a) saveBtn.textContent = 'Could not get this picture'; });
+  }
+  if (saveBtn) saveBtn.addEventListener('click', function () {
+    if (!ready) return;
+    saveFiles([ready]).then(function () { if (!useShare) { saveBtn.textContent = '✓ Saved to Downloads'; } },
+      function () { saveBtn.textContent = 'That did not work. Try again?'; });
+  });
+  // "Save all to this phone", one button per Family Moments event. Phones only (computers have the zip).
+  if (matchMedia('(pointer: coarse)').matches) area.querySelectorAll('.save-all').forEach(function (btn) {
+    btn.hidden = false;
+    var label = btn.textContent, files = null, BATCH = 20, from = 0;
+    btn.addEventListener('click', async function () {
+      var links = btn.closest('.moment').querySelectorAll('.piece-open');
+      if (!files) {
+        btn.disabled = true; files = [];
+        for (var i = 0; i < links.length; i++) {
+          btn.textContent = 'Getting ' + (i + 1) + ' of ' + links.length + ' ready…';
+          files.push(await jpegFile(links[i].dataset.dl, links[i].dataset.name || 'photo-' + (i + 1)));
+        }
+        btn.disabled = false;
+        if (useShare) { btn.textContent = 'Ready: tap to save ' + Math.min(BATCH, files.length) + ' photos'; return; }
+      }
+      var part = useShare ? files.slice(from, from + BATCH) : files;
+      try { await saveFiles(part); } catch (e) { btn.textContent = 'That did not work. Try again?'; return; }
+      from = useShare ? from + part.length : files.length;
+      if (from < files.length) btn.textContent = 'Tap to save the next ' + Math.min(BATCH, files.length - from);
+      else { btn.textContent = useShare ? '✓ Saved. Tap to save again' : '✓ Saved to Downloads'; from = 0; }
+    });
+  });
   area.addEventListener('click', function (e) {
     var a = e.target.closest('.piece-open'); if (!a) return;
     e.preventDefault();

@@ -410,3 +410,13 @@ main { max-width: var(--max); margin: 0 auto; padding: 8px 20px 40px; }
 .up-look ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .up-look .tab { width: 100%; justify-content: flex-start; }
 [hidden] { display: none !important; }
+
+/* ---------- Save buttons ---------- */
+.lightbox .lb-save { border-radius: 999px; font-size: 1.15rem; font-weight: 800; padding: 10px 22px; margin-top: 8px; min-height: 52px; background: var(--yellow); color: var(--ink); border: 3px solid var(--ink); }
+.lightbox .lb-save:hover { background: #ffe08a; }
+.lightbox .lb-save:disabled { opacity: .7; cursor: default; }
+.dl-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+button.btn-download { font: inherit; font-weight: 800; cursor: pointer; background: var(--yellow); }
+.dl-row .btn-download { max-width: 100%; box-sizing: border-box; }
+.dl-row .dl-size { white-space: normal; display: block; }
+.lightbox .lb-save { font-family: inherit; }

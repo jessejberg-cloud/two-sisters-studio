@@ -238,7 +238,7 @@ function artPiece(kid, it, big) {
   const cap = it.caption ? `<span class="art-cap">“${esc(it.caption)}”</span>` : '';
   const search = [it.caption, it.season, yearLabel(it.schoolYear), it.grade].filter(Boolean).join(' ').toLowerCase();
   return `<figure class="piece${big ? ' piece--big' : ''}" data-search="${esc(search)}">
-    <a class="piece-open" href="${asset(it.src)}" data-full="${asset(it.src)}" data-w="${it.w}" data-h="${it.h}"
+    <a class="piece-open" href="${asset(it.src)}" data-full="${asset(it.src)}" data-dl="${asset(it.src)}" data-name="${esc(it.id)}" data-w="${it.w}" data-h="${it.h}"
        data-caption="${esc(it.caption || '')}" data-label="${esc(artLabel(it))}" aria-label="Open ${esc(it.caption || 'this drawing')} big">
       <img src="${asset(big ? it.src : (it.thumb || it.src))}" alt="${esc(it.alt || it.caption || `A drawing by ${kid.name}`)}" width="${it.w}" height="${it.h}" loading="lazy" decoding="async">
       ${it.sample ? '<span class="sample-tag">Sample</span>' : ''}
@@ -286,7 +286,7 @@ ${yearBlocks}
 <dialog class="lightbox" aria-label="Picture">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous picture">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next picture">›</button>
 </dialog>`;
 }
@@ -418,7 +418,7 @@ const eventDates = (ev) => ev.endDate && ev.endDate !== ev.date ? `${niceDate(ev
 function momentPhoto(ev, ph) {
   const label = [ph.date ? niceDate(ph.date) : '', ev.title].filter(Boolean).join(' · ');
   return `<figure class="piece">
-    <a class="piece-open" href="${asset(ph.src)}" data-full="${asset(ph.src)}" data-w="${ph.w}" data-h="${ph.h}"
+    <a class="piece-open" href="${asset(ph.src)}" data-full="${asset(ph.src)}" data-dl="${ph.print ? '/moments/' + ph.print : asset(ph.src)}" data-name="${esc(ph.id)}" data-w="${ph.w}" data-h="${ph.h}"
        data-caption="${esc(ph.caption || '')}" data-label="${esc(label)}" aria-label="Open ${esc(ph.caption || 'this photo')} big">
       <img src="${asset(ph.thumb || ph.src)}" alt="${esc(ph.alt || ph.caption || 'A photo from ' + ev.title)}" width="${ph.w}" height="${ph.h}" loading="lazy" decoding="async">
       ${ev.sample ? '<span class="sample-tag">Sample</span>' : ''}
@@ -435,7 +435,8 @@ function momentPhoto(ev, ph) {
       const zipRel = `moments/${ev.key}.zip`;
       momentZips[zipRel] = prints.map((ph) => ({ name: `${ev.key}/${path.basename(ph.print)}`, data: fs.readFileSync(path.join(SRC, 'moments-print', ph.print)) }));
       const mb = Math.max(1, Math.round(momentZips[zipRel].reduce((t, f) => t + f.data.length, 0) / 1048576));
-      dl = `<a class="btn-download" href="/${zipRel}" download="${esc(ev.key)}.zip">⬇ Download all ${prints.length} photos <span class="dl-size">(about ${mb} MB)</span></a>`;
+      dl = `<div class="dl-row"><button type="button" class="btn-download save-all" hidden>📱 Save all ${prints.length} to this phone</button>
+      <a class="btn-download" href="/${zipRel}" download="${esc(ev.key)}.zip">⬇ Download all ${prints.length} as one zip <span class="dl-size">(for a computer or a photo book, about ${mb} MB)</span></a></div>`;
     }
     return `<section class="moment" id="${esc(ev.key)}">
     <div class="moment-head">
@@ -462,7 +463,7 @@ ${blocks}
 <dialog class="lightbox" aria-label="Photo">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next photo">›</button>
 </dialog>` : gallery([], 'Family photos will show up here soon!')}`,
   });
@@ -582,6 +583,8 @@ fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'
 fs.writeFileSync(path.join(DIST, 'upload/sw.js'), swCode);
 fs.writeFileSync(path.join(DIST, 'upload/manifest.webmanifest'), JSON.stringify(manifest, null, 2));
 // Unlisted: block every crawler. No sitemap on purpose.
+// Print copies are also served one by one, for "Save this picture".
+if (fs.existsSync(path.join(SRC, 'moments-print'))) fs.cpSync(path.join(SRC, 'moments-print'), path.join(DIST, 'moments'), { recursive: true });
 for (const [rel, files] of Object.entries(momentZips)) { fs.mkdirSync(path.join(DIST, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(DIST, rel), zipStore(files)); }
 fs.writeFileSync(path.join(DIST, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
 console.log(`Built ${Object.keys(pages).length} pages, ${episodes.length} episode(s) -> dist/`);

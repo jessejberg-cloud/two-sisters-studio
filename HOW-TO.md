@@ -29,6 +29,12 @@ labels say "5th grade · fall".
 4. Tell Claude **"new family photos are in"**. Claude puts them on the page. Each event gets a **Download all** button for photo books.
 5. Optional: a caption for a photo goes in a `.json` file with the same name, like `{"caption": "Dancing with Grandma"}`.
 
+## Save pictures to a phone or computer
+- Tap any drawing or photo to open it big, then tap **Save this picture**. On an iPhone, pick **Save Image** in the
+  list that opens (it goes to Photos). On Android or a computer it downloads (on Android it shows up in Photos or Gallery).
+- Family Moments: **Save all to this phone** saves every photo of that event (on an iPhone, 20 at a time).
+  **Download all as one zip** is for a computer or a photo book.
+
 ## Add a Pet Parents episode
 1. Make a folder for the episode in the Pet Parents incoming folder with the audio, the drawing, and `notes.txt`:
    ```
