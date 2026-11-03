@@ -33,6 +33,31 @@ on every push to `main`.
 - **Updates:** go straight to `main` after the checks pass.
 - The older rules "Netlify subdomain only" and "no password" are replaced. Everything else below still applies.
 
+## Brief update (Jesse, 2026-11-03 evening): planned, waiting for his OK on the plan
+Plan doc: https://claude.ai/artifact/EJYt34fYXdVsGch9mMePqB. These replace anything above that conflicts, once built.
+- **Publishing:** instant on Save. Original + details file go to Google Drive; a WebP web copy goes to Netlify Blobs
+  via a Netlify Function; galleries load art live (no "new art is in" step for art). Drive is the source of truth:
+  the site must be rebuildable from Drive alone. Privacy checks: none (trust Jesse).
+- **Access:** custom login (Edge Function), replacing Netlify's built-in password once live. Family: family password,
+  whole site + app, upload and edit, logged in for months. Parents (Jesse + partner): parent PIN in the app, also
+  make/manage share links. Friends: share link + friends password, chosen pages only, no app. Passwords change
+  separately; a change logs out every device using it. The upload function accepts only family logins.
+- **Share links (parents only, PIN required):** tick pages (Leora, Amaya, Pet Parents, or all) and expiry (week, month,
+  year, never). After creating, two buttons: "Send link" (only the link) and "Send password" (only
+  "Password for the art site: [password]"), each opens the Android share menu. List of links; any can be turned off;
+  a link always still needs the friends password.
+- **Upload app:** take or pick photos; per photo crop, rotate, enhance Auto / Paper white / Vivid (portrait blur
+  skipped); original always kept in Drive. Kid Leora / Amaya / Both; optional caption; date defaults to today.
+  Grade from date: set each kid's current grade once, rolls over each September; summer = "summer after 1st grade".
+  3D pieces: several photos per piece, swipe in the lightbox. Star to feature; if none starred, newest in the season
+  shows large. Recent uploads: edit caption/date, star, delete. Duplicate warning. Weak signal: queue, retry, show
+  pending. Recently deleted: 30 days, restorable, never touches Drive originals.
+- **Galleries:** "Both" pieces in both galleries with a "made together" note; on phones the filters sit behind one button.
+- **Fallback:** Android share menu to the Drive app if direct Drive writing fails.
+- **Testing:** Pixel 10, iPhone Safari, an older browser, desktop.
+- **Phases:** 4 Drive archive + login; 5 upload app + Drive + instant publishing; 6 share links, friends password,
+  parent PIN, plain-language note (passwords/PIN, share links, which Google account, Drive space).
+
 ## Personal information (Jesse, 2026-11-03; replaces the older privacy rules)
 - Personal information is allowed: last names, school, places, ages, birthdays, family photos. The whole site is
   behind the family password, and Jesse monitors what goes on it himself. Claude does not screen art, photos,
