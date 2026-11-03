@@ -400,3 +400,13 @@ main { max-width: var(--max); margin: 0 auto; padding: 8px 20px 40px; }
 .btn-download { display: inline-block; line-height: 1.35; min-height: 48px; padding: 8px 18px; border: 3px solid var(--ink); border-radius: var(--wobble); background: #fff; color: var(--ink); font-weight: 800; text-decoration: none; box-shadow: 4px 4px 0 var(--ink); }
 .btn-download:hover, .btn-download:focus-visible { background: var(--yellow-soft); }
 .dl-size { font-weight: 600; opacity: .7; white-space: nowrap; }
+
+/* ---------- the installed phone app: site pages open inside it ---------- */
+.tab-add-li { display: none; }
+@media (display-mode: standalone) { .tab-add-li { display: list-item; } }
+.tab-add .tab-icon { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+.up-look { margin-top: 26px; }
+.up-look-h { font-weight: 800; margin: 0 0 8px; }
+.up-look ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.up-look .tab { width: 100%; justify-content: flex-start; }
+[hidden] { display: none !important; }

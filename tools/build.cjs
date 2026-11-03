@@ -124,7 +124,7 @@ function page({ key, title, body, section, bodyClass }) {
 <a class="skip" href="#main">Skip to the main part</a>
 <header class="site-header">
   <a class="brand" href="/">${logo(false)}</a>
-  <nav aria-label="Main"><ul class="tabs">${nav}</ul></nav>
+  <nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li></ul></nav>
 </header>
 <main id="main">
 ${body}
@@ -504,7 +504,9 @@ pages['upload/index.html'] = `<!doctype html>
     <p class="acct" id="acct"></p>
     <p class="acct-row"><button type="button" class="chip" id="signin" hidden>Sign in to Google</button>
       <button type="button" class="linkish" id="signout" hidden>Sign out</button></p>
-    <p class="up-home"><a href="/">Go to the site</a></p>
+    <nav class="up-look" aria-label="Look at the site"><p class="up-look-h">Look at the site</p>
+      <ul>${TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('')}</ul>
+    </nav>
   </section>
 
   <section class="screen" id="s-photos" hidden>
@@ -549,7 +551,9 @@ pages['upload/index.html'] = `<!doctype html>
 </html>
 `;
 const manifest = {
-  name: `${site.siteName}: Add art`, short_name: 'Add art', start_url: '/upload/', scope: '/upload/', display: 'standalone',
+  // The installed app opens on Add art, but its scope is the whole site, so the gallery pages open inside the app too.
+  // id stays '/upload/' so the copy already on Jesse's phone updates instead of becoming a second app.
+  id: '/upload/', name: site.siteName, short_name: 'Two Sisters', start_url: '/upload/', scope: '/', display: 'standalone',
   background_color: '#fdf8ef', theme_color: '#fdf8ef',
   icons: [{ src: '/assets/brand/app-192.png', sizes: '192x192', type: 'image/png' }, { src: '/assets/brand/app-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
   // Shows "Add art" in the phone's Share list (for example from Google Photos). The service worker catches it.

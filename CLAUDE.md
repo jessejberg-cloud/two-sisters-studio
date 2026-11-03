@@ -26,7 +26,8 @@ on every push to `main`.
 - **Upload app:** a phone web app (PWA) at `/upload/` behind the same password, for Jesse's Android phone: pick a kid,
   take photos (or Share in from Google Photos), crop / turn / glow, caption each, Save. Save keeps everything on the
   phone first (IndexedDB) and sends it when online and signed in; a service worker (`site-src/upload/sw.js`) keeps
-  the app working offline and receives shared pictures. Edited pictures keep the original too. Save to Google Drive (`drive.file` only; client ID in `content/site.json` googleClientId;
+  the app working offline and receives shared pictures. The installed app's scope is the whole site (Jesse, 2026-11-03): it opens on Add art, a
+  "Look at the site" row opens the galleries inside the app, and an "Add art" tab shows on site pages only inside the app. Edited pictures keep the original too. Save to Google Drive (`drive.file` only; client ID in `content/site.json` googleClientId;
   until it is set, Save opens the phone's share list to the Drive app). New art reaches the site by a manual
   "add new art" step: Claude downloads new files with the Google Drive connector, then runs `tools/add.py new-art`. A weekly routine can be added later.
 - **Updates:** go straight to `main` after the checks pass.
