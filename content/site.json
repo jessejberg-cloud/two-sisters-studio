@@ -1,9 +1,31 @@
 {
   "url": "https://twosistersstudio.com",
   "siteName": "Two Sisters Studio",
+  "kids": [
+    {
+      "key": "leora",
+      "name": "Leora",
+      "color": "coral",
+      "icon": "palette"
+    },
+    {
+      "key": "amaya",
+      "name": "Amaya",
+      "color": "lav",
+      "icon": "crayon"
+    }
+  ],
+  "sections": [
+    {
+      "key": "pet-parents",
+      "label": "Pet Parents",
+      "color": "mint",
+      "icon": "paw",
+      "href": "/pet-parents/"
+    }
+  ],
   "podcastName": "Pet Parents",
-  "daughterName": "Leora",
-  "sisterName": "Amaya",
+  "podcastCohost": "leora",
   "hostName": "Jesse",
   "tagline": "A podcast for people who love pets, have pets, or are thinking about getting one. We interview pet parents to discover what it's like to live with a pet."
 }

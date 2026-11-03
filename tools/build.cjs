@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// Builds the Pet Parents site into dist/. No dependencies: Netlify runs this on every push.
-//   content/site.json      names, tagline
-//   content/episodes.json  one entry per episode (added by tools/add-episode.cjs)
-//   content/art.json       other art: "daughter" and "sister" lists (added by tools/add-art.cjs)
+// Builds Two Sisters Studio into dist/. No dependencies: Netlify runs this on every push.
+//   content/site.json      site name, the kids (one tab and gallery each), extra sections (tabs), podcast names
+//   content/episodes.json  Pet Parents episodes (added by tools/add.py episode)
+//   content/art.json       the kids' art (added by tools/add.py)
 //   site-src/              styles, script, fonts, drawings, audio, art
+// Pages: /  (Welcome)   /<kid>/  (gallery)   /pet-parents/  /pet-parents/about/  /pet-parents/episodes/<n>/
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -27,7 +28,15 @@ const drawing = (name) => fs.readFileSync(path.join(SRC, 'assets/drawings', name
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const niceDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return `${MONTHS[m - 1]} ${d}, ${y}`; };
 const listWords = (xs) => xs.length < 2 ? (xs[0] || '') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1];
-const sisterArtTitle = `${site.sisterName}'s Art`;
+const KIDS = site.kids;
+const kidByKey = Object.fromEntries(KIDS.map((k) => [k.key, k]));
+const cohost = kidByKey[site.podcastCohost] || KIDS[0];
+// Every tab: one per kid, then the extra sections. Add a tab by adding a line to content/site.json.
+const TABS = [
+  ...KIDS.map((k) => ({ key: k.key, label: k.name, href: `/${k.key}/`, icon: k.icon, color: k.color })),
+  ...site.sections,
+];
+const PP = '/pet-parents';
 
 // Cache-busting: every asset URL gets ?v=<hash of the file>.
 const hashes = {};
@@ -41,14 +50,21 @@ function asset(rel) {
 const cssHash = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'styles.css'))).digest('hex').slice(0, 8);
 const jsHash = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'main.js'))).digest('hex').slice(0, 8);
 
-// Logo: if her drawing exists at site-src/assets/logo/logo.webp (or .png), it replaces the placeholder wordmark.
+// Logo: if a drawn logo exists at site-src/assets/logo/logo.webp (or .png), it replaces the placeholder wordmark.
 function logo(big) {
   for (const f of ['logo.webp', 'logo.png']) {
     if (fs.existsSync(path.join(SRC, 'assets/logo', f))) {
-      return `<img class="logo-img${big ? ' logo-img--big' : ''}" src="${asset('logo/' + f)}" alt="${esc(site.podcastName)}">`;
+      return `<img class="logo-img${big ? ' logo-img--big' : ''}" src="${asset('logo/' + f)}" alt="${esc(site.siteName)}">`;
     }
   }
-  return `<span class="wordmark${big ? ' wordmark--big' : ''}" role="img" aria-label="${esc(site.podcastName)}">`
+  return `<span class="wordmark${big ? ' wordmark--big' : ''}" role="img" aria-label="${esc(site.siteName)}">`
+    + `<span class="wm-icon" aria-hidden="true">${ICONS.stars}</span>`
+    + `<span class="wm-text" aria-hidden="true"><span class="wm-1">Two Sisters</span> <span class="wm-2">Studio</span></span>`
+    + `</span>`;
+}
+// The Pet Parents wordmark, shown big at the top of the podcast section.
+function podcastMark() {
+  return `<span class="wordmark wordmark--big" role="img" aria-label="${esc(site.podcastName)}">`
     + `<span class="wm-paw" aria-hidden="true">${ICONS.paw}</span>`
     + `<span class="wm-text" aria-hidden="true"><span class="wm-1">Pet</span> <span class="wm-2">Parents</span></span>`
     + `</span>`;
@@ -58,20 +74,15 @@ const ICONS = {
   paw: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="currentColor"><ellipse cx="20" cy="27" rx="9" ry="7.5"/><ellipse cx="9" cy="17" rx="4" ry="5"/><ellipse cx="16" cy="10" rx="4" ry="5"/><ellipse cx="25" cy="10" rx="4" ry="5"/><ellipse cx="32" cy="17" rx="4" ry="5"/></g></svg>',
   home: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6,20 L20,8 L34,20"/><path d="M10,17 L10,33 L30,33 L30,17"/><path d="M17,33 L17,25 L23,25 L23,33"/></g></svg>',
   palette: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20,5 C10,5 4,12 4,20 C4,29 11,35 18,35 C22,35 22,31 20,29 C18,27 19,24 23,24 L28,24 C33,24 36,21 36,17 C36,10 29,5 20,5 Z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="12" cy="19" r="2.8" fill="#e4572e"/><circle cx="16" cy="11" r="2.8" fill="#ffd166"/><circle cx="25" cy="11" r="2.8" fill="#5fa8d3"/><circle cx="30" cy="18" r="2.8" fill="#8fd3b6"/></svg>',
-  crayon: '<svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="currentColor" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"><path d="M9,31 L27,13 L33,19 L15,37 Z" fill="#c3b1e1" transform="translate(-2,-4)"/><path d="M25,9 L29,5 L35,11 L31,15" fill="#7d4e9e" transform="translate(-2,-4)"/></g><path d="M5,35 Q12,28 18,33" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>',
+  crayon: '<svg viewBox="0 0 40 40" aria-hidden="true"><g transform="rotate(-45 20 20)" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><path d="M2,15 L28,15 L28,25 L2,25 Z" fill="#c3b1e1"/><path d="M28,15 L38,20 L28,25 Z" fill="#7d4e9e"/><path d="M8,15 L8,25 M12,15 L12,25 M20,15 L20,25 M24,15 L24,25" fill="none" stroke-width="2"/></g></svg>',
+  stars: '<svg viewBox="0 0 48 40" aria-hidden="true"><g stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><path d="M15,4 L18.6,12.4 L27.6,13.2 L20.8,19.2 L22.9,28 L15,23.3 L7.1,28 L9.2,19.2 L2.4,13.2 L11.4,12.4 Z" fill="#ffd166"/><path d="M35,14 L37.6,20 L44,20.6 L39.2,24.9 L40.6,31.2 L35,27.9 L29.4,31.2 L30.8,24.9 L26,20.6 L32.4,20 Z" fill="#f4978e"/></g></svg>',
   mic: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><rect x="14" y="4" width="12" height="20" rx="6"/><path d="M9,18 Q9,29 20,29 Q31,29 31,18"/><path d="M20,29 L20,36 M14,36 L26,36"/></g></svg>',
 };
 
-const NAV = [
-  { href: '/', label: 'Home', icon: 'home', key: 'home' },
-  { href: '/artwork/', label: 'Artwork', icon: 'palette', key: 'artwork' },
-  { href: '/sister-art/', label: sisterArtTitle, icon: 'crayon', key: 'sister' },
-  { href: '/about/', label: 'About', icon: 'mic', key: 'about' },
-];
-
-function page({ key, title, body, depth }) {
-  const fullTitle = title ? `${title} · ${site.podcastName}` : site.podcastName;
-  const nav = NAV.map((n) => `<li><a class="tab tab--${n.key}" href="${n.href}"${n.key === key ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('');
+function page({ key, title, body, section, bodyClass }) {
+  const fullTitle = title ? `${title} · ${site.siteName}` : site.siteName;
+  const current = section || key;
+  const nav = TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"${n.key === current ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('');
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -81,16 +92,16 @@ function page({ key, title, body, depth }) {
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<meta property="og:title" content="${esc(site.podcastName)}">
+<meta property="og:title" content="${esc(site.siteName)}">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="${esc(site.podcastName)}">
-<meta property="og:description" content="${esc(site.podcastName)}">
+<meta property="og:site_name" content="${esc(site.siteName)}">
+<meta property="og:description" content="${esc(site.siteName)}">
 <meta property="og:image" content="${SITE_URL}/assets/brand/og-image.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="${esc(site.podcastName)}">
+<meta property="og:image:alt" content="${esc(site.siteName)}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${esc(site.podcastName)}">
+<meta name="twitter:title" content="${esc(site.siteName)}">
 <meta name="theme-color" content="#fdf8ef">
 <link rel="icon" href="${asset('brand/favicon.svg')}" type="image/svg+xml">
 <link rel="apple-touch-icon" href="${asset('brand/apple-touch-icon.png')}">
@@ -99,7 +110,7 @@ function page({ key, title, body, depth }) {
 <link rel="stylesheet" href="/styles.css?v=${cssHash()}">
 <script src="/main.js?v=${jsHash()}" defer></script>
 </head>
-<body class="page-${key}">
+<body class="page-${key}${section ? ' in-' + section : ''}${bodyClass ? ' ' + bodyClass : ''}">
 <a class="skip" href="#main">Skip to the main part</a>
 <header class="site-header">
   <a class="brand" href="/">${logo(false)}</a>
@@ -110,11 +121,17 @@ ${body}
 </main>
 <footer class="site-footer">
   <div class="paw-trail" aria-hidden="true">${ICONS.paw.repeat(5)}</div>
-  <p>Made with love (and pet hair) by the ${esc(site.podcastName)} crew.</p>
+  <p>Made with love (and crayons) by the ${esc(site.siteName)} crew.</p>
 </footer>
 </body>
 </html>
 `;
+}
+
+// Small tab row inside the podcast section: Episodes · About.
+function podcastNav(current) {
+  const items = [[`${PP}/`, 'Episodes', 'episodes'], [`${PP}/about/`, 'About the podcast', 'about']];
+  return `<nav class="subnav" aria-label="${esc(site.podcastName)}"><ul>${items.map(([h, l, k]) => `<li><a href="${h}"${k === current ? ' aria-current="page"' : ''}>${esc(l)}</a></li>`).join('')}</ul></nav>`;
 }
 
 // ---------- pieces ----------
@@ -147,7 +164,7 @@ function latestBlock(ep) {
     ${episodePic(ep, 'latest-pic')}
     <div class="latest-text">
       <p class="ep-num">${epMeta(ep)}</p>
-      <h2 id="latest-h"><a href="/episodes/${ep.number}/">${esc(ep.title)}</a></h2>
+      <h2 id="latest-h"><a href="${PP}/episodes/${ep.number}/">${esc(ep.title)}</a></h2>
       <p class="ep-desc">${esc(ep.description)}</p>
       ${whoLine(ep)}
       ${player(ep, { label: `Play episode ${ep.number}: ${ep.title}` })}
@@ -171,7 +188,7 @@ function comingSoon() {
 function pastList(list) {
   if (!list.length) return '';
   const items = list.map((ep, i) => `<li class="past-item reveal">
-      <a class="past-link wobbly" href="/episodes/${ep.number}/">
+      <a class="past-link wobbly" href="${PP}/episodes/${ep.number}/">
         ${episodePic(ep, 'past-pic')}
         <span class="past-text">
           <span class="ep-num">${epMeta(ep)}</span>
@@ -203,11 +220,38 @@ function gallery(items, emptyText) {
 // ---------- pages ----------
 const pages = {};
 
+// Welcome: three big buttons, one per tab.
 pages['index.html'] = page({
-  key: 'home',
+  key: 'welcome',
   title: '',
-  body: `<section class="hero">
+  body: `<section class="welcome">
   <h1 class="hero-logo">${logo(true)}</h1>
+  <p class="hero-tag">Art by ${esc(listWords(KIDS.map((k) => k.name)))}, and our podcast.</p>
+  <ul class="big-buttons">
+    ${TABS.map((n) => `<li><a class="big-button wobbly c-${n.color}" href="${n.href}"><span class="big-icon">${ICONS[n.icon]}</span><span class="big-label">${esc(n.label)}</span></a></li>`).join('\n    ')}
+  </ul>
+</section>`,
+});
+
+// One gallery page per kid. (Phase 3 fills these with the art, by year and season.)
+for (const kid of KIDS) {
+  const items = art[kid.key] || [];
+  pages[`${kid.key}/index.html`] = page({
+    key: 'kid',
+    section: kid.key,
+    title: `${kid.name}'s Art`,
+    body: `<div class="page-head reveal"><h1>${esc(kid.name)}'s Art</h1></div>
+${gallery(items, `${kid.name}'s art will show up here soon!`)}`,
+  });
+}
+
+pages['pet-parents/index.html'] = page({
+  key: 'podcast',
+  section: 'pet-parents',
+  title: site.podcastName,
+  body: `${podcastNav('episodes')}
+<section class="hero">
+  <h1 class="hero-logo">${podcastMark()}</h1>
   <p class="hero-tag">A podcast about pets and the people who love them.</p>
   <div class="hero-art">${drawing('hero')}</div>
 </section>
@@ -215,34 +259,12 @@ ${episodes.length ? latestBlock(episodes[0]) : comingSoon()}
 ${pastList(episodes.slice(1))}`,
 });
 
-const episodeDrawings = episodes.filter((e) => e.drawing).map((e) => ({ src: e.drawing, alt: e.drawingAlt, title: `Episode ${e.number}: ${e.title}`, w: e.drawingW, h: e.drawingH }));
-pages['artwork/index.html'] = page({
-  key: 'artwork',
-  title: 'Artwork',
-  body: `<div class="page-head reveal"><h1>Artwork</h1><p>Drawings by ${esc(site.daughterName)}.</p></div>
-${!episodeDrawings.length && !(art.daughter || []).length
-  ? gallery([], 'Drawings will show up here soon!')
-  : `<section aria-labelledby="ep-art-h">
-  <h2 id="ep-art-h" class="section-h">Episode drawings</h2>
-  ${gallery(episodeDrawings, 'Episode drawings will show up here.')}
-</section>
-<section aria-labelledby="more-art-h">
-  <h2 id="more-art-h" class="section-h">More art</h2>
-  ${gallery(art.daughter || [], 'More art is on its way!')}
-</section>`}`,
-});
-
-pages['sister-art/index.html'] = page({
-  key: 'sister',
-  title: sisterArtTitle,
-  body: `<div class="page-head reveal"><h1>${esc(sisterArtTitle)}</h1><p>Drawings by ${esc(site.sisterName)}.</p></div>
-${gallery(art.sister || [], `${site.sisterName}'s drawings are on their way!`)}`,
-});
-
-pages['about/index.html'] = page({
+pages['pet-parents/about/index.html'] = page({
   key: 'about',
-  title: 'About',
-  body: `<div class="page-head reveal"><h1>About the podcast</h1></div>
+  section: 'pet-parents',
+  title: `About ${site.podcastName}`,
+  body: `${podcastNav('about')}
+<div class="page-head reveal"><h1>About the podcast</h1></div>
 <div class="about-top">
   <section class="about-tag reveal"><p>${esc(site.tagline)}</p></section>
   <div class="about-art">${drawing('about')}</div>
@@ -258,7 +280,7 @@ pages['about/index.html'] = page({
   </section>
   <section class="about-block wobbly tint-lav reveal">
     <h2>Who asks the questions?</h2>
-    <p>${esc(site.daughterName)} and ${esc(site.hostName)} do the interviews. ${esc(site.daughterName)} also makes the episode drawings.</p>
+    <p>${esc(cohost.name)} and ${esc(site.hostName)} do the interviews. ${esc(cohost.name)} also makes the episode drawings.</p>
   </section>
 </div>`,
 });
@@ -266,11 +288,12 @@ pages['about/index.html'] = page({
 for (const ep of episodes) {
   const i = episodes.indexOf(ep);
   const newer = episodes[i - 1], older = episodes[i + 1];
-  pages[`episodes/${ep.number}/index.html`] = page({
+  pages[`pet-parents/episodes/${ep.number}/index.html`] = page({
     key: 'episode',
+    section: 'pet-parents',
     title: `Episode ${ep.number}`,
     body: `<article class="episode reveal">
-  <p class="back"><a href="/">← All episodes</a></p>
+  <p class="back"><a href="${PP}/">← All episodes</a></p>
   <div class="latest-card wobbly">
     ${episodePic(ep, 'latest-pic')}
     <div class="latest-text">
@@ -282,8 +305,8 @@ for (const ep of episodes) {
     </div>
   </div>
   <nav class="ep-nav" aria-label="More episodes">
-    ${older ? `<a class="ep-nav-link" href="/episodes/${older.number}/">← Episode ${older.number}</a>` : '<span></span>'}
-    ${newer ? `<a class="ep-nav-link" href="/episodes/${newer.number}/">Episode ${newer.number} →</a>` : ''}
+    ${older ? `<a class="ep-nav-link" href="${PP}/episodes/${older.number}/">← Episode ${older.number}</a>` : '<span></span>'}
+    ${newer ? `<a class="ep-nav-link" href="${PP}/episodes/${newer.number}/">Episode ${newer.number} →</a>` : ''}
   </nav>
 </article>`,
   });

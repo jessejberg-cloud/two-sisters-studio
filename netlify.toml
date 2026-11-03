@@ -8,6 +8,24 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Old Pet Parents addresses -> their new places (the podcast is now one section of the family site).
+[[redirects]]
+  from = "/episodes/*"
+  to = "/pet-parents/episodes/:splat"
+  status = 301
+[[redirects]]
+  from = "/about/"
+  to = "/pet-parents/about/"
+  status = 301
+[[redirects]]
+  from = "/artwork/"
+  to = "/leora/"
+  status = 301
+[[redirects]]
+  from = "/sister-art/"
+  to = "/amaya/"
+  status = 301
+
 # Unlisted: ask every search engine and crawler not to index, follow, cache or preview anything.
 # Content-Security-Policy only allows files from this site, so no third-party scripts,
 # fonts, trackers or embeds can load even by accident.
