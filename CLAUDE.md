@@ -33,7 +33,7 @@ on every push to `main`.
 - **Updates:** go straight to `main` after the checks pass.
 - The older rules "Netlify subdomain only" and "no password" are replaced. Everything else below still applies.
 
-## Brief update (Jesse, 2026-11-03 evening): approved 2026-11-03 23:28Z; phases 4-6 built on PR #1 (branch claude/project-thread-7xcmju), waiting on Jesse's preview test
+## Brief update (Jesse, 2026-11-03 evening): approved 2026-11-03 23:28Z; phases 4-6 merged to main 2026-11-04 (PR #1), live
 How it is built (phase 4): `netlify/edge-functions/gate.js` (the login check before every page), `netlify/functions/`
 (login, parent PIN, Google connect, rebuild), `netlify/lib/` (shared), tests in `tests/` (`npm test`). Netlify Blobs
 stores are prefixed `live-` or `preview-` so previews never touch live data. The gate stays open (Netlify's built-in
