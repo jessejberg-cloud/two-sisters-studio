@@ -15,6 +15,8 @@ Plain steps for Jesse. The site is **twosistersstudio.com**. Claude does the tec
 2. Tap **Leora**, **Amaya**, or **Both, made together**.
 3. Tap **Take a photo** or **Choose photos** (several at once). Or start in **Google Photos**: open a picture,
    tap **Share**, pick **Add art**, then pick who made it.
+   On an Android phone, **💡 Camera with light** keeps the phone's light on while you take the picture (tap
+   **Light** to switch it off; tap the circle for each photo, then **Done**). The first time, allow the camera.
 4. Each photo is one piece. For a 3D piece, tap **＋ Another photo of this piece** to add more sides; on the site
    people swipe through them.
 5. Under each photo, tap one look: **Original**, **Auto**, **Paper white** (cleans up a grey paper background),

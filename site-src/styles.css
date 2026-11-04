@@ -487,3 +487,13 @@ button.btn-download { font: inherit; font-weight: 800; cursor: pointer; backgrou
 .quick-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
 .quick-n { font-weight: 800; width: 100%; }
 .chip-sm { min-height: 48px; padding: 4px 12px; font-size: 1.05rem; }
+
+/* Camera with light (Android) */
+.cam-open { border: 3px solid var(--ink); font: 700 1.35rem var(--hand); color: var(--ink); grid-column: 1 / -1; min-height: 72px; }
+.cam { position: fixed; inset: 0; z-index: 50; background: #111; display: flex; flex-direction: column; }
+.cam[hidden] { display: none !important; }
+.cam-video { flex: 1; width: 100%; min-height: 0; object-fit: contain; background: #000; }
+.cam-note { color: #fff; text-align: center; font-weight: 700; margin: 8px 16px; min-height: 1.4em; }
+.cam-bar { display: flex; align-items: center; justify-content: center; gap: 28px; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); }
+.cam-shoot { width: 76px; height: 76px; border-radius: 50%; background: #fff; border: 6px solid #bbb; cursor: pointer; }
+.cam-shoot:active { transform: scale(.94); }

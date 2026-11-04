@@ -80,6 +80,46 @@
   $('#take').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
   $('#pick').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
 
+  // ---------- camera with a steady light (Android Chrome; the phone's own camera can't keep its light on) ----------
+  var cam = { stream: null, track: null, light: false, taken: 0 };
+  if (/Android/i.test(navigator.userAgent) && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) $('#cam-open').hidden = false;
+  async function camStart() {
+    show('s-cam'); cam.taken = 0; $('#cam-note').textContent = 'Starting the camera…';
+    try {
+      cam.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 4096 }, height: { ideal: 3072 } } });
+    } catch (e) { $('#cam-note').textContent = 'The camera did not open. Allow the camera for this site, or use Take a photo.'; return; }
+    cam.track = cam.stream.getVideoTracks()[0];
+    var v = $('#cam-video'); v.srcObject = cam.stream; try { await v.play(); } catch (e) {}
+    var caps = cam.track.getCapabilities ? cam.track.getCapabilities() : {};
+    $('#cam-light').hidden = !caps.torch;
+    if (caps.torch) await setLight(true);
+    $('#cam-note').textContent = caps.torch ? 'Hold the phone straight over the drawing, then tap the circle.' : 'This phone does not let the app turn its light on. Use a lamp or a window.';
+  }
+  async function setLight(on) {
+    try { await cam.track.applyConstraints({ advanced: [{ torch: on }] }); cam.light = on; } catch (e) { cam.light = false; }
+    $('#cam-light').setAttribute('aria-pressed', String(cam.light));
+    $('#cam-light').textContent = cam.light ? '💡 Light on' : '💡 Light off';
+  }
+  function camStop() {
+    if (cam.stream) cam.stream.getTracks().forEach(function (t) { t.stop(); });
+    cam.stream = cam.track = null; cam.light = false; $('#cam-video').srcObject = null;
+  }
+  $('#cam-open').addEventListener('click', camStart);
+  $('#cam-light').addEventListener('click', function () { setLight(!cam.light); });
+  $('#cam-shoot').addEventListener('click', function () {
+    var v = $('#cam-video'); if (!v.videoWidth) return;
+    var c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+    c.getContext('2d').drawImage(v, 0, 0);
+    c.toBlob(function (b) {
+      if (!b) return;
+      cam.taken++;
+      addFiles([new File([b], 'camera-' + Date.now() + '.jpg', { type: 'image/jpeg' })]);
+      $('#cam-note').textContent = '✓ ' + cam.taken + ' taken. Take another, or tap Done.';
+    }, 'image/jpeg', 0.95);
+  });
+  $('#cam-done').addEventListener('click', function () { camStop(); show('s-photos'); renderList(); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden && cam.stream) { camStop(); show('s-photos'); renderList(); } });
+
   // A small picture fingerprint (difference hash, 64 bits): the same photo picked twice gives nearly the same one.
   async function fingerprint(blob) {
     var b = await createImageBitmap(blob, { imageOrientation: 'from-image' });

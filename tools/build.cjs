@@ -564,6 +564,7 @@ pages['upload/index.html'] = `<!doctype html>
     <div class="up-add">
       <label class="big-pick wobbly"><input type="file" id="take" accept="image/*" capture="environment"><span>📷 Take a photo</span></label>
       <label class="big-pick wobbly"><input type="file" id="pick" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
+      <button type="button" class="big-pick wobbly cam-open" id="cam-open" hidden><span>💡 Camera with light</span></button>
     </div>
     <label class="up-date">Date it was made <input type="date" id="date"></label>
     <p class="count" id="count"></p>
@@ -597,6 +598,16 @@ pages['upload/index.html'] = `<!doctype html>
       <button type="button" class="linkish" id="ed-cancel">Cancel</button>
     </div>
     <p class="share-help">The untouched original is always saved too.</p>
+  </section>
+
+  <section class="screen cam" id="s-cam" hidden>
+    <video id="cam-video" class="cam-video" playsinline muted autoplay></video>
+    <p class="cam-note" id="cam-note" role="status"></p>
+    <div class="cam-bar">
+      <button type="button" class="chip" id="cam-light" aria-pressed="false" hidden>💡 Light</button>
+      <button type="button" class="cam-shoot" id="cam-shoot" aria-label="Take the photo"></button>
+      <button type="button" class="chip" id="cam-done">Done</button>
+    </div>
   </section>
 
   <section class="screen" id="s-recent" hidden>
