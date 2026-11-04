@@ -33,8 +33,17 @@ on every push to `main`.
 - **Updates:** go straight to `main` after the checks pass.
 - The older rules "Netlify subdomain only" and "no password" are replaced. Everything else below still applies.
 
-## Brief update (Jesse, 2026-11-03 evening): planned, waiting for his OK on the plan
-Plan doc: https://claude.ai/artifact/EJYt34fYXdVsGch9mMePqB. These replace anything above that conflicts, once built.
+## Brief update (Jesse, 2026-11-03 evening): approved 2026-11-03 23:28Z; phases 4-6 built on PR #1 (branch claude/project-thread-7xcmju), waiting on Jesse's preview test
+How it is built (phase 4): `netlify/edge-functions/gate.js` (the login check before every page), `netlify/functions/`
+(login, parent PIN, Google connect, rebuild), `netlify/lib/` (shared), tests in `tests/` (`npm test`). Netlify Blobs
+stores are prefixed `live-` or `preview-` so previews never touch live data. The gate stays open (Netlify's built-in
+password guards the site) until TSS_SECRET and FAMILY_PASSWORD are set in Netlify. Environment variables, all set by
+Jesse in Netlify, never in the repo or chat: TSS_SECRET (long random), FAMILY_PASSWORD, FRIENDS_PASSWORD, PARENT_PIN,
+GOOGLE_CLIENT_SECRET (all five set 2026-11-04; the two secret ones are per context: Production + Deploy Previews). Google OAuth
+client: Cloud project `two-sisters-studio` (No organization, jessejberg@gmail.com), redirect URIs `/api/google/callback`
+on twosistersstudio.com and deploy-preview-1. Functions answer "wrong PIN" with 200 + `{ok:false}`: Netlify dev turns some 403s into
+static fallbacks. Edge functions cannot run locally here (edge.netlify.com is blocked); test them on the preview.
+Plan doc: https://claude.ai/artifact/EJYt34fYXdVsGch9mMePqB. These replace anything above that conflicts, once built. Phase 5-6 files: functions pieces.mjs (art API), img.mjs, purge.mjs, share.mjs (links, /s/<id>, password changes); upload app site-src/upload/app.js; galleries drawn in site-src/main.js from /api/pieces plus content/art.json (samples step aside once real art exists).
 - **Publishing:** instant on Save. Original + details file go to Google Drive; a WebP web copy goes to Netlify Blobs
   via a Netlify Function; galleries load art live (no "new art is in" step for art). Drive is the source of truth:
   the site must be rebuildable from Drive alone. Privacy checks: none (trust Jesse).

@@ -42,8 +42,11 @@ const PP = '/pet-parents';
 // Content-Security-Policy is set per page (a meta tag), so the upload app can talk to Google Drive
 // while every other page can reach nothing outside this site.  (The upload app talks to Google Drive.)
 const CSP_STRICT = "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'";
+// Pages that talk to this site's own functions (login state, parent page, live galleries): still nothing outside.
+const CSP_SELF = CSP_STRICT.replace("connect-src 'none'", "connect-src 'self'");
+const CSP_LOGIN = CSP_STRICT.replace("form-action 'none'", "form-action 'self'");
 const CSP_UPLOAD = "default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; font-src 'self'; manifest-src 'self'; "
-  + "connect-src https://www.googleapis.com; "
+  + "connect-src 'self' https://www.googleapis.com; "
   + "form-action 'none'; base-uri 'self'; object-src 'none'";
 
 // Cache-busting: every asset URL gets ?v=<hash of the file>.
@@ -56,6 +59,7 @@ function asset(rel) {
   return `/assets/${rel}?v=${hashes[rel]}`;
 }
 const cssHash = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'styles.css'))).digest('hex').slice(0, 8);
+const fileHash = (f) => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, f))).digest('hex').slice(0, 8);
 const jsHash = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'main.js'))).digest('hex').slice(0, 8);
 
 // Logo: if a drawn logo exists at site-src/assets/logo/logo.webp (or .png), it replaces the placeholder wordmark.
@@ -88,7 +92,7 @@ const ICONS = {
   mic: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><rect x="14" y="4" width="12" height="20" rx="6"/><path d="M9,18 Q9,29 20,29 Q31,29 31,18"/><path d="M20,29 L20,36 M14,36 L26,36"/></g></svg>',
 };
 
-function page({ key, title, body, section, bodyClass }) {
+function page({ key, title, body, section, bodyClass, csp = CSP_STRICT, tabs = true, scripts = [] }) {
   const fullTitle = title ? `${title} · ${site.siteName}` : site.siteName;
   const current = section || key;
   const nav = TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"${n.key === current ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('');
@@ -101,7 +105,7 @@ function page({ key, title, body, section, bodyClass }) {
 <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex">
 <meta name="googlebot" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<meta http-equiv="Content-Security-Policy" content="${CSP_STRICT}">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
 <meta property="og:title" content="${esc(site.siteName)}">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="${esc(site.siteName)}">
@@ -119,12 +123,13 @@ function page({ key, title, body, section, bodyClass }) {
 <link rel="preload" href="${asset('fonts/nunito-latin-600-normal.woff2')}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css?v=${cssHash()}">
 <script src="/main.js?v=${jsHash()}" defer></script>
+${scripts.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).join('\n')}
 </head>
 <body class="page-${key}${section ? ' in-' + section : ''}${bodyClass ? ' ' + bodyClass : ''}">
 <a class="skip" href="#main">Skip to the main part</a>
 <header class="site-header">
   <a class="brand" href="/">${logo(false)}</a>
-  <nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li></ul></nav>
+  ${tabs ? '' : '<!--'}<nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li></ul></nav>${tabs ? '' : '-->'}
 </header>
 <main id="main">
 ${body}
@@ -132,6 +137,7 @@ ${body}
 <footer class="site-footer">
   <div class="paw-trail" aria-hidden="true">${ICONS.paw.repeat(5)}</div>
   <p>Made with love (and crayons) by the ${esc(site.siteName)} crew.</p>
+  <p class="foot-parent"><a class="linkish" href="/parent/">For parents</a></p>
 </footer>
 </body>
 </html>
@@ -230,63 +236,27 @@ function gallery(items, emptyText) {
 // ---------- art galleries ----------
 const SEASONS = ['fall', 'winter', 'spring', 'summer'];
 const SEASON_LABEL = { fall: 'Fall', winter: 'Winter', spring: 'Spring', summer: 'Summer' };
-const SEASON_ICON = { fall: '🍂', winter: '❄️', spring: '🌷', summer: '☀️' };
-const yearLabel = (sy) => sy.replace('-', '–');
-const artLabel = (it) => [it.grade, it.season, niceDate(it.date)].filter(Boolean).join(' · ');
 
-function artPiece(kid, it, big) {
-  const cap = it.caption ? `<span class="art-cap">“${esc(it.caption)}”</span>` : '';
-  const search = [it.caption, it.season, yearLabel(it.schoolYear), it.grade].filter(Boolean).join(' ').toLowerCase();
-  return `<figure class="piece${big ? ' piece--big' : ''}" data-search="${esc(search)}">
-    <a class="piece-open" href="${asset(it.src)}" data-full="${asset(it.src)}" data-dl="${asset(it.src)}" data-name="${esc(it.id)}" data-w="${it.w}" data-h="${it.h}"
-       data-caption="${esc(it.caption || '')}" data-label="${esc(artLabel(it))}" aria-label="Open ${esc(it.caption || 'this drawing')} big">
-      <img src="${asset(big ? it.src : (it.thumb || it.src))}" alt="${esc(it.alt || it.caption || `A drawing by ${kid.name}`)}" width="${it.w}" height="${it.h}" loading="lazy" decoding="async">
-      ${it.sample ? '<span class="sample-tag">Sample</span>' : ''}
-    </a>
-    <figcaption>${cap}<span class="art-label">${esc(artLabel(it))}</span></figcaption>
-  </figure>`;
-}
-
-function seasonBlock(kid, season, list) {
-  if (!list.length) return '';
-  const featured = list.filter((x) => x.featured).slice(0, 2);
-  const rest = list.filter((x) => !featured.includes(x));
-  return `<section class="season" data-season="${season}">
-    <h4 class="season-h"><span aria-hidden="true">${SEASON_ICON[season]}</span> ${SEASON_LABEL[season]}</h4>
-    ${featured.length ? `<div class="featured featured--${featured.length}">${featured.map((it) => artPiece(kid, it, true)).join('')}</div>` : ''}
-    ${rest.length ? `<div class="masonry">${rest.map((it) => artPiece(kid, it, false)).join('')}</div>` : ''}
-  </section>`;
-}
-
+// The gallery itself is drawn on the page (main.js): art saved from the app comes live from the site's art list
+// (/api/pieces), and older art added by hand comes from the list below, so both show together.
 function artGallery(kid, items) {
-  const years = [...new Set(items.map((x) => x.schoolYear))].sort().reverse();
-  const anySample = items.some((x) => x.sample);
-  const chips = (name, opts) => `<div class="chips" role="group" aria-label="${name}">${opts.map(([v, l], i) => `<button type="button" class="chip" data-filter="${name}" data-value="${v}" aria-pressed="${i === 0}">${esc(l)}</button>`).join('')}</div>`;
-  const filters = `<div class="filters" hidden>
-    ${chips('year', [['all', 'All years'], ...years.map((y) => [y, yearLabel(y)])])}
-    ${chips('season', [['all', 'All seasons'], ...SEASONS.map((s) => [s, SEASON_LABEL[s]])])}
-    <label class="find"><span>Find a word</span><input type="search" class="find-input" placeholder="like cat or rainbow" autocomplete="off"></label>
-    <p class="none-found" hidden>No pictures match. Try another word.</p>
-  </div>`;
-  const yearBlocks = years.map((y, i) => {
-    const inYear = items.filter((x) => x.schoolYear === y);
-    const school = ['fall', 'winter', 'spring'].map((s) => seasonBlock(kid, s, inYear.filter((x) => x.season === s))).join('');
-    const summer = seasonBlock(kid, 'summer', inYear.filter((x) => x.season === 'summer'));
-    return `<details class="year" data-year="${y}"${i === 0 ? ' open' : ''}>
-    <summary><h2 class="year-h">${yearLabel(y)}</h2><span class="year-count">${inYear.length} picture${inYear.length === 1 ? '' : 's'}</span></summary>
-    ${school ? `<div class="part"><h3 class="part-h">School Year</h3>${school}</div>` : ''}
-    ${summer ? `<div class="part"><h3 class="part-h">Summer</h3>${summer}</div>` : ''}
-  </details>`;
-  }).join('\n');
-  return `${anySample ? '<p class="sample-note">These are sample pictures, so you can see how the page will look. Real art is coming soon!</p>' : ''}
-${filters}
-<div class="gallery-area">
-${yearBlocks}
+  const data = items.map((it) => ({ id: it.id, date: it.date, schoolYear: it.schoolYear, season: it.season, grade: it.grade || '',
+    caption: it.caption || '', alt: it.alt || '', starred: !!it.featured, sample: !!it.sample, kid: kid.key,
+    photos: [{ full: asset(it.src), thumb: asset(it.thumb || it.src), w: it.w, h: it.h }] }));
+  return `<script type="application/json" id="art-data">${JSON.stringify(data).replace(/</g, '\\u003c')}</script>
+<div class="art-live" data-kid="${kid.key}" data-name="${esc(kid.name)}" data-empty="${esc(`${kid.name}'s art will show up here soon!`)}"></div>
+<button type="button" class="chip filter-toggle" aria-expanded="false" hidden>🔎 Filter</button>
+<div class="filters" hidden>
+  <div class="chips" role="group" aria-label="year" data-group="year"></div>
+  <div class="chips" role="group" aria-label="season">${[['all', 'All seasons'], ...SEASONS.map((x) => [x, SEASON_LABEL[x]])].map(([v, l], i) => `<button type="button" class="chip" data-filter="season" data-value="${v}" aria-pressed="${i === 0}">${esc(l)}</button>`).join('')}</div>
+  <label class="find"><span>Find a word</span><input type="search" class="find-input" placeholder="like cat or rainbow" autocomplete="off"></label>
+  <p class="none-found" hidden>No pictures match. Try another word.</p>
 </div>
+<div class="gallery-area"><p class="loading">Getting the pictures…</p></div>
 <dialog class="lightbox" aria-label="Picture">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous picture">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next picture">›</button>
 </dialog>`;
 }
@@ -316,8 +286,9 @@ for (const kid of KIDS) {
     section: kid.key,
     bodyClass: `c-${kid.color}`,
     title: `${kid.name}'s Art`,
+    csp: CSP_SELF,
     body: `<div class="page-head"><h1>${esc(kid.name)}'s Art</h1></div>
-${items.length ? artGallery(kid, items) : gallery([], `${kid.name}'s art will show up here soon!`)}`,
+${artGallery(kid, items)}`,
   });
 }
 
@@ -469,11 +440,89 @@ ${blocks}
   });
 }
 
+// ---------- login (the gate sends everyone without a login here) ----------
+pages['login/index.html'] = page({
+  key: 'login', title: 'Log in', csp: CSP_LOGIN, tabs: false,
+  body: `<section class="login wobbly">
+  <h1>Welcome!</h1>
+  <p class="login-lead" data-family>Type the family password to come in.</p>
+  <p class="login-lead" data-friend hidden>Someone shared part of the site with you. Type the password they sent you.</p>
+  <form class="login-form" method="post" action="/api/login">
+    <label for="pw">Password</label>
+    <input id="pw" name="password" type="password" autocomplete="current-password" required autofocus>
+    <input type="hidden" name="next" value="/">
+    <input type="hidden" name="kind" value="family">
+    <button type="submit" class="btn-big">Come in</button>
+    <p class="login-error" data-e="pw" hidden>That password did not work. Try again?</p>
+    <p class="login-error" data-e="wait" hidden>Too many tries. Please wait 15 minutes and try again.</p>
+    <p class="login-error" data-e="link" hidden>This link has ended or was turned off. Ask for a new one.</p>
+  </form>
+</section>`,
+});
+
+// ---------- parent page: parent PIN, Google Drive, rebuild ----------
+pages['parent/index.html'] = page({
+  key: 'parent', title: 'For parents', csp: CSP_SELF, scripts: ['parent.js'],
+  body: `<div class="page-head"><h1>For parents</h1></div>
+<section class="parent-pin wobbly" id="pin-box">
+  <p>Type the parent PIN.</p>
+  <div class="pin-row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="Parent PIN"><button type="button" class="btn-big" id="pin-go">Open</button></div>
+  <p class="login-error" id="pin-msg" hidden></p>
+</section>
+<div id="parent-tools" hidden>
+  <section class="parent-card wobbly">
+    <h2>Google Drive</h2>
+    <p id="g-status">Checking…</p>
+    <p><a class="btn-big" id="g-connect" href="/api/google/start">Connect Google Drive</a></p>
+  </section>
+  <section class="parent-card wobbly" id="share-card">
+    <h2>Share with a friend</h2>
+    <p>Pick the pages and how long the link works. Your friend also needs the friends password, which you send in a second text.</p>
+    <fieldset class="ticks"><legend>Pages</legend>
+      ${TABS.map((n) => `<label class="tick"><input type="checkbox" name="pages" value="${n.key}"> ${esc(n.label)}</label>`).join('\n      ')}
+      <label class="tick"><input type="checkbox" id="pages-all"> All of them</label>
+    </fieldset>
+    <fieldset class="ticks"><legend>Works for</legend>
+      <label class="tick"><input type="radio" name="expiry" value="week"> A week</label>
+      <label class="tick"><input type="radio" name="expiry" value="month" checked> A month</label>
+      <label class="tick"><input type="radio" name="expiry" value="year"> A year</label>
+      <label class="tick"><input type="radio" name="expiry" value="never"> No end date</label>
+    </fieldset>
+    <p><button type="button" class="btn-big" id="link-make">Make a link</button></p>
+    <p class="login-error" id="link-msg" hidden></p>
+    <div class="link-made" id="link-made" hidden>
+      <p class="link-url" id="link-url"></p>
+      <div class="send-row"><button type="button" class="btn-big" id="send-link">Send link</button><button type="button" class="btn-big" id="send-pw">Send password</button></div>
+      <p class="share-help" id="send-note"></p>
+    </div>
+    <h3>Links you made</h3>
+    <ul class="link-list" id="link-list"><li class="muted">None yet.</li></ul>
+  </section>
+  <section class="parent-card wobbly">
+    <h2>Passwords and PIN</h2>
+    <p>Changing one logs out every other phone and computer that uses it. This one stays in.</p>
+    <div class="pw-row"><label>Family password <input type="text" id="pw-family" autocomplete="off" spellcheck="false"></label><button type="button" class="chip" data-change="family">Change</button></div>
+    <div class="pw-row"><label>Friends password <input type="text" id="pw-friends" autocomplete="off" spellcheck="false"></label><button type="button" class="chip" data-change="friends">Change</button></div>
+    <div class="pw-row"><label>Parent PIN (4 to 8 numbers) <input type="text" id="pw-pin" inputmode="numeric" autocomplete="off"></label><button type="button" class="chip" data-change="pin">Change</button></div>
+    <p class="share-help" id="pw-msg" role="status"></p>
+  </section>
+  <section class="parent-card wobbly">
+    <h2>Rebuild the galleries from Drive</h2>
+    <p>Only needed if something on the site was lost. Drive is never changed.</p>
+    <p><button type="button" class="btn-big" id="rebuild">Rebuild now</button></p>
+    <p id="rebuild-status"></p>
+  </section>
+  <section class="parent-card wobbly">
+    <h2>This device</h2>
+    <p><button type="button" class="linkish" id="logout">Log out of the site on this device</button></p>
+  </section>
+</div>`,
+});
+
 // ---------- upload app (for Jesse's phone; not in the tabs) ----------
 const uploadCfg = {
-  clientId: site.googleClientId || '',
   folderName: site.uploadFolderName,
-  kids: Object.fromEntries(KIDS.map((k) => [k.key, { name: k.name, color: k.color, grades: k.grades || {} }])),
+  kids: Object.fromEntries(KIDS.map((k) => [k.key, { name: k.name, color: k.color }])),
 };
 const upJs = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'upload/app.js'))).digest('hex').slice(0, 8);
 pages['upload/index.html'] = `<!doctype html>
@@ -501,10 +550,9 @@ pages['upload/index.html'] = `<!doctype html>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
     <div class="up-kids">
       ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-kid="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
+      <button type="button" class="big-button wobbly c-yellow both-button" data-kid="both"><span class="big-label">Both, made together</span></button>
     </div>
-    <p class="acct" id="acct"></p>
-    <p class="acct-row"><button type="button" class="chip" id="signin" hidden>Sign in to Google</button>
-      <button type="button" class="linkish" id="signout" hidden>Sign out</button></p>
+    <p class="up-more"><button type="button" class="chip" id="recent">Recent uploads</button> <a class="linkish" href="/parent/">For parents</a></p>
     <nav class="up-look" aria-label="Look at the site"><p class="up-look-h">Look at the site</p>
       <ul>${TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('')}</ul>
     </nav>
@@ -512,7 +560,7 @@ pages['upload/index.html'] = `<!doctype html>
 
   <section class="screen" id="s-photos" hidden>
     <p><button type="button" class="linkish" id="back">← Back</button></p>
-    <h1 class="up-h2"><span id="who"></span>'s art</h1>
+    <h1 class="up-h2" id="who"></h1>
     <div class="up-add">
       <label class="big-pick wobbly"><input type="file" id="take" accept="image/*" capture="environment"><span>📷 Take a photo</span></label>
       <label class="big-pick wobbly"><input type="file" id="pick" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
@@ -521,12 +569,10 @@ pages['upload/index.html'] = `<!doctype html>
     <p class="count" id="count"></p>
     <ul class="up-list" id="list"></ul>
     <div class="up-actions">
-      <button type="button" class="save wobbly" id="save" disabled>Save to Google Drive</button>
-      <button type="button" class="linkish" id="share" disabled>Share to the Drive app instead</button>
+      <button type="button" class="save wobbly" id="save" disabled>Save</button>
+      <button type="button" class="linkish" id="share" disabled>If Save will not work: share to the Drive app</button>
     </div>
-    <p class="share-help" id="share-help" hidden>Your phone's share list opens. Pick <strong>Drive</strong>, choose the <strong>${esc(site.uploadFolderName)}</strong> folder, and tap <strong>Save</strong>.</p>
     <p class="status" id="status" role="status" aria-live="polite"></p>
-    <p><button type="button" class="chip" id="signin2" hidden>Sign in to Google</button></p>
   </section>
 
   <section class="screen" id="s-edit" hidden>
@@ -538,14 +584,29 @@ pages['upload/index.html'] = `<!doctype html>
     <div class="ed-tools">
       <button type="button" class="chip" id="ed-turn">↻ Turn</button>
       <button type="button" class="chip" id="ed-crop">✂ Crop</button>
-      <button type="button" class="chip glow-chip" id="ed-glow" aria-pressed="false">✨ Glow</button>
       <button type="button" class="linkish" id="ed-reset">Start over</button>
+    </div>
+    <div class="ed-tools ed-looks" role="group" aria-label="Look">
+      <button type="button" class="chip" data-look="auto" aria-pressed="false">Auto</button>
+      <button type="button" class="chip" data-look="paper" aria-pressed="false">Paper white</button>
+      <button type="button" class="chip" data-look="vivid" aria-pressed="false">Vivid</button>
+      <button type="button" class="chip glow-chip" data-look="glow" aria-pressed="false">✨ Glow</button>
     </div>
     <div class="up-actions">
       <button type="button" class="save wobbly" id="ed-done">Done</button>
       <button type="button" class="linkish" id="ed-cancel">Cancel</button>
     </div>
     <p class="share-help">The untouched original is always saved too.</p>
+  </section>
+
+  <section class="screen" id="s-recent" hidden>
+    <p><button type="button" class="linkish" id="recent-back">← Back</button></p>
+    <h1 class="up-h2">Recent uploads</h1>
+    <p class="share-help">Change a caption or date, star one to show it big, or put one away.</p>
+    <ul class="up-list" id="recent-list"></ul>
+    <h2 class="up-h3" id="deleted-h" hidden>Recently put away</h2>
+    <p class="share-help" id="deleted-help">Kept for 30 days, then cleared from the site. The originals in Google Drive are never touched.</p>
+    <ul class="up-list" id="deleted-list"></ul>
   </section>
 </main>
 </body>
@@ -579,6 +640,7 @@ for (const [rel, html] of Object.entries(pages)) {
 fs.cpSync(path.join(SRC, 'assets'), path.join(DIST, 'assets'), { recursive: true, filter: (p) => !p.endsWith('.gitkeep') });
 fs.copyFileSync(path.join(SRC, 'styles.css'), path.join(DIST, 'styles.css'));
 fs.copyFileSync(path.join(SRC, 'main.js'), path.join(DIST, 'main.js'));
+fs.copyFileSync(path.join(SRC, 'parent.js'), path.join(DIST, 'parent.js'));
 fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'));
 fs.writeFileSync(path.join(DIST, 'upload/sw.js'), swCode);
 fs.writeFileSync(path.join(DIST, 'upload/manifest.webmanifest'), JSON.stringify(manifest, null, 2));
