@@ -8,8 +8,8 @@ android {
     applicationId 'com.twosistersstudio.app'
     minSdk 24
     targetSdk 34
-    versionCode 1
-    versionName '1.0'
+    versionCode 2
+    versionName '1.1'
   }
   // A family app installed by hand, so it is signed with a key kept here (not a store key). The same key
   // must sign every version, or a new version will not install over the old one.

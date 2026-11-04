@@ -31,7 +31,8 @@ import java.util.List;
 public class MainActivity extends Activity {
   static final String HOST = "twosistersstudio.com";
   static final String START = "https://" + HOST + "/upload/";
-  static final int PICK = 1, ASK_CAMERA = 2;
+  static final int PICK = 1, ASK_CAMERA = 2, ASK_CAMERA_FOR_PHOTO = 3;
+  boolean pendingCapture;
 
   WebView web;
   ValueCallback<Uri[]> waiting;      // the page's "Take a photo" / "Choose photos", waiting for pictures
@@ -68,7 +69,13 @@ public class MainActivity extends Activity {
         pick.addCategory(Intent.CATEGORY_OPENABLE);
         pick.setType("image/*");
         pick.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, p.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE);
-        Intent camera = cameraIntent();
+        // The tablet's camera app only opens for us once the camera is allowed (this app asks for it).
+        Intent camera = hasCamera() ? cameraIntent() : null;
+        if (p.isCaptureEnabled() && !hasCamera()) {
+          pendingCapture = true;
+          requestPermissions(new String[] { Manifest.permission.CAMERA }, ASK_CAMERA_FOR_PHOTO);
+          return true;
+        }
         Intent go;
         if (p.isCaptureEnabled() && camera != null) go = camera;            // "Take a photo": straight to the camera
         else {
@@ -76,7 +83,10 @@ public class MainActivity extends Activity {
           if (camera != null) go.putExtra(Intent.EXTRA_INITIAL_INTENTS, new Intent[] { camera });
         }
         try { startActivityForResult(go, PICK); }
-        catch (Exception e) { waiting = null; return false; }
+        catch (Exception e) {
+          try { startActivityForResult(Intent.createChooser(pick, "Pick a picture"), PICK); }
+          catch (Exception e2) { waiting = null; return false; }
+        }
         return true;
       }
       @Override public void onPermissionRequest(PermissionRequest r) {
@@ -90,9 +100,10 @@ public class MainActivity extends Activity {
     if (saved != null) web.restoreState(saved); else web.loadUrl(START);
   }
 
+  boolean hasCamera() { return checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED; }
+
   Intent cameraIntent() {
     Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
-    if (i.resolveActivity(getPackageManager()) == null) return null;
     try {
       File dir = new File(getCacheDir(), "photos");
       dir.mkdirs();
@@ -122,6 +133,20 @@ public class MainActivity extends Activity {
   }
 
   @Override public void onRequestPermissionsResult(int code, String[] perms, int[] res) {
+    boolean ok = res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED;
+    if (code == ASK_CAMERA_FOR_PHOTO && pendingCapture) {
+      pendingCapture = false;
+      Intent camera = ok ? cameraIntent() : null;
+      if (camera == null) {   // no camera: offer the photo picker instead
+        Intent pick = new Intent(Intent.ACTION_GET_CONTENT);
+        pick.addCategory(Intent.CATEGORY_OPENABLE);
+        pick.setType("image/*");
+        camera = Intent.createChooser(pick, "Pick a picture");
+      }
+      try { startActivityForResult(camera, PICK); }
+      catch (Exception e) { if (waiting != null) { waiting.onReceiveValue(null); waiting = null; } }
+      return;
+    }
     if (code != ASK_CAMERA || liveCamera == null) return;
     if (res.length > 0 && res[0] == PackageManager.PERMISSION_GRANTED) liveCamera.grant(liveCamera.getResources());
     else liveCamera.deny();
