@@ -118,6 +118,7 @@ function page({ key, title, body, section, bodyClass, csp = CSP_STRICT, tabs = t
 <meta name="twitter:title" content="${esc(site.siteName)}">
 <meta name="theme-color" content="#fdf8ef">
 <link rel="icon" href="${asset('brand/favicon.svg')}" type="image/svg+xml">
+<link rel="icon" href="${asset('brand/app-192.png')}" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="${asset('brand/apple-touch-icon.png')}">
 <link rel="preload" href="${asset('fonts/kalam-latin-700-normal.woff2')}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${asset('fonts/nunito-latin-600-normal.woff2')}" as="font" type="font/woff2" crossorigin>
@@ -537,6 +538,7 @@ pages['upload/index.html'] = `<!doctype html>
 <meta name="theme-color" content="#fdf8ef">
 <link rel="manifest" href="/upload/manifest.webmanifest" crossorigin="use-credentials">
 <link rel="icon" href="${asset('brand/favicon.svg')}" type="image/svg+xml">
+<link rel="icon" href="${asset('brand/app-192.png')}" type="image/png" sizes="192x192">
 <link rel="apple-touch-icon" href="${asset('brand/app-192.png')}">
 <link rel="stylesheet" href="/styles.css?v=${cssHash()}">
 <script type="application/json" id="cfg">${JSON.stringify(uploadCfg).replace(/</g, '\\u003c')}</script>
@@ -660,4 +662,6 @@ fs.writeFileSync(path.join(DIST, 'upload/manifest.webmanifest'), JSON.stringify(
 if (fs.existsSync(path.join(SRC, 'moments-print'))) fs.cpSync(path.join(SRC, 'moments-print'), path.join(DIST, 'moments'), { recursive: true });
 for (const [rel, files] of Object.entries(momentZips)) { fs.mkdirSync(path.join(DIST, path.dirname(rel)), { recursive: true }); fs.writeFileSync(path.join(DIST, rel), zipStore(files)); }
 fs.writeFileSync(path.join(DIST, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
+// The plain icon some devices ask for first (Amazon Kids tiles, older browsers). Open without a login.
+fs.copyFileSync(path.join(SRC, 'assets/brand/favicon.ico'), path.join(DIST, 'favicon.ico'));
 console.log(`Built ${Object.keys(pages).length} pages, ${episodes.length} episode(s) -> dist/`);

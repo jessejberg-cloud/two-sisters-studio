@@ -44,5 +44,5 @@ export default async (req, context) => {
 
 export const config = {
   path: '/*',
-  excludedPath: ['/assets/fonts/*', '/assets/brand/*', '/styles.css', '/login/', '/robots.txt'],
+  excludedPath: ['/assets/fonts/*', '/assets/brand/*', '/styles.css', '/login/', '/robots.txt', '/favicon.ico'],
 };
