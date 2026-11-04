@@ -61,7 +61,7 @@
   });
   function clearPieces() {
     state.pieces.forEach(function (p) { p.photos.forEach(function (ph) { URL.revokeObjectURL(ph.url); }); });
-    state.pieces = []; $('#date').value = '';
+    state.pieces = []; $('#date').value = today();
   }
 
   // ---------- adding photos ----------
@@ -135,6 +135,21 @@
         b.addEventListener('click', function () { openEditor(ph); });
         pics.append(b);
       });
+      // Quick looks, one tap each, right under the photos (Turn and Crop are in Fix up).
+      var quick = el('div', 'quick');
+      p.photos.forEach(function (ph, j) {
+        var row = el('div', 'quick-row');
+        if (p.photos.length > 1) row.append(el('span', 'quick-n', 'Photo ' + (j + 1)));
+        [['', 'Original'], ['auto', 'Auto'], ['paper', 'Paper white'], ['vivid', 'Vivid'], ['glow', '✨ Glow']].forEach(function (o) {
+          var c = el('button', 'chip chip-sm', o[1]); c.type = 'button';
+          c.setAttribute('aria-pressed', String((ph.edit.look || '') === o[0]));
+          c.addEventListener('click', function () { quickLook(ph, o[0], c); });
+          row.append(c);
+        });
+        var fix = el('button', 'linkish', 'Turn or crop'); fix.type = 'button';
+        fix.addEventListener('click', function () { openEditor(ph); });
+        row.append(fix); quick.append(row);
+      });
       var more = el('label', 'more-photo');
       var inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment');
       inp.addEventListener('change', function () { addFiles(inp.files, p); inp.value = ''; });
@@ -151,11 +166,27 @@
       var box = el('div', 'item-text'); box.append(cap, row);
       p.dupes.map(function (d) { return d.text; }).filter(function (t, k, a) { return a.indexOf(t) === k; })
         .forEach(function (t) { box.append(el('p', 'dupe', '⚠ ' + t + ' Save anyway, or tap Take out.')); });
-      li.append(pics, more, box); ul.append(li);
+      li.append(pics, more, box, quick); ul.append(li);
     });
     var n = state.pieces.length;
     $('#count').textContent = n ? n + ' piece' + (n > 1 ? 's' : '') + '. Tap a photo to fix it up.' : 'No pictures yet';
     $('#save').disabled = !n; $('#share').disabled = !n;
+  }
+
+  async function quickLook(ph, look, btn) {
+    if (btn) btn.textContent = '…';
+    var e = { rot: ph.edit.rot, crop: ph.edit.crop, look: look };
+    try {
+      if (!e.rot && !e.crop && !look) { ph.edit = e; ph.edited = null; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(ph.file); renderList(); return; }
+      var bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' });
+      var R = rotatedSize(bmp, e.rot), c = e.crop || { w: 1, h: 1 };
+      var big = document.createElement('canvas');
+      paint(big.getContext('2d', { willReadFrequently: true }), bmp, e.rot, e.crop, look, Math.min(1, 4000 / Math.max(R.w * c.w, R.h * c.h)));
+      bmp.close && bmp.close();
+      var b = await new Promise(function (ok) { big.toBlob(ok, 'image/jpeg', 0.92); });
+      ph.edit = e; ph.edited = b; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(b);
+    } catch (err) { status('This photo can’t be changed here, but it can still be saved.', true); }
+    renderList();
   }
 
   // ---------- editor: turn, crop, and one look (Auto, Paper white, Vivid, Glow) ----------
