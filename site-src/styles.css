@@ -516,10 +516,12 @@ button.btn-download { font: inherit; font-weight: 800; cursor: pointer; backgrou
 
 /* A girl's own tablet (her tablet password): one big Choose photos, nothing she cannot use (Jesse, 2026-11-04).
    Amazon Kids blocks the camera inside web pages, so she takes the picture with the tablet's Camera app first. */
-body.kid-mode #back, body.kid-mode .pick-take, body.kid-mode #cam-open, body.kid-mode .up-date,
+body.kid-mode #back, body.kid-mode:not(.in-app) .pick-take, body.kid-mode:not(.in-app) #cam-open, body.kid-mode .up-date,
 body.kid-mode #share, body.kid-mode .star { display: none !important; }
-body.kid-mode .up-add { grid-template-columns: 1fr; }
-body.kid-mode .pick-choose { min-height: 140px; font-size: 1.6rem; }
+body.kid-mode:not(.in-app) .up-add { grid-template-columns: 1fr; }
+body.kid-mode:not(.in-app) .pick-choose { min-height: 140px; font-size: 1.6rem; }
+/* In the tablet app the camera works: Take a photo comes first and big. */
+body.kid-mode.in-app .pick-take { grid-column: 1 / -1; min-height: 140px; font-size: 1.6rem; }
 .up-where { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 18px 0 6px; }
 .up-where p { margin: 0; font-weight: 700; width: 100%; }
 .up-where .chip[aria-pressed="true"] { background: var(--c, var(--yellow)); }

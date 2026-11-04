@@ -52,11 +52,14 @@
   function setKid(k) {
     state.kid = k;
     $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (kidMode() ? '’s photos' : '’s art');
-    document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '');
+    document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '') + (IN_APP ? ' in-app' : '');
     if (!$('#date').value) $('#date').value = today();
     status(''); renderList(); show('s-photos');
   }
   // ---------- a girl's own tablet (her tablet password): one big Choose photos, her name already picked ----------
+  // Inside the girls' tablet app (Amazon Kids' browser blocks the camera and photo picker; the app does not).
+  var IN_APP = / TwoSistersApp\//.test(navigator.userAgent);
+  if (IN_APP) document.body.classList.add('in-app');
   function kidMode() { return !!(state.me && state.me.role === 'kid'); }
   function setWhere(w) {
     state.section = w;

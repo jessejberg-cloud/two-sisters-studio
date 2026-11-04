@@ -502,7 +502,10 @@ pages['parent/index.html'] = page({
       <label class="tick"><input type="checkbox" data-moments="${k.key}"> Can see Family Moments and add photos to it</label>
     </div>`).join('\n    ')}
     <p class="share-help" id="tablet-msg" role="status"></p>
-    <p class="share-help">On her tablet: open the site, type her tablet password, and it stays logged in. Amazon Kids blocks the camera inside web pages, so she takes a picture with the tablet's Camera app, then taps Choose photos.</p>
+    ${fs.existsSync(path.join(SRC, 'assets/app/two-sisters-studio.apk')) ? `<h3>The tablet app</h3>
+    <p>Amazon Kids' own browser cannot take or pick photos, so the girls use this small app. Open this page on the tablet in your own profile and download it.</p>
+    <p><a class="btn-big" href="/assets/app/two-sisters-studio.apk" download="two-sisters-studio.apk">⬇ Download the tablet app</a></p>` : ''}
+    <p class="share-help">On her tablet: open the app (or the site), type her tablet password, and it stays logged in.</p>
   </section>
   <section class="parent-card wobbly">
     <h2>Google Drive</h2>

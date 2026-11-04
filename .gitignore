@@ -4,3 +4,6 @@ incoming/
 .DS_Store
 .env
 .netlify/
+tablet-app/.gradle/
+tablet-app/build/
+tablet-app/app/build/

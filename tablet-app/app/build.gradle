@@ -1,0 +1,22 @@
+// The girls' tablet app: the site's Add art page in a frame that is allowed to use the camera and pick photos
+// (Amazon Kids' own browser blocks both). Plain Android plus one small AndroidX piece (for handing photos to the camera).
+plugins { id 'com.android.application' }
+android {
+  namespace 'com.twosistersstudio.app'
+  compileSdk 34
+  defaultConfig {
+    applicationId 'com.twosistersstudio.app'
+    minSdk 24
+    targetSdk 34
+    versionCode 1
+    versionName '1.0'
+  }
+  // A family app installed by hand, so it is signed with a key kept here (not a store key). The same key
+  // must sign every version, or a new version will not install over the old one.
+  signingConfigs {
+    family { storeFile file('../family.keystore'); storePassword 'twosisters'; keyAlias 'family'; keyPassword 'twosisters' }
+  }
+  buildTypes { release { minifyEnabled false; signingConfig signingConfigs.family } }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies { implementation 'androidx.core:core:1.13.1' }
