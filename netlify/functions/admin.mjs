@@ -7,7 +7,7 @@ export default async (req, context) => {
   const url = new URL(req.url);
   if (url.pathname === '/api/whoami') {
     const me = await who(req, context);
-    return Response.json({ role: me?.role || null, pages: me?.pages || null, parent: me?.role === 'family' && (await isParent(req, context)) },
+    return Response.json({ role: me?.role || null, pages: me?.pages || null, kid: me?.kid || null, moments: !!me?.moments, parent: me?.role === 'family' && (await isParent(req, context)) },
       { headers: { 'cache-control': 'no-store' } });
   }
   if (!(await isParent(req, context))) return Response.json({ error: 'pin' }, { headers: { 'cache-control': 'no-store' } });

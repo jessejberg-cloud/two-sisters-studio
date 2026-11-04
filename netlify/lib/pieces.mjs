@@ -40,7 +40,13 @@ export const slug = (s, n = 5) => (String(s || '').toLowerCase().replace(/[^a-z0
 export function baseId(kid, iso, caption) {
   return `${iso}_${kid}_${seasonOf(iso)}_${slug(caption, 4) === 'untitled' ? 'art' : slug(caption, 4)}`;
 }
-export const folderParts = (p) => [p.kid === 'both' ? 'Both' : KIDS[p.kid], p.schoolYear, SEASON_LABEL[p.season]];
+// Sections: art (the galleries), photos (a girl's own "My photos", from her tablet), moments (Family Moments,
+// photos the girls add when a parent allows it).
+export const SECTIONS = ['art', 'photos', 'moments'];
+export const sectionOf = (p) => (SECTIONS.includes(p.section) ? p.section : 'art');
+export const folderParts = (p) => sectionOf(p) === 'photos' ? [KIDS[p.kid], 'My photos', p.schoolYear]
+  : sectionOf(p) === 'moments' ? ['Family Moments', 'From ' + (KIDS[p.kid] || 'the girls'), p.schoolYear]
+  : [p.kid === 'both' ? 'Both' : KIDS[p.kid], p.schoolYear, SEASON_LABEL[p.season]];
 // Image keys in Blobs (no extension: the type is kept with each image). Drive names add .webp or .jpg.
 export const webName = (id, n, small) => `${id}-${n}${small ? '-sm' : ''}`;
 export const extOf = (type) => (type === 'image/webp' ? 'webp' : type === 'image/png' ? 'png' : 'jpg');
@@ -50,6 +56,7 @@ export function details(p) {
   return {
     version: 1, id: p.id, kid: p.kid, date: p.date, schoolYear: p.schoolYear, season: p.season, grade: p.grade,
     caption: p.caption || '', starred: !!p.starred, deleted: p.deleted || null, created: p.created, updated: p.updated,
+    section: sectionOf(p), waiting: !!p.waiting, by: p.by || null,
     photos: (p.photos || []).map((ph) => ({ n: ph.n, w: ph.w, h: ph.h, fp: ph.fp || '', edits: ph.edits || [],
       original: ph.original || null, edited: ph.edited || null, web: ph.web || null, thumb: ph.thumb || null, webType: ph.webType || 'image/webp' })),
     detailsFile: p.detailsFile || null,
@@ -67,7 +74,7 @@ export function check(p) {
 // Short form for the gallery index.
 export const short = (p) => ({ id: p.id, kid: p.kid, date: p.date, schoolYear: p.schoolYear, season: p.season, grade: p.grade,
   caption: p.caption || '', starred: !!p.starred, deleted: p.deleted || null, updated: p.updated,
-  purged: !!p.purged, created: p.created, photos: p.photos.map((ph) => ({ n: ph.n, w: ph.w, h: ph.h, fp: ph.fp || '' })) });
+  purged: !!p.purged, created: p.created, section: sectionOf(p), waiting: !!p.waiting, by: p.by || null, photos: p.photos.map((ph) => ({ n: ph.n, w: ph.w, h: ph.h, fp: ph.fp || '' })) });
 
 export async function getPiece(context, id) { return store('pieces', context).get('p/' + id, { type: 'json' }); }
 

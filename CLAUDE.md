@@ -67,6 +67,14 @@ Plan doc: https://claude.ai/artifact/EJYt34fYXdVsGch9mMePqB. These replace anyth
 - **Phases:** 4 Drive archive + login; 5 upload app + Drive + instant publishing; 6 share links, friends password,
   parent PIN, plain-language note (passwords/PIN, share links, which Google account, Drive space).
 
+## The girls' tablets (Jesse, 2026-11-04)
+- Amazon Fire tablets in Amazon Kids profiles. Each girl has a tablet password (auth level kid-<key>, set on the parent page);
+  login role `kid` sees her pages + Add art, never /parent/; Family Moments only when a parent ticks the switch (auth config kidPerms).
+- Kid uploads: section `photos` ("<name>'s photos" on her page) or `moments` (Family Moments, if allowed), `waiting: true`
+  until a parent taps OK (/api/pieces/waiting, /<id>/ok). Art uploads from the family login are section `art`.
+- Amazon Kids blocks getUserMedia and capture inputs: the girls take pictures with the Camera app, then Choose photos.
+- Home page stays at 2 to 4 big buttons (4 is almost too much). Tests: tests/kids.test.mjs.
+
 ## Personal information (Jesse, 2026-11-03; replaces the older privacy rules)
 - Personal information is allowed: last names, school, places, ages, birthdays, family photos. The whole site is
   behind the family password, and Jesse monitors what goes on it himself. Claude does not screen art, photos,

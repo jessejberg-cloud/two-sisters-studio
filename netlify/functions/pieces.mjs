@@ -7,10 +7,15 @@
 //   POST   /api/pieces/<id>/finish            family: write the details file to Drive and show it in the gallery
 //   POST   /api/pieces/<id>/edit              family: { caption?, date?, starred? }
 //   POST   /api/pieces/<id>/delete | restore  family: put away (30 days) or bring back. Drive originals are never deleted.
-import { who } from '../lib/auth.mjs';
+//   GET    /api/pieces?kid=leora&section=photos   a girl's "My photos";  ?section=moments  photos the girls added to Family Moments
+//   GET    /api/pieces/waiting                parent: photos from the girls' tablets waiting for an OK
+//   POST   /api/pieces/<id>/ok                parent: show it on the site
+// A girl's tablet login (role kid) may read like a friend and save new photos (start, photo, finish) as herself only;
+// they go to her "My photos" (or Family Moments, if a parent allowed it) and wait for a parent's OK.
+import { who, isParent } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
 import { folder, putSmall, uploadAddress } from '../lib/drive.mjs';
-import { KID_KEYS, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, extOf, details, getPiece, savePiece, readIndex, check, short } from '../lib/pieces.mjs';
+import { KID_KEYS, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, extOf, details, getPiece, savePiece, readIndex, check, short, sectionOf } from '../lib/pieces.mjs';
 
 const json = (o, status = 200) => Response.json(o, { status, headers: { 'cache-control': 'no-store' } });
 const now = () => new Date().toISOString();
@@ -48,13 +53,28 @@ async function handle(req, context) {
 
   // ----- reading -----
   if (req.method === 'GET' && parts.length === 0) {
+    const section = url.searchParams.get('section') || 'art';
     const kid = url.searchParams.get('kid');
-    if (!KID_KEYS.includes(kid) || kid === 'both') return json({ error: 'kid' }, 400);
-    if (!family && !me.pages.includes(kid)) return json({ error: 'page' }, 401);
-    const list = (await readIndex(context)).filter((p) => !p.deleted && (p.kid === kid || p.kid === 'both'));
+    let list;
+    if (section === 'moments') {
+      if (!family && !me.pages.includes('family-moments')) return json({ error: 'page' }, 401);
+      list = (await readIndex(context)).filter((p) => !p.deleted && !p.waiting && sectionOf(p) === 'moments');
+    } else {
+      if (!KID_KEYS.includes(kid) || kid === 'both' || !['art', 'photos'].includes(section)) return json({ error: 'kid' }, 400);
+      if (!family && !me.pages.includes(kid)) return json({ error: 'page' }, 401);
+      list = (await readIndex(context)).filter((p) => !p.deleted && !p.waiting && sectionOf(p) === section
+        && (p.kid === kid || (section === 'art' && p.kid === 'both')));
+    }
     return json({ pieces: list.map(({ photos, ...p }) => ({ ...p, photos: photos.map(({ fp, ...ph }) => ph) })) });
   }
-  if (!family) return json({ error: 'family' }, 401);
+  const kidSaving = me.role === 'kid' && req.method === 'POST' && (parts[0] === 'start' || ['photo', 'finish'].includes(parts[1]));
+  if (!family && !kidSaving) return json({ error: 'family' }, 401);
+
+  if (req.method === 'GET' && parts[0] === 'waiting') {
+    if (!(await isParent(req, context))) return json({ error: 'pin' }, 401);
+    const idx = await readIndex(context);
+    return json({ waiting: idx.filter((p) => p.waiting && !p.deleted).sort((a, b) => (b.created || '').localeCompare(a.created || '')) });
+  }
 
   if (req.method === 'GET' && parts[0] === 'recent') {
     const idx = await readIndex(context);
@@ -91,14 +111,20 @@ async function handle(req, context) {
         }
       }
     }
-    const p = { kid: b.kid, date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
+    // A girl's tablet saves as her, into her photos (or Family Moments if allowed), waiting for a parent's OK.
+    const kidMe = me.role === 'kid';
+    const section = kidMe ? (b.section === 'moments' && me.moments ? 'moments' : 'photos')
+      : (['art', 'photos', 'moments'].includes(b.section) ? b.section : 'art');
+    const p = { kid: kidMe ? me.kid : b.kid, date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
+    if (section !== 'art' && p.kid === 'both') return json({ error: 'bad', fields: ['kid'] }, 400);
     const bad = check(p);
     if (bad.length) return json({ error: 'bad', fields: bad }, 400);
-    let id = baseId(p.kid, p.date, b.caption), n = 1;
+    let id = baseId(p.kid, p.date, b.caption) + (section === 'art' ? '' : '_' + section), n = 1;
     while ((await getPiece(context, id + (n > 1 ? '-' + n : ''))) || (await pend.get('p/' + id + (n > 1 ? '-' + n : '')))) n++;
     if (n > 1) id += '-' + n;
     const piece = { id, kid: p.kid, date: p.date, season: seasonOf(p.date), schoolYear: schoolYearOf(p.date), caption: String(b.caption || '').slice(0, 200),
-      starred: !!b.starred, created: now(), updated: now(), deleted: null, photos: p.photos.map((ph) => ({ n: ph.n })) };
+      starred: !!b.starred, created: now(), updated: now(), deleted: null, photos: p.photos.map((ph) => ({ n: ph.n })),
+      section, waiting: kidMe, by: kidMe ? me.kid : null };
     piece.grade = p.kid === 'both' ? '' : gradeFor(p.kid, p.date);
     const parent = await folder(context, folderParts(piece));
     const origin = url.origin, uploads = [];
@@ -124,6 +150,7 @@ async function handle(req, context) {
   if (parts[1] === 'photo') {
     const rec = await pend.get('p/' + id, { type: 'json' });
     if (!rec) return json({ error: 'unknown' }, 404);
+    if (me.role === 'kid' && rec.piece.by !== me.kid) return json({ error: 'family' }, 401);
     const n = +parts[2];
     const ph = rec.piece.photos.find((x) => x.n === n);
     if (!ph) return json({ error: 'photo' }, 400);
@@ -152,6 +179,7 @@ async function handle(req, context) {
       return done ? json({ ok: true, piece: short(done) }) : json({ error: 'unknown' }, 404);
     }
     const p = rec.piece;
+    if (me.role === 'kid' && p.by !== me.kid) return json({ error: 'family' }, 401);
     if (p.photos.some((ph) => !ph.web)) return json({ error: 'photos-missing' }, 400);
     await writeDetails(context, p);
     await savePiece(context, p);
@@ -170,6 +198,9 @@ async function handle(req, context) {
       p.date = b.date; p.season = seasonOf(b.date); p.schoolYear = schoolYearOf(b.date);
       p.grade = p.kid === 'both' ? '' : gradeFor(p.kid, b.date);
     }
+  } else if (parts[1] === 'ok') {
+    if (!(await isParent(req, context))) return json({ error: 'pin' }, 401);
+    p.waiting = false;
   } else if (parts[1] === 'delete') p.deleted = now();
   else if (parts[1] === 'restore') { if (p.purged) return json({ error: 'gone' }, 400); p.deleted = null; }
   else return json({ error: 'action' }, 404);

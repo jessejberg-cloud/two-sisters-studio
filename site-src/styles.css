@@ -513,3 +513,40 @@ button.btn-download { font: inherit; font-weight: 800; cursor: pointer; backgrou
   .tabs .tab-label { font-size: .98rem; }
 }
 @media (max-width: 380px) { .tabs .tab-label { font-size: .9rem; } }
+
+/* A girl's own tablet (her tablet password): one big Choose photos, nothing she cannot use (Jesse, 2026-11-04).
+   Amazon Kids blocks the camera inside web pages, so she takes the picture with the tablet's Camera app first. */
+body.kid-mode #back, body.kid-mode .pick-take, body.kid-mode #cam-open, body.kid-mode .up-date,
+body.kid-mode #share, body.kid-mode .star { display: none !important; }
+body.kid-mode .up-add { grid-template-columns: 1fr; }
+body.kid-mode .pick-choose { min-height: 140px; font-size: 1.6rem; }
+.up-where { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 18px 0 6px; }
+.up-where p { margin: 0; font-weight: 700; width: 100%; }
+.up-where .chip[aria-pressed="true"] { background: var(--c, var(--yellow)); }
+.kid-look { display: none; }
+body.kid-mode .kid-look { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 24px; }
+.is-kid .foot-parent { display: none; }
+
+/* Photos from the girls' tablets */
+.live-photos { margin: 40px 0 24px; }
+.live-h { margin-bottom: 0; }
+.live-note { margin-top: 4px; color: var(--muted, #555); }
+.photo-grid { list-style: none; padding: 0; margin: 14px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+.photo-tile { display: block; width: 100%; aspect-ratio: 1; padding: 0; border: 0; border-radius: 12px; overflow: hidden; background: #fff; cursor: pointer; }
+.photo-tile img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.photo-tile:focus-visible { outline: 3px dashed var(--plum); outline-offset: 3px; }
+.photo-box { border: 0; padding: 0; background: transparent; max-width: 96vw; max-height: 96vh; }
+.photo-box::backdrop { background: rgba(20, 16, 28, .86); }
+.pb-fig { margin: 0; text-align: center; }
+.pb-img { max-width: 92vw; max-height: 80vh; object-fit: contain; border-radius: 10px; background: #fff; }
+.pb-cap { color: #fff; margin-top: 10px; font-size: 1.05rem; }
+.pb-close, .pb-prev, .pb-next { position: fixed; min-width: 56px; min-height: 56px; border-radius: 50%; border: 0; background: #fff; font-size: 1.6rem; cursor: pointer; }
+.pb-close { top: 12px; right: 12px; }
+.pb-prev { left: 12px; top: 50%; transform: translateY(-50%); }
+.pb-next { right: 12px; top: 50%; transform: translateY(-50%); }
+.wait-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 14px; }
+.wait-item { display: grid; grid-template-columns: 120px 1fr; gap: 6px 14px; align-items: start; }
+.wait-item img { grid-row: span 2; width: 120px; height: 120px; object-fit: contain; background: #fff; border-radius: 10px; }
+.wait-item p { margin: 0; }
+.tablet-row { border-top: 2px dashed var(--line, #ddd); padding-top: 10px; margin-top: 14px; }
+.tablet-row h3 { margin: 0 0 4px; }

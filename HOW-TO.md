@@ -36,6 +36,19 @@ Google Drive are never touched.
 **If Save will not work:** tap **If Save will not work: share to the Drive app**, pick Drive and the
 **Two Sisters Studio** folder, and tell Claude.
 
+## The girls' tablets
+1. On your phone, open **For parents**, type the PIN, and find **The girls' tablets**.
+2. Type a tablet password for each girl (4 or more letters or numbers, different from the family password) and tap **Set**.
+3. On her tablet, open the site and type her tablet password. It stays logged in.
+4. To take a picture she uses the tablet's **Camera** app (Amazon Kids blocks the camera inside web pages). Then she opens
+   **Add art**, taps **Choose photos**, picks it, and taps **Save**.
+5. Her photos wait for you under **Photos waiting for your OK**. Tap **OK, show it** and it appears in "Leora's photos" at
+   the bottom of her page (or Put away).
+6. The tick **Can see Family Moments and add photos to it** lets her open Family Moments and send photos there too
+   (they also wait for your OK and show under "From Leora and Amaya").
+Her login cannot delete or change anything, and never sees the parent page. Setting a new tablet password logs that
+tablet out.
+
 ## Share with a friend
 1. Open **For parents** and type the parent PIN.
 2. Under **Share with a friend**, tick the pages (or **All of them**) and how long it works: a week, a month,

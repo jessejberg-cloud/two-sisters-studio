@@ -23,7 +23,13 @@
 
 // ---------- friends on a share link see only their pages' tabs (the site's front door blocks the rest anyway) ----------
 // Devices that have opened Add art once (the girls' tablets) show Add art in the top row.
-try { if (localStorage.getItem('tss-adder') && !/(?:^|;\s*)tssv=[^;]/.test(document.cookie)) document.documentElement.classList.add('is-adder'); } catch (e) {}
+(function () {
+  var v = (document.cookie.match(/(?:^|;\s*)tssv=([^;]*)/) || [])[1];
+  var pages = v ? decodeURIComponent(v).split(',') : null;
+  // A girl's own tablet login: Add art always shows, and the page knows it is her tablet.
+  if (pages && pages.indexOf('upload') !== -1) document.documentElement.classList.add('is-adder', 'is-kid');
+  try { if (!pages && localStorage.getItem('tss-adder')) document.documentElement.classList.add('is-adder'); } catch (e) {}
+})();
 
 (function () {
   var m = document.cookie.match(/(?:^|;\s*)tssv=([^;]*)/);
@@ -303,3 +309,38 @@ function initGallery() {
   var e = q.get('e');
   if (e) { var m = document.querySelector('.login-error[data-e="' + e + '"]'); if (m) m.hidden = false; }
 })();
+
+// ---------- photos from the girls' tablets: a simple grid and viewer ----------
+document.querySelectorAll('.live-photos').forEach(function (sec) {
+  'use strict';
+  var grid = sec.querySelector('.photo-grid'), box = sec.querySelector('.photo-box');
+  var img = box.querySelector('.pb-img'), cap = box.querySelector('.pb-cap'), list = [], at = 0;
+  function nice(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }); }
+  var names = {}; document.querySelectorAll('.art-live').forEach(function (a) { names[a.dataset.kid] = a.dataset.name; });
+  function show(i) {
+    at = (i + list.length) % list.length; var p = list[at];
+    img.src = '/img/' + encodeURIComponent(p.id) + '/1'; img.alt = p.caption || 'Photo';
+    cap.textContent = [p.caption, p.byName, nice(p.date)].filter(Boolean).join(' · ');
+    if (!box.open) box.showModal();
+  }
+  box.querySelector('.pb-close').addEventListener('click', function () { box.close(); });
+  box.querySelector('.pb-prev').addEventListener('click', function () { show(at - 1); });
+  box.querySelector('.pb-next').addEventListener('click', function () { show(at + 1); });
+  box.addEventListener('click', function (e) { if (e.target === box) box.close(); });
+  fetch(sec.dataset.src, { credentials: 'same-origin' })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (j) {
+      list = (j.pieces || []).sort(function (a, b) { return (b.date + b.created).localeCompare(a.date + a.created); });
+      if (!list.length) return;
+      list.forEach(function (p, i) {
+        p.byName = sec.dataset.src.indexOf('moments') !== -1 ? (names[p.kid] || (p.kid.charAt(0).toUpperCase() + p.kid.slice(1))) : '';
+        var li = document.createElement('li'), b = document.createElement('button'), t = document.createElement('img');
+        b.type = 'button'; b.className = 'photo-tile';
+        t.src = '/img/' + encodeURIComponent(p.id) + '/1/sm'; t.alt = p.caption || 'Photo'; t.loading = 'lazy';
+        b.appendChild(t); b.addEventListener('click', function () { show(i); });
+        li.appendChild(b); grid.appendChild(li);
+      });
+      sec.hidden = false;
+    })
+    .catch(function () { /* stays hidden */ });
+});

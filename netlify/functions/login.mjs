@@ -1,7 +1,7 @@
 // POST /api/login  (the login page's form)   fields: password, next, kind (family | friend)
 // POST /api/logout
 // POST /api/parent  { pin }  -> parent cookie for 15 minutes (needs a family login first)
-import { checkLevel, makeLogin, makeParent, who, getLink, linkOpen } from '../lib/auth.mjs';
+import { checkLevel, makeLogin, makeParent, who, getLink, linkOpen, kidLevel, GIRLS } from '../lib/auth.mjs';
 import { setCookie, cookies, verify, sha256, COOKIE, LOGIN_DAYS, PARENT_MINUTES } from '../lib/core.mjs';
 import { secret } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
@@ -76,6 +76,17 @@ export default async (req, context) => {
   }
 
   const ok = await checkLevel('family', pw, context);
+  if (!ok) {
+    // A girl's tablet password: she gets her own login (her pages, Add art; photos wait for a parent's OK).
+    for (const k of GIRLS) {
+      if (!(await checkLevel(kidLevel(k), pw, context))) continue;
+      await tooMany(req, context, false);
+      const kh = new Headers({ location: next === '/' ? '/upload/' : next });
+      kh.append('set-cookie', setCookie(COOKIE.login, await makeLogin('kid', context, { k }), { maxAge: LOGIN_DAYS * 86400 }));
+      kh.append('set-cookie', setCookie(COOKIE.next, '', { maxAge: 0 }));
+      return new Response(null, { status: 303, headers: kh });
+    }
+  }
   await tooMany(req, context, !ok);
   if (!ok) return back(url, { e: 'pw', next });
   const h = new Headers({ location: next });

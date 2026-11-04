@@ -259,7 +259,22 @@ function artGallery(kid, items) {
   <button type="button" class="lb-prev" aria-label="Previous picture">‹</button>
   <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next picture">›</button>
-</dialog>`;
+</dialog>
+${livePhotos(`/api/pieces?kid=${kid.key}&section=photos`, `${kid.name}'s photos`, 'Pictures from her tablet.')}`;
+}
+
+// Photos from the girls' tablets (shown after a parent says OK). Drawn by main.js; stays hidden while empty.
+function livePhotos(src, title, note) {
+  return `<section class="live-photos" data-src="${esc(src)}" hidden>
+  <h2 class="live-h">${esc(title)}</h2><p class="live-note">${esc(note)}</p>
+  <ul class="photo-grid"></ul>
+  <dialog class="photo-box" aria-label="Photo">
+    <button type="button" class="pb-close" aria-label="Close">✕</button>
+    <button type="button" class="pb-prev" aria-label="Previous photo">‹</button>
+    <figure class="pb-fig"><img class="pb-img" alt=""><figcaption class="pb-cap"></figcaption></figure>
+    <button type="button" class="pb-next" aria-label="Next photo">›</button>
+  </dialog>
+</section>`;
 }
 
 // ---------- pages ----------
@@ -427,6 +442,7 @@ function momentPhoto(ev, ph) {
     bodyClass: 'c-yellow',
     title: 'Family Moments',
     body: `<div class="page-head"><h1>Family Moments</h1><p>Photos from our special days.</p></div>
+${livePhotos('/api/pieces?section=moments', `From ${listWords(KIDS.map((k) => k.name))}`, 'Photos the girls took.')}
 ${events.some((ev) => ev.sample) ? '<p class="sample-note">These are sample pictures, so you can see how the page will look. Real photos are coming soon!</p>' : ''}
 ${events.length ? `${jump}
 <div class="gallery-area">
@@ -471,6 +487,23 @@ pages['parent/index.html'] = page({
   <p class="login-error" id="pin-msg" hidden></p>
 </section>
 <div id="parent-tools" hidden>
+  <section class="parent-card wobbly" id="waiting-card">
+    <h2>Photos waiting for your OK</h2>
+    <p>Photos from the girls' tablets show on the site after you tap OK.</p>
+    <ul class="wait-list" id="wait-list"><li class="muted">None waiting.</li></ul>
+  </section>
+  <section class="parent-card wobbly" id="tablets-card">
+    <h2>The girls' tablets</h2>
+    <p>Each girl's tablet logs in with her own tablet password. She can look at the site and add photos. Her photos wait for your OK. She cannot delete or change anything.</p>
+    ${KIDS.map((k) => `<div class="tablet-row" data-tablet="${k.key}">
+      <h3>${esc(k.name)}</h3>
+      <p class="tablet-state muted">Checking…</p>
+      <div class="pw-row"><label>${esc(k.name)}'s tablet password (4 or more letters or numbers) <input type="text" id="pw-kid-${k.key}" autocomplete="off" spellcheck="false"></label><button type="button" class="chip" data-change="kid-${k.key}">Set</button></div>
+      <label class="tick"><input type="checkbox" data-moments="${k.key}"> Can see Family Moments and add photos to it</label>
+    </div>`).join('\n    ')}
+    <p class="share-help" id="tablet-msg" role="status"></p>
+    <p class="share-help">On her tablet: open the site, type her tablet password, and it stays logged in. Amazon Kids blocks the camera inside web pages, so she takes a picture with the tablet's Camera app, then taps Choose photos.</p>
+  </section>
   <section class="parent-card wobbly">
     <h2>Google Drive</h2>
     <p id="g-status">Checking…</p>
@@ -564,9 +597,13 @@ pages['upload/index.html'] = `<!doctype html>
     <p><button type="button" class="linkish" id="back">← Back</button></p>
     <h1 class="up-h2" id="who"></h1>
     <div class="up-add">
-      <label class="big-pick wobbly"><input type="file" id="take" accept="image/*" capture="environment"><span>📷 Take a photo</span></label>
-      <label class="big-pick wobbly"><input type="file" id="pick" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
+      <label class="big-pick wobbly pick-take"><input type="file" id="take" accept="image/*" capture="environment"><span>📷 Take a photo</span></label>
+      <label class="big-pick wobbly pick-choose"><input type="file" id="pick" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
       <button type="button" class="big-pick wobbly cam-open" id="cam-open" hidden><span>💡 Camera with light</span></button>
+    </div>
+    <div class="up-where" id="where" hidden><p>Where should it go?</p>
+      <button type="button" class="chip" data-where="photos" aria-pressed="true">📷 My photos</button>
+      <button type="button" class="chip" data-where="moments" aria-pressed="false">❤️ Family Moments</button>
     </div>
     <label class="up-date">Date it was made <input type="date" id="date"></label>
     <p class="count" id="count"></p>
@@ -576,6 +613,7 @@ pages['upload/index.html'] = `<!doctype html>
       <button type="button" class="linkish" id="share" disabled>If Save will not work: share to the Drive app</button>
     </div>
     <p class="status" id="status" role="status" aria-live="polite"></p>
+    <p class="kid-look"><a class="chip" id="kid-page" href="/">🎨 See my page</a> <a class="chip" href="/">🏠 Look at the site</a></p>
   </section>
 
   <section class="screen" id="s-edit" hidden>

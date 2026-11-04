@@ -11,7 +11,7 @@
   var cfg = JSON.parse(document.getElementById('cfg').textContent);
   var $ = function (s) { return document.querySelector(s); };
   var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  var state = { kid: null, pieces: [] };   // pieces: [{ caption, starred, photos: [photo], dupes: [] }]
+  var state = { kid: null, pieces: [], section: 'art', me: null };   // pieces: [{ caption, starred, photos: [photo], dupes: [] }]
   // photo: { file, url, bmpUrl, edit: { rot, crop, look }, edited: Blob|null, fp }
 
   // ---------- dates ----------
@@ -51,10 +51,26 @@
   function status(msg, bad) { var s = $('#status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
   function setKid(k) {
     state.kid = k;
-    $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + '’s art';
-    document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color);
+    $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (kidMode() ? '’s photos' : '’s art');
+    document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '');
     if (!$('#date').value) $('#date').value = today();
     status(''); renderList(); show('s-photos');
+  }
+  // ---------- a girl's own tablet (her tablet password): one big Choose photos, her name already picked ----------
+  function kidMode() { return !!(state.me && state.me.role === 'kid'); }
+  function setWhere(w) {
+    state.section = w;
+    document.querySelectorAll('[data-where]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.where === w)); });
+  }
+  document.querySelectorAll('[data-where]').forEach(function (b) { b.addEventListener('click', function () { setWhere(b.dataset.where); }); });
+  async function startKidMode() {
+    try { state.me = await (await fetch('/api/whoami', { credentials: 'same-origin' })).json(); } catch (e) { state.me = null; }
+    if (!kidMode() || !cfg.kids[state.me.kid]) return false;
+    $('#where').hidden = !state.me.moments;
+    $('#kid-page').href = '/' + state.me.kid + '/';
+    setWhere('photos');
+    setKid(state.me.kid);
+    return true;
   }
   document.querySelectorAll('[data-kid]').forEach(function (b) { b.addEventListener('click', function () { setKid(b.dataset.kid); }); });
   $('#back').addEventListener('click', function () {
@@ -371,11 +387,11 @@
           var edits = []; if (ph.edit.rot) edits.push('turn'); if (ph.edit.crop) edits.push('crop'); if (ph.edit.look) edits.push(ph.edit.look);
           photos.push({ original: ph.file, originalType: ph.file.type || 'image/jpeg', edited: ph.edited, web: wc.web, thumb: wc.thumb, w: wc.w, h: wc.h, fp: ph.fp, edits: edits });
         }
-        await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date,
+        await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: kidMode() ? state.section : 'art',
           caption: p.caption.trim(), starred: p.starred, photos: photos, progress: {}, created: new Date().toISOString() });
       }
       clearPieces(); renderList();
-      status('Saved ' + n + ' piece' + (n > 1 ? 's' : '') + ' on this phone.' + (navigator.onLine ? ' Sending…' : ' They will go up next time there is signal.'));
+      status('Saved ' + n + (kidMode() ? ' photo' : ' piece') + (n > 1 ? 's' : '') + ' on this ' + (kidMode() ? 'tablet' : 'phone') + '.' + (navigator.onLine ? ' Sending…' : ' They will go up next time there is signal.'));
       sendOutbox();
     } catch (e) { status('Could not save on this phone: ' + e.message, true); }
     btn.disabled = !state.pieces.length;
@@ -384,7 +400,7 @@
   async function apiJSON(url, body) {
     var r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
     var j = {}; try { j = await r.json(); } catch (e) {}
-    if (r.status === 401) throw new Error('Please log in to the site again (the family password).');
+    if (r.status === 401) throw new Error(kidMode() ? 'Ask a grown-up to log in again.' : 'Please log in to the site again (the family password).');
     if (!r.ok) throw new Error(j.error === 'not-connected' ? 'Google Drive is not connected yet (a parent can do it on the For parents page).' : j.error === 'reconnect' ? 'Google Drive needs connecting again (For parents page).' : 'The site said no (' + (j.message || j.error || r.status) + ').');
     return j;
   }
@@ -413,7 +429,7 @@
   async function sendOne(q, label) {
     var pr = q.progress;
     if (!pr.start) {
-      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, caption: q.caption, starred: q.starred,
+      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, section: q.section || 'art', caption: q.caption, starred: q.starred,
         photos: q.photos.map(function (ph) { return { originalType: ph.originalType, originalSize: ph.original.size, edited: !!ph.edited, editedSize: ph.edited ? ph.edited.size : 0 }; }) });
       await put('outbox2', q);
     }
@@ -455,7 +471,8 @@
         status(label + '…');
         await sendOne(list[i], label); done++;
       }
-      status('All sent! ' + (done === 1 ? 'It is' : 'They are') + ' in the gallery now.');
+      status(kidMode() ? 'Sent! A grown-up will look, then ' + (done === 1 ? 'it shows' : 'they show') + ' on your page.'
+        : 'All sent! ' + (done === 1 ? 'It is' : 'They are') + ' in the gallery now.');
     } catch (e) {
       status((done ? done + ' sent. ' : '') + e.message + ' The rest are still saved on this phone.', true);
     }
@@ -556,6 +573,7 @@
 
   // ---------- start ----------
   show('s-kid');
+  startKidMode();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/upload/sw.js', { scope: '/upload/' }).catch(function () {});
   takeShared().then(moveOldOutbox).then(refreshOutbox).then(sendOutbox);
 })();

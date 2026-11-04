@@ -4,9 +4,14 @@
 // gives it a new one, and every cookie carrying the old one stops working (that logs out every device using it).
 import { sign, verify, sha256, sameText, hashPassword, checkPassword, randomId, cookies, encrypt, decrypt, COOKIE, DAY, PAGES } from './core.mjs';
 import { store } from './store.mjs';
+import site from '../../content/site.json' with { type: 'json' };
 
 export const env = (k) => globalThis.Netlify?.env?.get?.(k) ?? globalThis.process?.env?.[k];
 export const LEVELS = { family: 'FAMILY_PASSWORD', friends: 'FRIENDS_PASSWORD', pin: 'PARENT_PIN' };
+// Each girl's tablet has its own password (set by a parent; none until then). Level names: kid-leora, kid-amaya.
+export const GIRLS = site.kids.map((k) => k.key);
+export const KID_PAGES = [...GIRLS, 'pet-parents'];
+export const kidLevel = (k) => 'kid-' + k;
 
 export function secret() {
   const s = env('TSS_SECRET');
@@ -60,7 +65,7 @@ export async function friendsPasswordText(context) {
 
 // ---- tokens ----
 export async function makeLogin(role, context, extra = {}) {
-  const level = role === 'friend' ? 'friends' : 'family';
+  const level = role === 'friend' ? 'friends' : role === 'kid' ? kidLevel(extra.k) : 'family';
   return sign({ r: role, g: await generation(level, context), iat: Date.now(), ...extra }, secret());
 }
 export async function makeParent(context, minutes) {
@@ -82,7 +87,29 @@ export async function who(req, context) {
     if (!linkOpen(link)) return null;
     return { role: 'friend', link: link.id, pages: link.pages, iat: p.iat };
   }
+  if (p.r === 'kid') {
+    if (!p.k || p.g !== (await generation(kidLevel(p.k), context))) return null;
+    const moments = await kidMayMoments(p.k, context);
+    return { role: 'kid', kid: p.k, moments, pages: [...KID_PAGES, ...(moments ? ['family-moments'] : [])], iat: p.iat };
+  }
   return null;
+}
+
+// A parent's switch: may this girl see Family Moments and add photos to it?
+export async function kidMayMoments(k, context) { return !!(await config(context)).kidPerms?.[k]?.moments; }
+export async function setKidMoments(k, on, context) {
+  const s = store('auth', context);
+  const cfg = (await s.get('config', { type: 'json' })) || {};
+  cfg.kidPerms = { ...(cfg.kidPerms || {}), [k]: { ...(cfg.kidPerms?.[k] || {}), moments: !!on } };
+  await s.setJSON('config', cfg);
+  forgetConfig();
+}
+// What a girl's tablet may open: her pages (like a friend), plus Add art and the art API.
+export function kidMayOpen(me, pathname) {
+  const first = pathname.split('/')[1] || '';
+  if (first === 'upload') return true;
+  if (first === 'api') return ['logout', 'pieces', 'whoami'].includes(pathname.split('/')[2]);
+  return friendMayOpen(me.pages, pathname);
 }
 
 export async function isParent(req, context) {

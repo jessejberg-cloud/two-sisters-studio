@@ -13,7 +13,8 @@ export default async (req, context) => {
   if (!p || !/^\d+$/.test(n || '')) return new Response('Not found', { status: 404 });
   if (me.role !== 'family') {
     const kids = p.kid === 'both' ? ['leora', 'amaya'] : [p.kid];
-    if (p.deleted || !kids.some((k) => me.pages.includes(k))) return new Response('Not found', { status: 404 });
+    const allowed = p.section === 'moments' ? me.pages.includes('family-moments') : kids.some((k) => me.pages.includes(k));
+    if (p.deleted || p.waiting || !allowed) return new Response('Not found', { status: 404 });
   }
   const got = await store('images', context).getWithMetadata(webName(id, +n, size === 'sm'), { type: 'arrayBuffer' });
   if (!got) return new Response('Not found', { status: 404 });

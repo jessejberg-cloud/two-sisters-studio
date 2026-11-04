@@ -4,8 +4,9 @@
 //   POST /api/links                   { pages: [...], expiry: week|month|year|never } -> a new link
 //   POST /api/links/<id>/off          turn a link off (anyone using it is logged out)
 //   GET  /api/links/password          the friends password as text, for the "Send password" button
-//   POST /api/admin/password          { level: family|friends|pin, password } -> change it; logs out every other device on it
-import { who, isParent, getLink, forgetLink, linkOpen, makeLogin, makeParent, changeLevel, isSetUp, friendsPasswordText, secret } from '../lib/auth.mjs';
+//   POST /api/admin/password          { level: family|friends|pin|kid-leora|kid-amaya, password } -> change it; logs out every other device on it
+//   GET|POST /api/admin/kids          { kid, moments } -> the girls' tablets: password set?, Family Moments switch
+import { checkLevel, kidLevel, GIRLS, setKidMoments, config as authConfig, generation, who, isParent, getLink, forgetLink, linkOpen, makeLogin, makeParent, changeLevel, isSetUp, friendsPasswordText, secret } from '../lib/auth.mjs';
 import { sign, randomId, setCookie, COOKIE, DAY, PAGES, LOGIN_DAYS, PARENT_MINUTES } from '../lib/core.mjs';
 import { store } from '../lib/store.mjs';
 
@@ -41,14 +42,34 @@ export default async (req, context) => {
   if (parts[1] === 'admin' && parts[2] === 'password' && req.method === 'POST') {
     const { level, password } = await req.json();
     const pw = String(password || '').trim();
-    if (!['family', 'friends', 'pin'].includes(level)) return json({ error: 'level' }, { status: 400 });
-    if (level === 'pin' ? !/^\d{4,8}$/.test(pw) : pw.length < 6) return json({ ok: false, error: 'short' });
+    const kidLevels = GIRLS.map(kidLevel);
+    if (!['family', 'friends', 'pin', ...kidLevels].includes(level)) return json({ error: 'level' }, { status: 400 });
+    const isKid = kidLevels.includes(level);
+    if (level === 'pin' ? !/^\d{4,8}$/.test(pw) : pw.length < (isKid ? 4 : 6)) return json({ ok: false, error: 'short' });
+    // The login page tells logins apart by password alone, so the family and tablet passwords must all differ.
+    if (level === 'family' || isKid) {
+      for (const other of ['family', ...kidLevels]) {
+        if (other !== level && (await checkLevel(other, pw, context))) return json({ ok: false, error: 'same' });
+      }
+    }
     await changeLevel(level, pw, context);
     // This device stays in: give it fresh cookies on the new password. Every other device is logged out.
     const h = new Headers();
     if (level === 'family') h.append('set-cookie', setCookie(COOKIE.login, await makeLogin('family', context), { maxAge: LOGIN_DAYS * 86400 }));
     if (level === 'pin' || level === 'family') h.append('set-cookie', setCookie(COOKIE.parent, await makeParent(context, PARENT_MINUTES), { maxAge: PARENT_MINUTES * 60 }));
     return json({ ok: true }, { headers: h });
+  }
+
+  // ----- the girls' tablets: which have a password, and the Family Moments switch -----
+  if (parts[1] === 'admin' && parts[2] === 'kids') {
+    if (req.method === 'POST') {
+      const b = await req.json();
+      if (!GIRLS.includes(b.kid)) return json({ error: 'kid' }, { status: 400 });
+      await setKidMoments(b.kid, !!b.moments, context);
+    }
+    const cfg = await authConfig(context, true), out = {};
+    for (const k of GIRLS) out[k] = { moments: !!cfg.kidPerms?.[k]?.moments, password: !!(await generation(kidLevel(k), context)) };
+    return json({ kids: out });
   }
 
   if (parts[1] !== 'links') return json({ error: 'path' }, { status: 404 });
@@ -93,4 +114,4 @@ export default async (req, context) => {
   return json({ error: 'path' }, { status: 404 });
 };
 
-export const config = { path: ['/s/*', '/api/links', '/api/links/*', '/api/admin/password'] };
+export const config = { path: ['/s/*', '/api/links', '/api/links/*', '/api/admin/password', '/api/admin/kids'] };

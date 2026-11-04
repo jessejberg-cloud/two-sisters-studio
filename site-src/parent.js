@@ -25,7 +25,7 @@
       $('#g-connect').textContent = 'Connect again';
     } else $('#g-status').textContent = 'Not connected yet. Uploads need this once.';
     if (q.get('connected')) $('#g-status').textContent = 'Connected! ' + $('#g-status').textContent;
-    showRebuild(); showLinks(); getFriendsPw();
+    showRebuild(); showLinks(); getFriendsPw(); showWaiting(); showTablets();
   }
 
   // ---------- share links ----------
@@ -91,13 +91,66 @@
     });
   }
 
+  // ---------- photos from the girls' tablets, waiting for an OK ----------
+  var KIDNAME = {}; document.querySelectorAll('[data-tablet]').forEach(function (r) { KIDNAME[r.dataset.tablet] = r.querySelector('h3').textContent; });
+  async function showWaiting() {
+    var j = {}; try { j = await (await fetch('/api/pieces/waiting', { credentials: 'same-origin' })).json(); } catch (e) { return; }
+    var ul = $('#wait-list'); ul.textContent = '';
+    if (!j.waiting || !j.waiting.length) { var none = document.createElement('li'); none.className = 'muted'; none.textContent = 'None waiting.'; ul.append(none); return; }
+    j.waiting.forEach(function (p) {
+      var li = document.createElement('li'); li.className = 'wait-item';
+      var im = document.createElement('img'); im.src = '/img/' + encodeURIComponent(p.id) + '/1/sm'; im.alt = p.caption || 'Photo'; im.loading = 'lazy';
+      var t = document.createElement('p');
+      t.textContent = (KIDNAME[p.kid] || p.kid) + ' · ' + (p.section === 'moments' ? 'for Family Moments' : 'for her photos') + (p.caption ? ' · “' + p.caption + '”' : '')
+        + ' · ' + new Date(p.created).toLocaleDateString();
+      var row = document.createElement('div'); row.className = 'send-row';
+      var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'btn-big'; ok.textContent = 'OK, show it';
+      var away = document.createElement('button'); away.type = 'button'; away.className = 'linkish'; away.textContent = 'Put away';
+      async function act(what, btn) {
+        btn.disabled = true;
+        var r = await post('/api/pieces/' + encodeURIComponent(p.id) + '/' + what);
+        if (r.ok) { li.remove(); if (!ul.children.length) showWaiting(); } else { btn.disabled = false; t.textContent += ' · That did not work. Try again?'; }
+      }
+      ok.addEventListener('click', function () { act('ok', ok); });
+      away.addEventListener('click', function () { act('delete', away); });
+      row.append(ok, away); li.append(im, t, row); ul.append(li);
+    });
+  }
+
+  // ---------- the girls' tablets: password set?, Family Moments switch ----------
+  function drawTablets(kids) {
+    Object.keys(kids || {}).forEach(function (k) {
+      var row = document.querySelector('[data-tablet="' + k + '"]'); if (!row) return;
+      row.querySelector('.tablet-state').textContent = kids[k].password ? 'Tablet password is set.' : 'No tablet password yet.';
+      row.querySelector('[data-moments]').checked = !!kids[k].moments;
+    });
+  }
+  async function showTablets() {
+    try { drawTablets((await (await fetch('/api/admin/kids', { credentials: 'same-origin' })).json()).kids); } catch (e) {}
+  }
+  document.querySelectorAll('[data-moments]').forEach(function (box) {
+    box.addEventListener('change', async function () {
+      var k = box.dataset.moments, j = {};
+      try { j = await (await post('/api/admin/kids', { kid: k, moments: box.checked })).json(); } catch (e) {}
+      if (j.kids) { drawTablets(j.kids); $('#tablet-msg').textContent = '✓ ' + KIDNAME[k] + (box.checked ? ' can now see Family Moments and add photos to it.' : ' no longer sees Family Moments.'); }
+      else { box.checked = !box.checked; $('#tablet-msg').textContent = j.error === 'pin' ? 'Please type the parent PIN again.' : 'That did not work. Try again?'; }
+    });
+  });
+
   // ---------- passwords and PIN ----------
   document.querySelectorAll('[data-change]').forEach(function (b) {
     b.addEventListener('click', async function () {
-      var level = b.dataset.change, input = $('#pw-' + level), msg = $('#pw-msg'), name = { family: 'Family password', friends: 'Friends password', pin: 'Parent PIN' }[level];
+      var level = b.dataset.change, input = $('#pw-' + level), kidKey = level.indexOf('kid-') === 0 ? level.slice(4) : null;
+      var msg = kidKey ? $('#tablet-msg') : $('#pw-msg');
+      var name = kidKey ? KIDNAME[kidKey] + '’s tablet password' : { family: 'Family password', friends: 'Friends password', pin: 'Parent PIN' }[level];
       var j = {}; try { j = await (await post('/api/admin/password', { level: level, password: input.value })).json(); } catch (e) {}
-      if (j.ok) { msg.textContent = '✓ ' + name + ' changed. Every other device using it is logged out.'; if (level === 'friends') friendsPw = input.value.trim(); input.value = ''; showLinks(); }
-      else msg.textContent = j.error === 'short' ? (level === 'pin' ? 'A PIN is 4 to 8 numbers.' : 'Use at least 6 letters or numbers.') : j.error === 'pin' ? 'Please type the parent PIN again.' : 'That did not work. Try again?';
+      if (j.ok) {
+        msg.textContent = '✓ ' + name + (kidKey ? ' set. Type it on her tablet to log in. A tablet using an older one is logged out.' : ' changed. Every other device using it is logged out.');
+        if (level === 'friends') friendsPw = input.value.trim(); input.value = ''; showLinks(); if (kidKey) showTablets();
+      }
+      else msg.textContent = j.error === 'short' ? (level === 'pin' ? 'A PIN is 4 to 8 numbers.' : kidKey ? 'Use at least 4 letters or numbers.' : 'Use at least 6 letters or numbers.')
+        : j.error === 'same' ? 'That one is already used by another login. Pick a different one.'
+        : j.error === 'pin' ? 'Please type the parent PIN again.' : 'That did not work. Try again?';
     });
   });
   async function showRebuild() {
