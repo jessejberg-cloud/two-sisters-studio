@@ -39,7 +39,9 @@ How it is built (phase 4): `netlify/edge-functions/gate.js` (the login check bef
 stores are prefixed `live-` or `preview-` so previews never touch live data. The gate stays open (Netlify's built-in
 password guards the site) until TSS_SECRET and FAMILY_PASSWORD are set in Netlify. Environment variables, all set by
 Jesse in Netlify, never in the repo or chat: TSS_SECRET (long random), FAMILY_PASSWORD, FRIENDS_PASSWORD, PARENT_PIN,
-GOOGLE_CLIENT_SECRET. Functions answer "wrong PIN" with 200 + `{ok:false}`: Netlify dev turns some 403s into
+GOOGLE_CLIENT_SECRET (all five set 2026-11-04; the two secret ones are per context: Production + Deploy Previews). Google OAuth
+client: Cloud project `two-sisters-studio` (No organization, jessejberg@gmail.com), redirect URIs `/api/google/callback`
+on twosistersstudio.com and deploy-preview-1. Functions answer "wrong PIN" with 200 + `{ok:false}`: Netlify dev turns some 403s into
 static fallbacks. Edge functions cannot run locally here (edge.netlify.com is blocked); test them on the preview.
 Plan doc: https://claude.ai/artifact/EJYt34fYXdVsGch9mMePqB. These replace anything above that conflicts, once built. Phase 5-6 files: functions pieces.mjs (art API), img.mjs, purge.mjs, share.mjs (links, /s/<id>, password changes); upload app site-src/upload/app.js; galleries drawn in site-src/main.js from /api/pieces plus content/art.json (samples step aside once real art exists).
 - **Publishing:** instant on Save. Original + details file go to Google Drive; a WebP web copy goes to Netlify Blobs
