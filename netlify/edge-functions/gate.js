@@ -4,7 +4,7 @@
 import { who, friendMayOpen, makeLogin, secret, isSetUp } from '../lib/auth.mjs';
 import { setCookie, COOKIE, DAY, LOGIN_DAYS } from '../lib/core.mjs';
 
-const OPEN = [/^\/login\/?$/, /^\/api\/login$/, /^\/s\/[A-Za-z0-9_-]+$/, /^\/styles\.css$/,
+const OPEN = [/^\/login\/?$/, /^\/api\/login$/, /^\/s\/[A-Za-z0-9_-]+$/, /^\/styles\.css$/, /^\/main\.js$/,
   /^\/assets\/fonts\//, /^\/assets\/brand\//, /^\/robots\.txt$/, /^\/favicon\.ico$/, /^\/api\/google\/callback$/];
 
 export default async (req, context) => {
@@ -44,5 +44,5 @@ export default async (req, context) => {
 
 export const config = {
   path: '/*',
-  excludedPath: ['/assets/fonts/*', '/assets/brand/*', '/styles.css', '/login/', '/robots.txt', '/favicon.ico'],
+  excludedPath: ['/assets/fonts/*', '/assets/brand/*', '/styles.css', '/main.js', '/login/', '/robots.txt', '/favicon.ico'],
 };
