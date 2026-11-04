@@ -88,3 +88,12 @@ test('friends only open their pages', () => {
   assert.ok(!auth.friendMayOpen(['leora'], '/api/pieces-admin'));
   assert.ok(auth.friendMayOpen(['family-moments'], '/moments/a.zip'));
 });
+test('login returns to the asked page even when the address loses ?next (kid browsers)', async () => {
+  const sent = await gate(req('/upload/', { headers: { accept: 'text/html' } }), ctx);
+  const c = sent.headers.get('set-cookie') || '';
+  assert.match(c, /tssn=%2Fupload%2F/);
+  const ok = await login(req('/api/login', { method: 'POST', headers: { cookie: 'tssn=%2Fupload%2F' }, body: form({ password: 'new-family-pw', next: '/' }) }), { ip: '7.7.7.9' });
+  assert.equal(ok.headers.get('location'), '/upload/');
+  const evil = await login(req('/api/login', { method: 'POST', headers: { cookie: 'tssn=%2F%2Fevil.example' }, body: form({ password: 'new-family-pw', next: '/' }) }), { ip: '7.7.7.8' });
+  assert.equal(evil.headers.get('location'), '/');
+});

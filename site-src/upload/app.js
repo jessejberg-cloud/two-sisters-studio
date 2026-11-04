@@ -6,6 +6,8 @@
 // No Google sign-in on the phone: the site holds the Drive connection. Works with no signal and resumes.
 (function () {
   'use strict';
+  // Remember that this device adds art, so the site shows an Add art link in the top row here (tablets).
+  try { localStorage.setItem('tss-adder', '1'); } catch (e) {}
   var cfg = JSON.parse(document.getElementById('cfg').textContent);
   var $ = function (s) { return document.querySelector(s); };
   var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };

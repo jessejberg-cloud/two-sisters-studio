@@ -18,7 +18,14 @@ export default async (req, context) => {
   const me = await who(req, context);
   if (!me) {
     const html = req.method === 'GET' && (req.headers.get('accept') || '').includes('text/html');
-    if (html) return Response.redirect(new URL('/login/?next=' + encodeURIComponent(url.pathname + url.search), url), 302);
+    if (html) {
+      // The page they asked for rides along twice: in the address and in a short cookie, because some kid
+      // browsers (Amazon Kids) drop the address part. Login sends them back to it either way.
+      const want = url.pathname + url.search;
+      const h = new Headers({ location: new URL('/login/?next=' + encodeURIComponent(want), url).toString(), 'cache-control': 'no-store' });
+      h.append('set-cookie', setCookie(COOKIE.next, want, { maxAge: 600 }));
+      return new Response(null, { status: 302, headers: h });
+    }
     return new Response('Please log in.', { status: 401, headers: { 'cache-control': 'no-store' } });
   }
   if (me.role === 'friend' && !friendMayOpen(me.pages, url.pathname)) {

@@ -56,7 +56,7 @@ export default async (req, context) => {
   }
 
   // login
-  const next = safeNext(f.next);
+  const next = safeNext(f.next && f.next !== '/' ? f.next : cookies(req)[COOKIE.next]);
   if (await tooMany(req, context)) return back(url, { e: 'wait', next });
   const pw = String(f.password || '');
   const linkTok = cookies(req)[COOKIE.link];
@@ -81,6 +81,7 @@ export default async (req, context) => {
   const h = new Headers({ location: next });
   h.append('set-cookie', setCookie(COOKIE.login, await makeLogin('family', context), { maxAge: LOGIN_DAYS * 86400 }));
   h.append('set-cookie', setCookie(COOKIE.view, '', { maxAge: 0, httpOnly: false }));
+  h.append('set-cookie', setCookie(COOKIE.next, '', { maxAge: 0 }));
   return new Response(null, { status: 303, headers: h });
 };
 

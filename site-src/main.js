@@ -22,6 +22,9 @@
 })();
 
 // ---------- friends on a share link see only their pages' tabs (the site's front door blocks the rest anyway) ----------
+// Devices that have opened Add art once (the girls' tablets) show Add art in the top row.
+try { if (localStorage.getItem('tss-adder') && !/(?:^|;\s*)tssv=[^;]/.test(document.cookie)) document.documentElement.classList.add('is-adder'); } catch (e) {}
+
 (function () {
   var m = document.cookie.match(/(?:^|;\s*)tssv=([^;]*)/);
   if (!m || !m[1]) return;

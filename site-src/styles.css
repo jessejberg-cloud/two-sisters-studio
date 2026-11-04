@@ -404,6 +404,7 @@ main { max-width: var(--max); margin: 0 auto; padding: 8px 20px 40px; }
 /* ---------- the installed phone app: site pages open inside it ---------- */
 .tab-add-li { display: none; }
 @media (display-mode: standalone) { .tab-add-li { display: list-item; } }
+html.is-adder .tab-add-li { display: list-item; }
 .tab-add .tab-icon { font-size: 1.6rem; font-weight: 800; line-height: 1; }
 .up-look { margin-top: 26px; }
 .up-look-h { font-weight: 800; margin: 0 0 8px; }
@@ -506,7 +507,7 @@ button.btn-download { font: inherit; font-weight: 800; cursor: pointer; backgrou
 .tabs .tab:hover .tab-label { border-bottom-color: var(--c-soft, #eee); }
 .tabs .tab[aria-current] .tab-label { border-bottom-color: var(--c, var(--yellow)); }
 .tabs .tab:focus-visible { outline: 3px dashed var(--plum); outline-offset: 2px; }
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; gap: 2px; }
   .tabs .tab { flex-direction: column; gap: 2px; padding: 4px 2px; min-height: 64px; font-size: 1rem; line-height: 1.05; }
   .tabs .tab-label { font-size: .98rem; }
