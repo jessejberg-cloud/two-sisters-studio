@@ -21,6 +21,18 @@
   }, true);
 })();
 
+// ---------- friends on a share link see only their pages' tabs (the site's front door blocks the rest anyway) ----------
+(function () {
+  var m = document.cookie.match(/(?:^|;\s*)tssv=([^;]*)/);
+  if (!m || !m[1]) return;
+  var pages = decodeURIComponent(m[1]).split(',');
+  document.querySelectorAll('a.tab, a.big-button').forEach(function (a) {
+    var first = (a.getAttribute('href') || '').split('/')[1] || '';
+    if (first && pages.indexOf(first) === -1) { var li = a.closest('li'); (li || a).hidden = true; }
+  });
+  document.documentElement.classList.add('is-friend');
+})();
+
 // ---------- art galleries: filters and the big-picture viewer ----------
 function initGallery() {
   'use strict';

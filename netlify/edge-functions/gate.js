@@ -4,7 +4,7 @@
 import { who, friendMayOpen, makeLogin, secret, isSetUp } from '../lib/auth.mjs';
 import { setCookie, COOKIE, DAY, LOGIN_DAYS } from '../lib/core.mjs';
 
-const OPEN = [/^\/login\/?$/, /^\/api\/(login|share-open)$/, /^\/s\/[A-Za-z0-9_-]+$/, /^\/styles\.css$/,
+const OPEN = [/^\/login\/?$/, /^\/api\/login$/, /^\/s\/[A-Za-z0-9_-]+$/, /^\/styles\.css$/,
   /^\/assets\/fonts\//, /^\/assets\/brand\//, /^\/robots\.txt$/, /^\/favicon\.ico$/, /^\/api\/google\/callback$/];
 
 export default async (req, context) => {

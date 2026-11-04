@@ -2,7 +2,7 @@
 // Passwords start as Netlify environment variables (FAMILY_PASSWORD, FRIENDS_PASSWORD, PARENT_PIN); a parent can
 // change them in the app, which stores a hash here. Each level has a "generation": changing that level's password
 // gives it a new one, and every cookie carrying the old one stops working (that logs out every device using it).
-import { sign, verify, sha256, sameText, hashPassword, checkPassword, randomId, cookies, COOKIE, DAY, PAGES } from './core.mjs';
+import { sign, verify, sha256, sameText, hashPassword, checkPassword, randomId, cookies, encrypt, decrypt, COOKIE, DAY, PAGES } from './core.mjs';
 import { store } from './store.mjs';
 
 export const env = (k) => globalThis.Netlify?.env?.get?.(k) ?? globalThis.process?.env?.[k];
@@ -44,8 +44,18 @@ export async function changeLevel(level, pw, context) {
   const s = store('auth', context);
   const cfg = (await s.get('config', { type: 'json' })) || {};
   cfg[level] = { ...(await hashPassword(pw)), gen: randomId(9), changed: new Date().toISOString() };
+  // The friends password is also kept locked (encrypted), so a parent can tap "Send password" after making a link.
+  if (level === 'friends') cfg[level].enc = await encrypt(pw, secret());
   await s.setJSON('config', cfg);
   forgetConfig();
+}
+
+// The friends password as text, for a parent's "Send password" button.
+export async function friendsPasswordText(context) {
+  const cfg = await config(context, true);
+  if (cfg.friends?.enc) return decrypt(cfg.friends.enc, secret());
+  if (cfg.friends?.hash) return null;
+  return env(LEVELS.friends) || null;
 }
 
 // ---- tokens ----

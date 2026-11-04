@@ -474,6 +474,37 @@ pages['parent/index.html'] = page({
     <p id="g-status">Checking…</p>
     <p><a class="btn-big" id="g-connect" href="/api/google/start">Connect Google Drive</a></p>
   </section>
+  <section class="parent-card wobbly" id="share-card">
+    <h2>Share with a friend</h2>
+    <p>Pick the pages and how long the link works. Your friend also needs the friends password, which you send in a second text.</p>
+    <fieldset class="ticks"><legend>Pages</legend>
+      ${TABS.map((n) => `<label class="tick"><input type="checkbox" name="pages" value="${n.key}"> ${esc(n.label)}</label>`).join('\n      ')}
+      <label class="tick"><input type="checkbox" id="pages-all"> All of them</label>
+    </fieldset>
+    <fieldset class="ticks"><legend>Works for</legend>
+      <label class="tick"><input type="radio" name="expiry" value="week"> A week</label>
+      <label class="tick"><input type="radio" name="expiry" value="month" checked> A month</label>
+      <label class="tick"><input type="radio" name="expiry" value="year"> A year</label>
+      <label class="tick"><input type="radio" name="expiry" value="never"> No end date</label>
+    </fieldset>
+    <p><button type="button" class="btn-big" id="link-make">Make a link</button></p>
+    <p class="login-error" id="link-msg" hidden></p>
+    <div class="link-made" id="link-made" hidden>
+      <p class="link-url" id="link-url"></p>
+      <div class="send-row"><button type="button" class="btn-big" id="send-link">Send link</button><button type="button" class="btn-big" id="send-pw">Send password</button></div>
+      <p class="share-help" id="send-note"></p>
+    </div>
+    <h3>Links you made</h3>
+    <ul class="link-list" id="link-list"><li class="muted">None yet.</li></ul>
+  </section>
+  <section class="parent-card wobbly">
+    <h2>Passwords and PIN</h2>
+    <p>Changing one logs out every other phone and computer that uses it. This one stays in.</p>
+    <div class="pw-row"><label>Family password <input type="text" id="pw-family" autocomplete="off" spellcheck="false"></label><button type="button" class="chip" data-change="family">Change</button></div>
+    <div class="pw-row"><label>Friends password <input type="text" id="pw-friends" autocomplete="off" spellcheck="false"></label><button type="button" class="chip" data-change="friends">Change</button></div>
+    <div class="pw-row"><label>Parent PIN (4 to 8 numbers) <input type="text" id="pw-pin" inputmode="numeric" autocomplete="off"></label><button type="button" class="chip" data-change="pin">Change</button></div>
+    <p class="share-help" id="pw-msg" role="status"></p>
+  </section>
   <section class="parent-card wobbly">
     <h2>Rebuild the galleries from Drive</h2>
     <p>Only needed if something on the site was lost. Drive is never changed.</p>

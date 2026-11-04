@@ -465,3 +465,19 @@ button.btn-download { font: inherit; font-weight: 800; cursor: pointer; backgrou
   .filter-toggle { display: inline-flex; margin: 0 0 14px; }
   .art-live ~ .filters:not(.is-open) { display: none; }
 }
+
+/* Parent page: share links, passwords */
+.ticks { border: 0; padding: 0; margin: 0 0 14px; display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.ticks legend { font-weight: 800; margin-bottom: 6px; padding: 0; }
+.tick { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; font-weight: 700; cursor: pointer; }
+.tick input { width: 24px; height: 24px; accent-color: var(--plum); }
+.link-made { background: var(--yellow-soft); padding: 12px 14px; border-radius: 14px; margin: 8px 0 12px; }
+.link-url { white-space: pre-line; word-break: break-all; font-weight: 700; margin-top: 0; }
+.send-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.link-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.link-item { border: 2px solid #e4e1da; border-radius: 12px; padding: 8px 12px; background: #fff; }
+.link-item p { margin: 0 0 6px; }
+.link-item.is-off { opacity: .6; }
+.pw-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; margin-bottom: 12px; }
+.pw-row label { display: flex; flex-direction: column; gap: 4px; font-weight: 800; flex: 1 1 220px; }
+.pw-row input { min-height: 48px; padding: 4px 12px; font: 600 1.1rem var(--body); border: 2px solid var(--ink); border-radius: 10px; color: var(--ink); background: #fff; }
