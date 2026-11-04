@@ -137,6 +137,7 @@ ${body}
 <footer class="site-footer">
   <div class="paw-trail" aria-hidden="true">${ICONS.paw.repeat(5)}</div>
   <p>Made with love (and crayons) by the ${esc(site.siteName)} crew.</p>
+  <p class="foot-parent"><a class="linkish" href="/parent/">For parents</a></p>
 </footer>
 </body>
 </html>
