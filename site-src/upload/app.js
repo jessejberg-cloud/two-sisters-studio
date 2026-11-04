@@ -312,7 +312,7 @@
     var r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
     var j = {}; try { j = await r.json(); } catch (e) {}
     if (r.status === 401) throw new Error('Please log in to the site again (the family password).');
-    if (!r.ok) throw new Error(j.error === 'not-connected' ? 'Google Drive is not connected yet (a parent can do it on the For parents page).' : 'The site said no (' + (j.error || r.status) + ').');
+    if (!r.ok) throw new Error(j.error === 'not-connected' ? 'Google Drive is not connected yet (a parent can do it on the For parents page).' : j.error === 'reconnect' ? 'Google Drive needs connecting again (For parents page).' : 'The site said no (' + (j.message || j.error || r.status) + ').');
     return j;
   }
   // Send one file to Google through its one-time address, in pieces, retrying on a weak signal. Returns the Drive file id.

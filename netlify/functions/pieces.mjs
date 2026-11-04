@@ -30,7 +30,16 @@ async function writeDetails(context, p) {
   p.detailsFile = res.id;
 }
 
+// Any failure comes back as plain words for the phone (and in the Netlify function log), not a bare 502.
 export default async (req, context) => {
+  try { return await handle(req, context); }
+  catch (e) {
+    console.error('pieces failed:', e.code || '', e.status || '', e.message);
+    return json({ error: e.code || 'server', message: String(e.message || e).slice(0, 300) }, 500);
+  }
+};
+
+async function handle(req, context) {
   const url = new URL(req.url);
   const parts = url.pathname.split('/').filter(Boolean).slice(2);   // after /api/pieces
   const me = await who(req, context);
@@ -168,6 +177,6 @@ export default async (req, context) => {
   await writeDetails(context, p);
   await savePiece(context, p);
   return json({ ok: true, piece: short(p) });
-};
+}
 
 export const config = { path: ['/api/pieces', '/api/pieces/*'] };
