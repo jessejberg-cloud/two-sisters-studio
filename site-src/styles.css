@@ -497,3 +497,18 @@ button.btn-download { font: inherit; font-weight: 800; cursor: pointer; backgrou
 .cam-bar { display: flex; align-items: center; justify-content: center; gap: 28px; padding: 10px 16px calc(16px + env(safe-area-inset-bottom)); }
 .cam-shoot { width: 76px; height: 76px; border-radius: 50%; background: #fff; border: 6px solid #bbb; cursor: pointer; }
 .cam-shoot:active { transform: scale(.94); }
+
+/* Top links: icon and words only, no boxes, so the big buttons stay the main thing (Jesse, 2026-11-04).
+   One row on phones. The page you are on gets a colored underline. */
+.tabs .tab { border: 0; box-shadow: none; background: none; border-radius: 12px; padding: 6px 10px; min-height: 48px; }
+.tabs .tab:hover, .tabs .tab[aria-current] { background: none; transform: none; box-shadow: none; }
+.tabs .tab .tab-label { border-bottom: 5px solid transparent; padding-bottom: 1px; transition: border-color .2s ease; }
+.tabs .tab:hover .tab-label { border-bottom-color: var(--c-soft, #eee); }
+.tabs .tab[aria-current] .tab-label { border-bottom-color: var(--c, var(--yellow)); }
+.tabs .tab:focus-visible { outline: 3px dashed var(--plum); outline-offset: 2px; }
+@media (max-width: 760px) {
+  .tabs { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; gap: 2px; }
+  .tabs .tab { flex-direction: column; gap: 2px; padding: 4px 2px; min-height: 64px; font-size: 1rem; line-height: 1.05; }
+  .tabs .tab-label { font-size: .98rem; }
+}
+@media (max-width: 380px) { .tabs .tab-label { font-size: .9rem; } }
