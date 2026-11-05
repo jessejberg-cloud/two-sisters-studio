@@ -51,7 +51,7 @@
   function status(msg, bad) { var s = $('#status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
   function setKid(k) {
     state.kid = k;
-    $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (kidMode() ? '’s photos' : '’s art');
+    $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (state.section === 'photos' ? '’s snapshots' : '’s art');
     document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '') + (IN_APP ? ' in-app' : '');
     if (!$('#date').value) $('#date').value = today();
     status(''); renderList(); show('s-photos');
@@ -72,10 +72,149 @@
     $('#where').hidden = !state.me.moments;
     $('#kid-page').href = '/' + state.me.kid + '/';
     setWhere('photos');
+    $('#kid-help').textContent = 'Take a picture or choose one. It goes to your snapshots after a grown-up says OK.' + (state.me.moments ? ' Or tap Family Moments below.' : '');
     setKid(state.me.kid);
     return true;
   }
+  // ---------- home: what are we adding? Art, a snapshot (a photo she took), or a podcast episode ----------
+  function chooseWhat(what) {
+    if (what === 'episode') { openEpisode(); return; }
+    state.section = what;
+    $('#who-lead').textContent = what === 'photos' ? 'Whose snapshot is it?' : 'Whose art is it?';
+    document.querySelector('[data-kid="both"]').hidden = what === 'photos';
+    show('s-who');
+  }
+  document.querySelectorAll('[data-what]').forEach(function (b) { b.addEventListener('click', function () { chooseWhat(b.dataset.what); }); });
+  $('#who-back').addEventListener('click', function () { show('s-kid'); });
   document.querySelectorAll('[data-kid]').forEach(function (b) { b.addEventListener('click', function () { setKid(b.dataset.kid); }); });
+
+  // ---------- a Pet Parents episode: audio, details, maybe a drawing ----------
+  // The audio goes to the site in 3 MB pieces (Netlify's limit is 6 MB per request), so the page can play it right
+  // away; then the untouched file goes to Google Drive through a one-time address, as the archive copy.
+  var ep = { audio: null, drawing: null, minutes: null, job: null, busy: false };
+  function epStatus(msg, bad) { var s = $('#ep-status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
+  function epBar(f) { $('#ep-bar').hidden = f == null; $('#ep-bar-fill').style.width = Math.round((f || 0) * 100) + '%'; }
+  function epReady() { $('#ep-save').disabled = ep.busy || !ep.audio; }
+  function mb(n) { return n > 1e6 ? Math.round(n / 1e6) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB'; }
+  function openEpisode() {
+    document.body.className = 'up c-lav' + (IN_APP ? ' in-app' : '');
+    if (!$('#ep-date').value) $('#ep-date').value = today();
+    epStatus(''); show('s-episode'); epList();
+  }
+  $('#ep-back').addEventListener('click', function () {
+    if (ep.busy && !confirm('The episode is still sending. Leave anyway? You can send it again later.')) return;
+    show('s-kid');
+  });
+  $('#ep-audio').addEventListener('change', function (e) {
+    var f = e.target.files[0]; if (!f) return;
+    ep.audio = f; ep.job = null; ep.minutes = null;
+    $('#ep-audio-label').textContent = '🎙️ ' + f.name + ' · ' + mb(f.size);
+    var a = new Audio(), u = URL.createObjectURL(f);
+    a.preload = 'metadata';
+    a.onloadedmetadata = function () {
+      if (isFinite(a.duration) && a.duration > 0) { ep.minutes = Math.max(1, Math.round(a.duration / 60)); $('#ep-audio-label').textContent += ' · ' + ep.minutes + ' min'; }
+      URL.revokeObjectURL(u);
+    };
+    a.onerror = function () { URL.revokeObjectURL(u); };
+    a.src = u;
+    if (!$('#ep-title').value) $('#ep-title').value = f.name.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').trim();
+    $('#ep-done').hidden = true; epStatus(''); epReady();
+  });
+  $('#ep-drawing').addEventListener('change', function (e) {
+    var f = e.target.files[0]; if (!f || !/^image\//.test(f.type)) return;
+    ep.drawing = f; $('#ep-drawing-label').textContent = '🖍️ ' + f.name;
+  });
+  function petsFrom(text) {
+    return text.split(',').map(function (s) { return s.trim(); }).filter(Boolean).map(function (s) {
+      var m = /^(.+?)\s+the\s+(.+)$/i.exec(s); return m ? { name: m[1], kind: m[2] } : { name: s, kind: '' };
+    });
+  }
+  async function postBytes(url, body, type) {
+    for (var tries = 0; ; tries++) {
+      try {
+        var r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': type || 'application/octet-stream' }, body: body });
+        if (r.ok) return r.json();
+        if (r.status === 401) throw Object.assign(new Error('Please log in to the site again (the family password).'), { stop: true });
+        if (r.status < 500) { var j = {}; try { j = await r.json(); } catch (e) {} throw Object.assign(new Error('The site said no (' + (j.error || r.status) + ').'), { stop: true }); }
+      } catch (e) { if (e.stop || tries >= 4) throw e; }
+      if (tries >= 4) throw new Error('The connection dropped.');
+      await new Promise(function (ok) { setTimeout(ok, 1500 * (tries + 1)); });
+    }
+  }
+  $('#ep-save').addEventListener('click', async function () {
+    if (!ep.audio || ep.busy) return;
+    ep.busy = true; epReady(); $('#ep-done').hidden = true;
+    var f = ep.audio;
+    try {
+      if (!ep.job || ep.job.file !== f) {
+        var title = $('#ep-title').value.trim();
+        epStatus('Getting ready…'); epBar(0);
+        var st = await apiJSON('/api/episodes/start', { title: title || ('Episode ' + ($('#ep-number').value || '')).trim(),
+          number: +$('#ep-number').value || 0, date: $('#ep-date').value || today(), description: $('#ep-desc').value.trim(),
+          guests: $('#ep-guests').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean), pets: petsFrom($('#ep-pets').value),
+          minutes: ep.minutes, audioType: f.type || 'audio/mpeg', audioSize: f.size });
+        ep.job = { file: f, id: st.id, number: st.number, chunkSize: st.chunkSize, chunks: st.chunks, upload: st.upload, sent: {}, drawn: false, live: false, drive: null };
+      }
+      var J = ep.job;
+      for (var i = 0; i < J.chunks; i++) {
+        if (J.sent[i]) continue;
+        epStatus('Sending the audio to the site… ' + Math.round(i / J.chunks * 100) + '%'); epBar(i / J.chunks);
+        await postBytes('/api/episodes/' + J.id + '/audio/' + i, f.slice(i * J.chunkSize, Math.min(f.size, (i + 1) * J.chunkSize)));
+        J.sent[i] = true;
+      }
+      epBar(1);
+      if (ep.drawing && !J.drawn) {
+        epStatus('Sending the drawing…');
+        var wc = await webCopies(ep.drawing), fd = new FormData();
+        fd.set('meta', JSON.stringify({ w: wc.w, h: wc.h })); fd.set('web', wc.web, 'web'); fd.set('thumb', wc.thumb, 'thumb');
+        var r = await fetch('/api/episodes/' + J.id + '/drawing', { method: 'POST', credentials: 'same-origin', body: fd });
+        if (!r.ok) throw new Error('The site did not take the drawing (' + r.status + ').');
+        J.drawn = true;
+      }
+      if (!J.live) { await apiJSON('/api/episodes/' + J.id + '/finish'); J.live = true; }
+      $('#ep-done').hidden = false; epList();
+      // The archive copy in Google Drive. If it does not work, the episode is still on the site.
+      if (J.upload && !J.drive) {
+        try {
+          J.drive = await sendToGoogle(J.upload, f, function (x) { epStatus('Episode ' + J.number + ' is on the site. Keeping a copy in Google Drive… ' + Math.round(x * 100) + '%'); epBar(x); });
+          await apiJSON('/api/episodes/' + J.id + '/finish', { driveAudio: J.drive });
+        } catch (e) { J.upload = null; epStatus('Episode ' + J.number + ' is on the site. The Google Drive copy did not go; keep the file on your phone.', true); epBar(null); ep.busy = false; epReady(); return; }
+      }
+      epBar(null);
+      epStatus('✓ Episode ' + J.number + ' is on the Pet Parents page' + (J.drive ? ', and the audio is kept in Google Drive.' : '. (Google Drive is not connected, so there is no Drive copy.)'));
+      ep.audio = null; ep.drawing = null; ep.job = null;
+      ['#ep-title', '#ep-number', '#ep-desc', '#ep-guests', '#ep-pets', '#ep-audio', '#ep-drawing'].forEach(function (s) { $(s).value = ''; });
+      $('#ep-audio-label').textContent = '🎙️ Choose the audio file';
+      $('#ep-drawing-label').innerHTML = '🖍️ Add the episode drawing <span class="muted">(optional)</span>';
+    } catch (e) {
+      epBar(null);
+      epStatus((e.message || 'Something went wrong.') + ' Tap Send again to pick up where it stopped.', true);
+    }
+    ep.busy = false; epReady();
+  });
+  async function epList() {
+    var ul = $('#ep-list');
+    try {
+      var r = await fetch('/api/episodes?all=1', { credentials: 'same-origin' });
+      if (!r.ok) throw new Error(r.status);
+      var list = (await r.json()).episodes || [];
+      var nums = list.filter(function (x) { return !x.deleted; }).map(function (x) { return x.number; });
+      if (!$('#ep-number').value) $('#ep-number').value = (nums.length ? Math.max.apply(null, nums) : 0) + 1;
+      ul.innerHTML = '';
+      if (!list.length) { ul.append(el('li', 'muted', 'No episodes added from the app yet.')); return; }
+      list.forEach(function (x) {
+        var li = el('li', 'ep-row wobbly'), box = el('div');
+        box.append(el('strong', '', 'Episode ' + x.number + ': ' + x.title));
+        box.append(el('p', 'muted', niceDate(x.date) + (x.minutes ? ' · ' + x.minutes + ' min' : '') + (x.deleted ? ' · put away' : x.ready ? '' : ' · not finished sending')));
+        var b = el('button', 'chip', x.deleted ? 'Bring back' : 'Put away'); b.type = 'button';
+        b.addEventListener('click', async function () {
+          b.disabled = true;
+          try { await apiJSON('/api/episodes/' + x.id + '/' + (x.deleted ? 'restore' : 'delete')); epList(); } catch (e) { epStatus(e.message, true); b.disabled = false; }
+        });
+        box.append(b); li.append(box); ul.append(li);
+      });
+    } catch (e) { ul.innerHTML = ''; ul.append(el('li', 'muted', 'Could not load the list just now.')); }
+  }
   $('#back').addEventListener('click', function () {
     if (state.pieces.length && !confirm('Leave without saving these pictures?')) return;
     clearPieces(); show('s-kid'); refreshOutbox();
@@ -390,7 +529,7 @@
           var edits = []; if (ph.edit.rot) edits.push('turn'); if (ph.edit.crop) edits.push('crop'); if (ph.edit.look) edits.push(ph.edit.look);
           photos.push({ original: ph.file, originalType: ph.file.type || 'image/jpeg', edited: ph.edited, web: wc.web, thumb: wc.thumb, w: wc.w, h: wc.h, fp: ph.fp, edits: edits });
         }
-        await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: kidMode() ? state.section : 'art',
+        await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: state.section || 'art',
           caption: p.caption.trim(), starred: p.starred, photos: photos, progress: {}, created: new Date().toISOString() });
       }
       clearPieces(); renderList();
@@ -474,8 +613,8 @@
         status(label + '…');
         await sendOne(list[i], label); done++;
       }
-      status(kidMode() ? 'Sent! A grown-up will look, then ' + (done === 1 ? 'it shows' : 'they show') + ' on your page.'
-        : 'All sent! ' + (done === 1 ? 'It is' : 'They are') + ' in the gallery now.');
+      status(kidMode() ? 'Sent! A grown-up will look, then ' + (done === 1 ? 'it shows' : 'they show') + ' in your snapshots.'
+        : 'All sent! ' + (done === 1 ? 'It is' : 'They are') + ' on the site now.');
     } catch (e) {
       status((done ? done + ' sent. ' : '') + e.message + ' The rest are still saved on this phone.', true);
     }
@@ -555,7 +694,9 @@
     if (!got.length) return;
     got.forEach(function (s) { addFiles([s.file]); });
     await Promise.all(got.map(function (s) { return del('shared', s.id); }));
-    $('#kid-lead').textContent = got.length + ' picture' + (got.length > 1 ? 's' : '') + ' shared in. Who made it?';
+    state.section = 'art';
+    $('#who-lead').textContent = got.length + ' picture' + (got.length > 1 ? 's' : '') + ' shared in. Whose art is it?';
+    show('s-who');
   }
 
   // Pictures the first version of the app kept on the phone: move them into the new outbox so nothing is lost.

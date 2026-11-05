@@ -46,7 +46,7 @@ const CSP_STRICT = "default-src 'self'; img-src 'self' data:; media-src 'self'; 
 const CSP_SELF = CSP_STRICT.replace("connect-src 'none'", "connect-src 'self'");
 const CSP_LOGIN = CSP_STRICT.replace("form-action 'none'", "form-action 'self'");
 const CSP_UPLOAD = "default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; font-src 'self'; manifest-src 'self'; "
-  + "connect-src 'self' https://www.googleapis.com; "
+  + "connect-src 'self' https://www.googleapis.com; media-src 'self' blob:; "
   + "form-action 'none'; base-uri 'self'; object-src 'none'";
 
 // Cache-busting: every asset URL gets ?v=<hash of the file>.
@@ -162,6 +162,11 @@ function player(ep, opts = {}) {
   </div>`;
 }
 
+// What main.js needs to draw a hand-added episode next to the ones added from the app.
+const epData = (ep) => ({ number: ep.number, title: ep.title, date: ep.date, minutes: ep.minutes || null, description: ep.description || '',
+  guests: ep.guests || [], pets: ep.pets || [], href: `${PP}/episodes/${ep.number}/`, audio: asset(ep.audio),
+  drawing: ep.drawing ? asset(ep.drawing) : '', drawingSm: ep.drawing ? asset(ep.drawing) : '', w: ep.drawingW || 800, h: ep.drawingH || 800 });
+
 function whoLine(ep) {
   const bits = [];
   if (ep.guests && ep.guests.length) bits.push(`<span class="who"><strong>Guest${ep.guests.length > 1 ? 's' : ''}:</strong> ${esc(listWords(ep.guests))}</span>`);
@@ -260,12 +265,12 @@ function artGallery(kid, items) {
   <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next picture">›</button>
 </dialog>
-${livePhotos(`/api/pieces?kid=${kid.key}&section=photos`, `${kid.name}'s photos`, 'Pictures from her tablet.')}`;
+${livePhotos(`/api/pieces?kid=${kid.key}&section=photos`, `${kid.name}'s snapshots`, 'Photos she took.', 'snapshots')}`;
 }
 
 // Photos from the girls' tablets (shown after a parent says OK). Drawn by main.js; stays hidden while empty.
-function livePhotos(src, title, note) {
-  return `<section class="live-photos" data-src="${esc(src)}" hidden>
+function livePhotos(src, title, note, id = '') {
+  return `<section class="live-photos"${id ? ` id="${id}"` : ''} data-src="${esc(src)}" hidden>
   <h2 class="live-h">${esc(title)}</h2><p class="live-note">${esc(note)}</p>
   <ul class="photo-grid"></ul>
   <dialog class="photo-box" aria-label="Photo">
@@ -304,6 +309,7 @@ for (const kid of KIDS) {
     title: `${kid.name}'s Art`,
     csp: CSP_SELF,
     body: `<div class="page-head"><h1>${esc(kid.name)}'s Art</h1></div>
+<p class="snap-jump" hidden><a class="chip" href="#snapshots">📷 ${esc(kid.name)}'s snapshots</a></p>
 ${artGallery(kid, items)}`,
   });
 }
@@ -312,14 +318,32 @@ pages['pet-parents/index.html'] = page({
   key: 'podcast',
   section: 'pet-parents',
   title: site.podcastName,
+  csp: CSP_SELF,
   body: `${podcastNav('episodes')}
 <section class="hero">
   <h1 class="hero-logo">${podcastMark()}</h1>
   <p class="hero-tag">A podcast about pets and the people who love them.</p>
   <div class="hero-art">${drawing('hero')}</div>
 </section>
+<div class="pp-live" data-empty="${episodes.length ? '' : '1'}">
 ${episodes.length ? latestBlock(episodes[0]) : comingSoon()}
-${pastList(episodes.slice(1))}`,
+${pastList(episodes.slice(1))}
+</div>
+<script type="application/json" id="pp-static">${JSON.stringify(episodes.map(epData)).replace(/</g, '\\u003c')}</script>
+<template id="ep-paw">${ICONS.paw}</template>`,
+});
+
+// Episodes added from the app live in the site's storage; this one page shows any of them (?id=...), drawn by main.js.
+pages['pet-parents/episode/index.html'] = page({
+  key: 'episode',
+  section: 'pet-parents',
+  title: 'Episode',
+  csp: CSP_SELF,
+  body: `<article class="episode ep-live" aria-live="polite">
+  <p class="back"><a href="${PP}/">← All episodes</a></p>
+  <p class="ep-loading">Getting the episode…</p>
+</article>
+<template id="ep-paw">${ICONS.paw}</template>`,
 });
 
 pages['pet-parents/about/index.html'] = page({
@@ -494,7 +518,7 @@ pages['parent/index.html'] = page({
   </section>
   <section class="parent-card wobbly" id="tablets-card">
     <h2>The girls' tablets</h2>
-    <p>Each girl's tablet logs in with her own tablet password. She can look at the site and add photos. Her photos wait for your OK. She cannot delete or change anything.</p>
+    <p>Each girl's tablet logs in with her own tablet password. She can look at the site and take snapshots. Her snapshots wait for your OK. She cannot delete or change anything.</p>
     ${KIDS.map((k) => `<div class="tablet-row" data-tablet="${k.key}">
       <h3>${esc(k.name)}</h3>
       <p class="tablet-state muted">Checking…</p>
@@ -584,11 +608,12 @@ pages['upload/index.html'] = `<!doctype html>
 <main id="main" class="up-main">
   <section class="screen" id="s-kid">
     <h1 class="up-h">${logo(false)}</h1>
-    <p class="up-lead" id="kid-lead">Whose art is it?</p>
+    <p class="up-lead" id="kid-lead">What do you want to add?</p>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
-    <div class="up-kids">
-      ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-kid="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
-      <button type="button" class="big-button wobbly c-yellow both-button" data-kid="both"><span class="big-label">Both, made together</span></button>
+    <div class="up-kids up-what">
+      <button type="button" class="big-button wobbly c-coral" data-what="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Art<small>A drawing, painting or something they made</small></span></button>
+      <button type="button" class="big-button wobbly c-mint" data-what="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo one of the girls took</small></span></button>
+      <button type="button" class="big-button wobbly c-lav" data-what="episode"><span class="big-icon">${ICONS.mic}</span><span class="big-label">A podcast episode<small>Pet Parents audio</small></span></button>
     </div>
     <p class="up-more"><button type="button" class="chip" id="recent">Recent uploads</button> <a class="linkish" href="/parent/">For parents</a></p>
     <nav class="up-look" aria-label="Look at the site"><p class="up-look-h">Look at the site</p>
@@ -596,16 +621,26 @@ pages['upload/index.html'] = `<!doctype html>
     </nav>
   </section>
 
+  <section class="screen" id="s-who" hidden>
+    <p><button type="button" class="linkish" id="who-back">← Back</button></p>
+    <p class="up-lead" id="who-lead">Whose art is it?</p>
+    <div class="up-kids">
+      ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-kid="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
+      <button type="button" class="big-button wobbly c-yellow both-button" data-kid="both"><span class="big-label">Both, made together</span></button>
+    </div>
+  </section>
+
   <section class="screen" id="s-photos" hidden>
     <p><button type="button" class="linkish" id="back">← Back</button></p>
     <h1 class="up-h2" id="who"></h1>
+    <p class="kid-help" id="kid-help"></p>
     <div class="up-add">
       <label class="big-pick wobbly pick-take"><input type="file" id="take" accept="image/*" capture="environment"><span>📷 Take a photo</span></label>
       <label class="big-pick wobbly pick-choose"><input type="file" id="pick" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
       <button type="button" class="big-pick wobbly cam-open" id="cam-open" hidden><span>💡 Camera with light</span></button>
     </div>
     <div class="up-where" id="where" hidden><p>Where should it go?</p>
-      <button type="button" class="chip" data-where="photos" aria-pressed="true">📷 My photos</button>
+      <button type="button" class="chip" data-where="photos" aria-pressed="true">📷 My snapshots</button>
       <button type="button" class="chip" data-where="moments" aria-pressed="false">❤️ Family Moments</button>
     </div>
     <label class="up-date">Date it was made <input type="date" id="date"></label>
@@ -617,6 +652,32 @@ pages['upload/index.html'] = `<!doctype html>
     </div>
     <p class="status" id="status" role="status" aria-live="polite"></p>
     <p class="kid-look"><a class="chip" id="kid-page" href="/">🎨 See my page</a> <a class="chip" href="/">🏠 Look at the site</a></p>
+  </section>
+
+  <section class="screen c-lav" id="s-episode" hidden>
+    <p><button type="button" class="linkish" id="ep-back">← Back</button></p>
+    <h1 class="up-h2">Add a podcast episode</h1>
+    <p class="share-help">It goes on the Pet Parents page as soon as it is sent. The audio file is also kept in Google Drive.</p>
+    <label class="big-pick wobbly ep-pick"><input type="file" id="ep-audio" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg"><span id="ep-audio-label">🎙️ Choose the audio file</span></label>
+    <div class="ep-form">
+      <label>Title <input type="text" id="ep-title" maxlength="120"></label>
+      <div class="ep-two">
+        <label>Episode number <input type="number" id="ep-number" min="1" step="1" inputmode="numeric"></label>
+        <label>Date <input type="date" id="ep-date"></label>
+      </div>
+      <label>What is it about? <span class="muted">(optional)</span> <textarea id="ep-desc" rows="3" maxlength="1000"></textarea></label>
+      <label>Guests <span class="muted">(optional; commas between names)</span> <input type="text" id="ep-guests" placeholder="Grandma Ruth, Sam"></label>
+      <label>Pets <span class="muted">(optional; for example: Biscuit the beagle, Mo the cat)</span> <input type="text" id="ep-pets"></label>
+      <label class="big-pick wobbly ep-pick ep-pick-sm"><input type="file" id="ep-drawing" accept="image/*"><span id="ep-drawing-label">🖍️ Add the episode drawing <span class="muted">(optional)</span></span></label>
+    </div>
+    <div class="up-actions">
+      <button type="button" class="save wobbly" id="ep-save" disabled>Send the episode</button>
+    </div>
+    <div class="ep-bar" id="ep-bar" hidden><span id="ep-bar-fill"></span></div>
+    <p class="status" id="ep-status" role="status" aria-live="polite"></p>
+    <p class="ep-done" id="ep-done" hidden><a class="chip" href="/pet-parents/">🎧 See it on the Pet Parents page</a></p>
+    <h2 class="up-h3">On the site</h2>
+    <ul class="up-list ep-list" id="ep-list"><li class="muted">Checking…</li></ul>
   </section>
 
   <section class="screen" id="s-edit" hidden>

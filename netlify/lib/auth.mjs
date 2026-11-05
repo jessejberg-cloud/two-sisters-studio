@@ -108,7 +108,7 @@ export async function setKidMoments(k, on, context) {
 export function kidMayOpen(me, pathname) {
   const first = pathname.split('/')[1] || '';
   if (first === 'upload') return true;
-  if (first === 'api') return ['logout', 'pieces', 'whoami'].includes(pathname.split('/')[2]);
+  if (first === 'api') return ['logout', 'pieces', 'whoami', 'episodes'].includes(pathname.split('/')[2]);
   return friendMayOpen(me.pages, pathname);
 }
 
@@ -146,7 +146,7 @@ export function friendMayOpen(pages, pathname) {
   }
   if (first === 'moments') return pages.includes('family-moments');
   if (first === 'img') return true;                    // live art: the function checks the piece's kid
-  if (first === 'api') return ['logout', 'pieces', 'whoami'].includes(pathname.split('/')[2]);
+  if (first === 'api') return ['logout', 'pieces', 'whoami', 'episodes'].includes(pathname.split('/')[2]);
   return PAGES.includes(first) && pages.includes(first);
 }
 
