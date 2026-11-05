@@ -12,7 +12,7 @@ Plain steps for Jesse. The site is **twosistersstudio.com**. Claude does the tec
 
 ## Add art
 1. On your phone, open the **Add art** app (twosistersstudio.com/upload/, or its home-screen icon).
-2. Tap **Leora**, **Amaya**, or **Both, made together**.
+2. Tap **Art** (or **A snapshot** for a photo one of the girls took), then **Leora**, **Amaya**, or **Both, made together**.
 3. Tap **Take a photo** or **Choose photos** (several at once). Or start in **Google Photos**: open a picture,
    tap **Share**, pick **Add art**, then pick who made it.
    On an Android phone, **💡 Camera with light** keeps the phone's light on while you take the picture (tap
@@ -40,10 +40,10 @@ Google Drive are never touched.
 1. On your phone, open **For parents**, type the PIN, and find **The girls' tablets**.
 2. Type a tablet password for each girl (4 or more letters or numbers, different from the family password) and tap **Set**.
 3. On her tablet, open the site and type her tablet password. It stays logged in.
-4. To take a picture she uses the tablet's **Camera** app (Amazon Kids blocks the camera inside web pages). Then she opens
-   **Add art**, taps **Choose photos**, picks it, and taps **Save**.
-5. Her photos wait for you under **Photos waiting for your OK**. Tap **OK, show it** and it appears in "Leora's photos" at
-   the bottom of her page (or Put away).
+4. In the tablet app she lands straight on **Leora's snapshots**: **Take a photo** (or **Choose photos**), then **Save**.
+   In the Amazon Kids browser the camera is blocked, so there she uses the **Camera** app first, then **Choose photos**.
+5. Her snapshots wait for you under **Photos waiting for your OK**. Tap **OK, show it** and it appears in "Leora's snapshots"
+   on her page (a **📷 Leora's snapshots** button at the top jumps there), or Put away.
 6. The tick **Can see Family Moments and add photos to it** lets her open Family Moments and send photos there too
    (they also wait for your OK and show under "From Leora and Amaya").
 Her login cannot delete or change anything, and never sees the parent page. Setting a new tablet password logs that
@@ -88,15 +88,17 @@ the For parents page, that page's version is the one that counts.)
   **Download all as one zip** is for a computer or a photo book.
 
 ## Add a Pet Parents episode
-1. Make a folder for the episode in the Pet Parents incoming folder with the audio, the drawing, and `notes.txt`:
-   ```
-   Title: Biscuit the Very Good Boy
-   Date: 11/15/2026
-   Description: One or two sentences about the episode.
-   Guests: Maya
-   Pets: Biscuit (dog), Pepper (cat)
-   ```
-2. Tell Claude **"new episode is in"**.
+1. In the app, tap **A podcast episode**.
+2. Tap **Choose the audio file** and pick the recording (mp3, m4a or wav; up to 400 MB).
+3. Type the title. The episode number and today's date are filled in; change them if you like. What it is about,
+   guests and pets are optional (pets like this: `Biscuit the beagle, Mo the cat`). Add the drawing if there is one.
+4. Tap **Send the episode** and keep the app open. The bar shows the audio going up. When it says it is on the
+   Pet Parents page, it is live. Then it keeps a copy of the audio in Google Drive
+   (`Two Sisters Studio / Pet Parents / Episode 3 - title /`, with the drawing and an `episode.json` of the details).
+5. If the signal drops, tap **Send the episode** again: it picks up where it stopped.
+6. Under **On the site** in the same screen, **Put away** takes an episode off the page (and **Bring back** returns it).
+
+The older way still works: a folder with the audio, drawing and `notes.txt`, then tell Claude **"new episode is in"**.
 
 ## If something breaks
 - **The site shows an old version, or a change didn't appear:** open [Deploys](https://app.netlify.com/projects/two-sisters-studio/deploys).

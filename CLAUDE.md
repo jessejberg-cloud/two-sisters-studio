@@ -75,6 +75,15 @@ Plan doc: https://claude.ai/artifact/EJYt34fYXdVsGch9mMePqB. These replace anyth
 - Amazon Kids blocks getUserMedia and capture inputs: the girls take pictures with the Camera app, then Choose photos.
 - Home page stays at 2 to 4 big buttons (4 is almost too much). Tests: tests/kids.test.mjs.
 
+## Adding from the app (Jesse, 2026-11-05)
+- The app's first screen asks "What do you want to add?": **Art**, **A snapshot** (section `photos`, a photo one of the girls
+  took; no "Both"), **A podcast episode**. A girl's tablet skips it and opens on "<name>'s snapshots".
+- Episodes: `netlify/functions/episodes.mjs` (family only to add; anyone with the Pet Parents page may listen). Audio in
+  3 MB pieces in Blobs store `audio` (Netlify's 6 MB request limit), played with Range requests; original + drawing +
+  episode.json to Drive `Pet Parents/Episode N - title/`. The Pet Parents page merges these with `content/episodes.json`
+  (main.js); app episodes open at `/pet-parents/episode/?id=`. Rebuilding the site from Drive does not cover episodes yet.
+  Tests: tests/episodes.test.mjs.
+
 ## Personal information (Jesse, 2026-11-03; replaces the older privacy rules)
 - Personal information is allowed: last names, school, places, ages, birthdays, family photos. The whole site is
   behind the family password, and Jesse monitors what goes on it himself. Claude does not screen art, photos,

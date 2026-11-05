@@ -341,6 +341,78 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
         li.appendChild(b); grid.appendChild(li);
       });
       sec.hidden = false;
+      if (sec.id === 'snapshots') document.querySelectorAll('.snap-jump').forEach(function (j) { j.hidden = false; });
     })
     .catch(function () { /* stays hidden */ });
 });
+
+// ---------- Pet Parents: episodes added from the app join the hand-added ones ----------
+(function () {
+  'use strict';
+  var area = document.querySelector('.pp-live'), one = document.querySelector('.ep-live');
+  if (!area && !one) return;
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function nice(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); }
+  function words(a) { return a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' and ' + a[a.length - 1]; }
+  var paw = (document.getElementById('ep-paw') || {}).innerHTML || '';
+  function fromSite(e) {
+    var b = '/api/episodes/' + encodeURIComponent(e.id);
+    return { number: e.number, title: e.title, date: e.date, minutes: e.minutes, description: e.description || '', guests: e.guests || [], pets: e.pets || [],
+      href: '/pet-parents/episode/?id=' + encodeURIComponent(e.id), audio: b + '/audio',
+      drawing: e.drawing ? b + '/drawing' : '', drawingSm: e.drawing ? b + '/drawing/sm' : '', w: (e.drawing && e.drawing.w) || 800, h: (e.drawing && e.drawing.h) || 800 };
+  }
+  function meta(e) { return 'Episode ' + e.number + ' <span class="dot">·</span> <time datetime="' + esc(e.date) + '">' + esc(nice(e.date)) + '</time>' + (e.minutes ? ' <span class="dot">·</span> ' + e.minutes + ' min' : ''); }
+  function pic(e, cls, small) {
+    if (!e.drawing) return '<div class="' + cls + ' ep-pic ep-pic--none" aria-hidden="true">' + paw + '</div>';
+    return '<img class="' + cls + ' ep-pic" src="' + esc(small ? e.drawingSm : e.drawing) + '" alt="Drawing for episode ' + e.number + '" width="' + e.w + '" height="' + e.h + '" loading="lazy" decoding="async">';
+  }
+  function who(e) {
+    var bits = [];
+    if (e.guests.length) bits.push('<span class="who"><strong>Guest' + (e.guests.length > 1 ? 's' : '') + ':</strong> ' + esc(words(e.guests)) + '</span>');
+    if (e.pets.length) bits.push('<span class="who"><strong>Pet' + (e.pets.length > 1 ? 's' : '') + ':</strong> ' + esc(words(e.pets.map(function (p) { return p.kind ? p.name + ' the ' + p.kind : p.name; }))) + '</span>');
+    return bits.length ? '<p class="who-line">' + bits.join('') + '</p>' : '';
+  }
+  function player(e) { return '<div class="player"><audio controls preload="none" src="' + esc(e.audio) + '" aria-label="' + esc('Play episode ' + e.number + ': ' + e.title) + '">Your browser can’t play this audio.</audio></div>'; }
+  function card(e, h) {
+    return '<div class="latest-card wobbly">' + pic(e, 'latest-pic') + '<div class="latest-text"><p class="ep-num">' + meta(e) + '</p>' + h +
+      '<p class="ep-desc">' + esc(e.description) + '</p>' + who(e) + player(e) + '</div></div>';
+  }
+
+  if (area) {
+    var stat = []; try { stat = JSON.parse(document.getElementById('pp-static').textContent); } catch (x) {}
+    fetch('/api/episodes', { credentials: 'same-origin' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (j) {
+        var live = (j.episodes || []).map(fromSite);
+        if (!live.length) return;
+        var all = live.concat(stat.filter(function (s) { return !live.some(function (l) { return l.number === s.number; }); }))
+          .sort(function (a, b) { return b.number - a.number; });
+        var top = all[0], rest = all.slice(1);
+        area.innerHTML = '<section class="latest" aria-labelledby="latest-h"><p class="kicker">Newest episode</p>' +
+          card(top, '<h2 id="latest-h"><a href="' + esc(top.href) + '">' + esc(top.title) + '</a></h2>') + '</section>' +
+          (rest.length ? '<section class="past" aria-labelledby="past-h"><h2 id="past-h" class="section-h">More episodes</h2><ul class="past-list">' +
+            rest.map(function (e) {
+              return '<li class="past-item"><a class="past-link wobbly" href="' + esc(e.href) + '">' + pic(e, 'past-pic', true) +
+                '<span class="past-text"><span class="ep-num">' + meta(e) + '</span><span class="past-title">' + esc(e.title) + '</span><span class="past-desc">' + esc(e.description) + '</span></span></a></li>';
+            }).join('') + '</ul></section>' : '');
+      })
+      .catch(function () { /* the hand-added episodes stay as they are */ });
+  }
+
+  if (one) {
+    var id = new URLSearchParams(location.search).get('id') || '';
+    fetch('/api/episodes', { credentials: 'same-origin' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (j) {
+        var list = (j.episodes || []).sort(function (a, b) { return b.number - a.number; });
+        var i = list.findIndex(function (x) { return x.id === id; });
+        if (i < 0) throw new Error('missing');
+        var e = fromSite(list[i]), newer = list[i - 1], older = list[i + 1];
+        document.title = 'Episode ' + e.number + ': ' + e.title + ' · ' + document.title.split(' · ').slice(1).join(' · ');
+        var link = function (x, txt) { return '<a class="ep-nav-link" href="/pet-parents/episode/?id=' + encodeURIComponent(x.id) + '">' + txt + '</a>'; };
+        one.querySelector('.ep-loading').outerHTML = card(e, '<h1>' + esc(e.title) + '</h1>') +
+          '<nav class="ep-nav" aria-label="More episodes">' + (older ? link(older, '← Episode ' + older.number) : '<span></span>') + (newer ? link(newer, 'Episode ' + newer.number + ' →') : '') + '</nav>';
+      })
+      .catch(function () { var l = one.querySelector('.ep-loading'); if (l) l.textContent = 'This episode could not be found. It may have been put away.'; });
+  }
+})();
