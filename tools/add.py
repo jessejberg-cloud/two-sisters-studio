@@ -50,6 +50,10 @@ def process_audio(src: Path, dest: Path):
            "-id3v2_version", "0", "-write_id3v1", "0", "-write_xing", "0",
            str(dest)]
     subprocess.run(cmd, check=True)
+    # LAME fills unused bits in quiet frames with "LAME3.100UUU…"; decoders ignore it. Blank the name.
+    raw = dest.read_bytes()
+    raw = re.sub(rb"LAME\d\.\d+", lambda m: b"U" * len(m.group(0)), raw)
+    dest.write_bytes(raw)
     check_audio(dest)
     return audio_seconds(dest)
 

@@ -1,5 +1,24 @@
 [
   {
+    "number": 1,
+    "title": "Sunny the Dog",
+    "date": "2026-11-01",
+    "description": "The whole family shares their experience living with Sunny the dog as their pet.",
+    "guests": [],
+    "pets": [
+      {
+        "name": "Sunny",
+        "kind": "dog"
+      }
+    ],
+    "audio": "audio/ep-001.mp3",
+    "minutes": 10,
+    "drawing": "art/episodes/ep-001.webp",
+    "drawingW": 1600,
+    "drawingH": 1200,
+    "drawingAlt": "A marker drawing of Sunny the dog, with floppy orange ears"
+  },
+  {
     "number": 2,
     "title": "Isopods",
     "date": "2026-11-07",
