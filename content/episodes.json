@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "number": 2,
+    "title": "Isopods",
+    "date": "2026-11-07",
+    "description": "Leora tells us about keeping isopods as pets!",
+    "guests": [],
+    "pets": [],
+    "audio": "audio/ep-002.mp3",
+    "minutes": 13
+  }
+]
