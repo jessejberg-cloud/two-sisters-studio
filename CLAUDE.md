@@ -137,3 +137,8 @@ python3 -m http.server 5190 --directory dist     # local preview
 - The Family Moments page shows videos at the top of their day's section (main.js); a day with only videos gets its own section.
   The page now uses CSP_SELF (connect-src 'self'), which also fixes the girls' Family Moments photos that could not load.
 - Rebuilding the site from Drive does not cover videos yet.
+- Full screen + save (Jesse, 2026-11-15: "many different families will be using it"): every picture viewer (art galleries,
+  Family Moments photos, snapshots / the girls' Family Moments photos) and every video has **⛶ Full screen** and **⬇ Save**.
+  Shared helper `window.TSS` at the top of main.js (enter/exit full screen, save a file: iPhone share sheet, else download).
+  Where the browser has no full screen (the tablet app's WebView), the item fills the page with a ✕. Videos save by fetching
+  all their ranges into one file in the browser (fine for phone-sized videos).

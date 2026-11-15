@@ -1,4 +1,43 @@
 // Two Sisters Studio: small, gentle extras. Everything works without this file.
+
+// ---------- shared: full screen for any picture or video, and saving a file to a phone or computer ----------
+// Full screen: the browser's own full screen where it has one; the tablet app has none, so the picture or video
+// then simply fills the page (class is-full). Either way the ✕ or Back key brings it back.
+window.TSS = (function () {
+  'use strict';
+  var IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var current = null;
+  function exit() {
+    if (!current) return;
+    var c = current; current = null;
+    c.el.classList.remove('is-full'); document.documentElement.classList.remove('full-open');
+    if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    if (c.onExit) c.onExit();
+  }
+  function enter(el, onExit) {
+    if (current) exit();
+    current = { el: el, onExit: onExit };
+    el.classList.add('is-full'); document.documentElement.classList.add('full-open');
+    var go = el.requestFullscreen || el.webkitRequestFullscreen;
+    try { if (go) { var p = go.call(el); if (p && p.catch) p.catch(function () {}); } } catch (e) {}
+  }
+  function changed() { if (current && !(document.fullscreenElement || document.webkitFullscreenElement) && current.native) exit(); else if (current) current.native = true; }
+  document.addEventListener('fullscreenchange', changed);
+  document.addEventListener('webkitfullscreenchange', changed);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && current) exit(); });
+  // iPhone: the Share sheet ("Save Image" / "Save Video") puts it in Photos. Android and computers: a download.
+  async function save(file) {
+    if (IOS && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); } catch (e) { if (e.name !== 'AbortError') throw e; }
+      return 'shared';
+    }
+    var u = URL.createObjectURL(file), a = document.createElement('a');
+    a.href = u; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
+    return 'downloaded';
+  }
+  return { enter: enter, exit: exit, save: save, isFull: function () { return !!current; } };
+})();
 (function () {
   'use strict';
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -188,10 +227,13 @@ function initGallery() {
     var first = 0; for (var k = 0; k < list.length; k++) if (list[k].a === a) { first = k; break; }
     opener = a; show(first); box.showModal();
   });
-  box.querySelector('.lb-close').addEventListener('click', function () { box.close(); });
+  var fullBtn = box.querySelector('.lb-full');
+  if (fullBtn) fullBtn.addEventListener('click', function () { TSS.enter(box); });
+  box.addEventListener('cancel', function (e) { if (TSS.isFull()) { e.preventDefault(); TSS.exit(); } });
+  box.querySelector('.lb-close').addEventListener('click', function () { if (TSS.isFull()) TSS.exit(); else box.close(); });
   box.querySelector('.lb-prev').addEventListener('click', function () { show(at - 1); });
   box.querySelector('.lb-next').addEventListener('click', function () { show(at + 1); });
-  box.addEventListener('close', function () { img.removeAttribute('src'); if (opener) opener.focus(); });
+  box.addEventListener('close', function () { TSS.exit(); img.removeAttribute('src'); if (opener) opener.focus(); });
   box.addEventListener('click', function (e) { if (e.target === box) box.close(); });
   box.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowLeft') show(at - 1);
@@ -321,9 +363,31 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
     at = (i + list.length) % list.length; var p = list[at];
     img.src = '/img/' + encodeURIComponent(p.id) + '/1'; img.alt = p.caption || 'Photo';
     cap.textContent = [p.caption, p.byName, nice(p.date)].filter(Boolean).join(' · ');
+    var sv = box.querySelector('.pb-save'); sv.textContent = '⬇ Save this picture'; sv.disabled = false;
     if (!box.open) box.showModal();
   }
-  box.querySelector('.pb-close').addEventListener('click', function () { box.close(); });
+  var pbFull = box.querySelector('.pb-full'), pbSave = box.querySelector('.pb-save');
+  pbFull.addEventListener('click', function () { TSS.enter(box); });
+  pbSave.addEventListener('click', function () {
+    var p = list[at], name = (p.caption || 'photo-' + p.date).replace(/[^A-Za-z0-9 _-]+/g, '').trim().replace(/\s+/g, '-').slice(0, 60) || 'photo';
+    pbSave.disabled = true; pbSave.textContent = 'Getting it ready…';
+    var im = new Image();
+    im.onload = function () {
+      var c = document.createElement('canvas'); c.width = im.naturalWidth; c.height = im.naturalHeight;
+      var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0);
+      c.toBlob(function (bl) {
+        TSS.save(new File([bl], name + '.jpg', { type: 'image/jpeg' }))
+          .then(function (how) { pbSave.textContent = how === 'downloaded' ? '✓ Saved to Downloads' : '⬇ Save this picture'; },
+            function () { pbSave.textContent = 'That did not work. Try again?'; })
+          .then(function () { pbSave.disabled = false; });
+      }, 'image/jpeg', 0.92);
+    };
+    im.onerror = function () { pbSave.textContent = 'Could not get this picture'; pbSave.disabled = false; };
+    im.src = img.src;
+  });
+  box.addEventListener('cancel', function (e) { if (TSS.isFull()) { e.preventDefault(); TSS.exit(); } });
+  box.addEventListener('close', function () { TSS.exit(); });
+  box.querySelector('.pb-close').addEventListener('click', function () { if (TSS.isFull()) TSS.exit(); else box.close(); });
   box.querySelector('.pb-prev').addEventListener('click', function () { show(at - 1); });
   box.querySelector('.pb-next').addEventListener('click', function () { show(at + 1); });
   box.addEventListener('click', function (e) { if (e.target === box) box.close(); });
@@ -443,6 +507,29 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
     if (jump) { var li = make('li'), a = make('a', '', v.eventTitle); a.href = '#' + v.event; li.append(a); jump.append(li); }
     return sec;
   }
+  // Save: fetch the whole video in pieces (the site hands it out a few MB at a time), then hand it to the phone or computer.
+  var EXT = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm', 'video/3gpp': '3gp', 'video/x-m4v': 'm4v' };
+  async function saveVideo(v, base, btn) {
+    if (btn.disabled) return;
+    var label = btn.textContent; btn.disabled = true;
+    try {
+      var parts = [], at = 0;
+      while (at < v.size) {
+        btn.textContent = 'Getting it… ' + Math.round(at / v.size * 100) + '%';
+        var r = await fetch(base + '/play', { credentials: 'same-origin', headers: { range: 'bytes=' + at + '-' } });
+        if (!r.ok) throw new Error(r.status);
+        var b = await r.arrayBuffer();
+        if (!b.byteLength) throw new Error('empty');
+        parts.push(b); at += b.byteLength;
+      }
+      var name = (v.caption || v.eventTitle || 'video').replace(/[^A-Za-z0-9 _-]+/g, '').trim().replace(/\s+/g, '-').slice(0, 60) + '.' + (EXT[v.type] || 'mp4');
+      var file = new File(parts, name, { type: v.type });
+      btn.textContent = (await TSS.save(file)) === 'downloaded' ? '✓ Saved to Downloads' : label;
+    } catch (e) {
+      btn.textContent = e && e.name === 'AbortError' ? label : 'Could not save it. Try again?';
+    }
+    setTimeout(function () { btn.textContent = label; btn.disabled = false; }, 4000);
+  }
   fetch(area.dataset.videos, { credentials: 'same-origin' })
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(function (j) {
@@ -467,7 +554,18 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
         if (len) cap.append(make('span', 'vid-len', '🎬 ' + len));
         var oops = make('p', 'vid-oops', 'This video cannot play on this device. Try a phone or a computer.'); oops.hidden = true;
         el.addEventListener('error', function () { oops.hidden = false; });
-        fig.append(el, cap, oops); row.append(fig);
+        var tools = make('div', 'vid-tools');
+        var big = make('button', 'vid-btn', '⛶ Full screen'); big.type = 'button';
+        big.addEventListener('click', function () {
+          if (!el.requestFullscreen && !el.webkitRequestFullscreen && el.webkitEnterFullscreen) { el.webkitEnterFullscreen(); el.play().catch(function () {}); return; }   // iPhone
+          TSS.enter(fig); el.play().catch(function () {});
+        });
+        var save = make('button', 'vid-btn', '⬇ Save this video'); save.type = 'button';
+        save.addEventListener('click', function () { saveVideo(v, base, save); });
+        tools.append(big, save);
+        var shut = make('button', 'vid-shut', '✕'); shut.type = 'button'; shut.setAttribute('aria-label', 'Close the big video');
+        shut.addEventListener('click', function () { TSS.exit(); });
+        fig.append(shut, el, cap, tools, oops); row.append(fig);
       });
     })
     .catch(function () { /* the photos stay as they are */ });

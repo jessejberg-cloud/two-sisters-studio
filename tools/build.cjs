@@ -262,7 +262,7 @@ function artGallery(kid, items) {
 <dialog class="lightbox" aria-label="Picture">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous picture">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next picture">›</button>
 </dialog>
 ${livePhotos(`/api/pieces?kid=${kid.key}&section=photos`, `${kid.name}'s snapshots`, 'Photos she took.', 'snapshots')}`;
@@ -276,7 +276,8 @@ function livePhotos(src, title, note, id = '') {
   <dialog class="photo-box" aria-label="Photo">
     <button type="button" class="pb-close" aria-label="Close">✕</button>
     <button type="button" class="pb-prev" aria-label="Previous photo">‹</button>
-    <figure class="pb-fig"><img class="pb-img" alt=""><figcaption class="pb-cap"></figcaption></figure>
+    <figure class="pb-fig"><img class="pb-img" alt=""><figcaption class="pb-cap"></figcaption>
+      <p class="pb-tools"><button type="button" class="pb-full">⛶ Full screen</button><button type="button" class="pb-save">⬇ Save this picture</button></p></figure>
     <button type="button" class="pb-next" aria-label="Next photo">›</button>
   </dialog>
 </section>`;
@@ -476,7 +477,7 @@ ${blocks}
 <dialog class="lightbox" aria-label="Photo">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next photo">›</button>
 </dialog>` : `<div class="gallery-area" data-videos="/api/videos" hidden></div>
 ${gallery([], 'Family photos will show up here soon!')}`}`,
