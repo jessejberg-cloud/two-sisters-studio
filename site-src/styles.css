@@ -598,3 +598,7 @@ body.kid-mode .kid-help { display: block; font-size: 1.2rem; margin: -4px 0 14px
 .vid-note { margin: -6px 0 14px; font-weight: 700; }
 .vid-note[hidden] { display: none; }
 #s-video .ep-bar span { background: var(--yellow); }
+.vid-new { display: grid; gap: 10px; }
+.vid-new[hidden], #vid-event-pick[hidden] { display: none; }
+.vid-new label { display: grid; gap: 6px; font-weight: 800; }
+.vid-eg { margin: -6px 0 4px; font-size: 1rem; }

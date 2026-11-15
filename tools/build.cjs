@@ -693,9 +693,10 @@ pages['upload/index.html'] = `<!doctype html>
     <p class="vid-note" id="vid-note" hidden></p>
     <img class="vid-poster" id="vid-poster" alt="" hidden>
     <div class="ep-form">
-      <label>Which special day? <select id="vid-event"></select></label>
-      <div class="ep-two" id="vid-new">
-        <label>Name of the day <input type="text" id="vid-event-title" maxlength="80" placeholder="Trip to Grandma's"></label>
+      <label id="vid-event-pick">Which special day? <select id="vid-event"></select></label>
+      <div class="vid-new" id="vid-new">
+        <label>Name of the special day <input type="text" id="vid-event-title" maxlength="80" autocomplete="off" enterkeyhint="done"></label>
+        <p class="muted vid-eg">For example: Leora's 9th birthday, or Trip to Grandma's</p>
         <label>Date <input type="date" id="vid-event-date"></label>
       </div>
       <label>A few words about it <span class="muted">(optional)</span> <input type="text" id="vid-caption" maxlength="200"></label>

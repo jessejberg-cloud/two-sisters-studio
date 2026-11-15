@@ -236,6 +236,7 @@
     var n = el('option', '', '➕ A new special day'); n.value = ''; sel.append(n);
     sel.value = Array.prototype.some.call(sel.options, function (o) { return o.value === was; }) ? was : (sel.options[0] ? sel.options[0].value : '');
     $('#vid-new').hidden = sel.value !== '';
+    $('#vid-event-pick').hidden = sel.options.length < 2;   // no days yet: just ask for the name
   }
   $('#vid-event').addEventListener('change', function () { $('#vid-new').hidden = $('#vid-event').value !== ''; });
   function openVideo() {
@@ -303,8 +304,12 @@
     if (!vid.file || vid.busy) return;
     var f = vid.file, info = vid.info || {}, key = $('#vid-event').value, ev = null;
     events().forEach(function (x) { if (x.key === key) ev = x; });
-    var evTitle = ev ? ev.title : $('#vid-event-title').value.trim(), evDate = ev ? ev.date : ($('#vid-event-date').value || today());
-    if (!evTitle) { vidStatus('Give the special day a name first.', true); $('#vid-event-title').focus(); return; }
+    // No name typed? Use the few words about it, so nothing blocks sending.
+    var evTitle = ev ? ev.title : ($('#vid-event-title').value.trim() || $('#vid-caption').value.trim()), evDate = ev ? ev.date : ($('#vid-event-date').value || today());
+    if (!evTitle) {
+      vidStatus('Type a name for the special day (the box under "Name of the special day").', true);
+      $('#vid-event-title').scrollIntoView({ block: 'center' }); $('#vid-event-title').focus(); return;
+    }
     vid.busy = true; vidReady(); $('#vid-done').hidden = true;
     var lock = null; try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch (e) {}
     try {
