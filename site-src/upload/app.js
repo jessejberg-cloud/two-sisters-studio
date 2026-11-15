@@ -79,6 +79,7 @@
   // ---------- home: what are we adding? Art, a snapshot (a photo she took), or a podcast episode ----------
   function chooseWhat(what) {
     if (what === 'episode') { openEpisode(); return; }
+    if (what === 'video') { openVideo(); return; }
     state.section = what;
     $('#who-lead').textContent = what === 'photos' ? 'Whose snapshot is it?' : 'Whose art is it?';
     document.querySelector('[data-kid="both"]').hidden = what === 'photos';
@@ -212,6 +213,163 @@
           try { await apiJSON('/api/episodes/' + x.id + '/' + (x.deleted ? 'restore' : 'delete')); epList(); } catch (e) { epStatus(e.message, true); b.disabled = false; }
         });
         box.append(b); li.append(box); ul.append(li);
+      });
+    } catch (e) { ul.innerHTML = ''; ul.append(el('li', 'muted', 'Could not load the list just now.')); }
+  }
+  // ---------- a Family Moments video: one file, a special day, a few words ----------
+  // The phone sends the video once, to the site, in pieces (Send again picks up where a weak signal stopped it).
+  // The site shows it right away and copies it into Google Drive by itself.
+  var vid = { file: null, info: null, busy: false, job: null, list: [] };
+  function vidStatus(msg, bad) { var s = $('#vid-status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
+  function vidBar(f) { $('#vid-bar').hidden = f == null; $('#vid-bar-fill').style.width = Math.round((f || 0) * 100) + '%'; }
+  function vidReady() { $('#vid-save').disabled = vid.busy || !vid.file; }
+  function events() {   // the special days on the page, plus any that only have videos so far
+    var seen = {}, out = [];
+    (cfg.moments || []).concat(vid.list.filter(function (v) { return !v.deleted; }).map(function (v) { return { key: v.event, title: v.eventTitle, date: v.eventDate }; }))
+      .forEach(function (e) { if (!seen[e.key]) { seen[e.key] = 1; out.push(e); } });
+    return out.sort(function (a, b) { return b.date.localeCompare(a.date); });
+  }
+  function fillEvents() {
+    var sel = $('#vid-event'), was = vid.lastEvent || sel.value;
+    sel.innerHTML = '';
+    events().forEach(function (e) { var o = el('option', '', e.title + ' (' + niceDate(e.date) + ')'); o.value = e.key; sel.append(o); });
+    var n = el('option', '', '➕ A new special day'); n.value = ''; sel.append(n);
+    sel.value = Array.prototype.some.call(sel.options, function (o) { return o.value === was; }) ? was : (sel.options[0] ? sel.options[0].value : '');
+    $('#vid-new').hidden = sel.value !== '';
+  }
+  $('#vid-event').addEventListener('change', function () { $('#vid-new').hidden = $('#vid-event').value !== ''; });
+  function openVideo() {
+    if (!$('#vid-event-date').value) $('#vid-event-date').value = today();
+    vidStatus(''); fillEvents(); show('s-video'); vidList();
+  }
+  $('#vid-back').addEventListener('click', function () {
+    if (vid.busy && !confirm('The video is still sending. Leave anyway? You can send it again later.')) return;
+    show('s-kid');
+  });
+  // Videos in the newer "high efficiency" (HEVC) format play on most phones but may not play on the Fire tablets.
+  async function isHevc(f) {
+    var M = 4 * 1024 * 1024, bits = [f.slice(0, M)];
+    if (f.size > M) bits.push(f.slice(Math.max(M, f.size - M)));
+    for (var i = 0; i < bits.length; i++) {
+      var b = new Uint8Array(await bits[i].arrayBuffer());
+      for (var j = 0; j + 4 <= b.length; j++) {
+        if ((b[j] === 104 && b[j + 1] === 118 && b[j + 2] === 99 && b[j + 3] === 49) || (b[j] === 104 && b[j + 1] === 101 && b[j + 2] === 118 && b[j + 3] === 49)
+          || (b[j] === 100 && b[j + 1] === 118 && b[j + 2] === 104 && b[j + 3] === 49)) return true;   // hvc1, hev1, dvh1
+      }
+    }
+    return false;
+  }
+  // Length, size and a still picture for the page, from the phone's own player. Any of it may be missing.
+  function videoInfo(f) {
+    return new Promise(function (ok) {
+      var v = document.createElement('video'), u = URL.createObjectURL(f), info = { seconds: 0, w: 0, h: 0, poster: null, pw: 0, ph: 0 }, done = false;
+      function finish() { if (done) return; done = true; URL.revokeObjectURL(u); ok(info); }
+      setTimeout(finish, 15000);
+      v.muted = true; v.playsInline = true; v.preload = 'auto';
+      v.onloadedmetadata = function () {
+        info.seconds = isFinite(v.duration) ? v.duration : 0; info.w = v.videoWidth; info.h = v.videoHeight;
+        try { v.currentTime = Math.min(1, (info.seconds || 2) / 2); } catch (e) { finish(); }
+      };
+      v.onseeked = function () {
+        try {
+          var sc = Math.min(1, 1280 / Math.max(v.videoWidth, v.videoHeight)), c = document.createElement('canvas');
+          c.width = Math.round(v.videoWidth * sc); c.height = Math.round(v.videoHeight * sc);
+          if (!c.width || !c.height) return finish();
+          c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+          c.toBlob(function (b) { info.poster = b; info.pw = c.width; info.ph = c.height; finish(); }, 'image/webp', 0.82);
+        } catch (e) { finish(); }
+      };
+      v.onerror = finish;
+      v.src = u;
+    });
+  }
+  $('#vid-file').addEventListener('change', async function (e) {
+    var f = e.target.files[0];
+    if (!f) return;
+    vid.file = f; vid.info = null; vid.job = null; vidReady();
+    $('#vid-label').textContent = '🎬 ' + (f.name || 'Video') + ' (' + mb(f.size) + ')';
+    $('#vid-done').hidden = true; $('#vid-poster').hidden = true; $('#vid-note').hidden = true; vidStatus('');
+    var info = await videoInfo(f);
+    if (vid.file !== f) return;
+    vid.info = info;
+    info.hevc = await isHevc(f).catch(function () { return false; });
+    if (info.poster) { $('#vid-poster').src = URL.createObjectURL(info.poster); $('#vid-poster').hidden = false; }
+    var note = [];
+    if (info.seconds) note.push(Math.floor(info.seconds / 60) + ':' + String(Math.round(info.seconds % 60)).padStart(2, '0') + ' long');
+    if (info.hevc) note.push('This video is in the "high efficiency" (HEVC) format. It plays on most phones and computers, but it may not play on the Fire tablets. You can still send it. For new videos, turning HEVC off in the camera settings makes them play everywhere.');
+    if (note.length) { $('#vid-note').textContent = note.join('. '); $('#vid-note').hidden = false; }
+  });
+  $('#vid-save').addEventListener('click', async function () {
+    if (!vid.file || vid.busy) return;
+    var f = vid.file, info = vid.info || {}, key = $('#vid-event').value, ev = null;
+    events().forEach(function (x) { if (x.key === key) ev = x; });
+    var evTitle = ev ? ev.title : $('#vid-event-title').value.trim(), evDate = ev ? ev.date : ($('#vid-event-date').value || today());
+    if (!evTitle) { vidStatus('Give the special day a name first.', true); $('#vid-event-title').focus(); return; }
+    vid.busy = true; vidReady(); $('#vid-done').hidden = true;
+    var lock = null; try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch (e) {}
+    try {
+      if (!vid.job || vid.job.file !== f) {
+        var st = await apiJSON('/api/videos/start', { event: ev ? ev.key : '', eventTitle: evTitle, eventDate: evDate, caption: $('#vid-caption').value.trim(),
+          date: evDate, type: f.type || 'video/mp4', size: f.size, seconds: info.seconds || 0, w: info.w || 0, h: info.h || 0, hevc: !!info.hevc });
+        vid.job = { file: f, id: st.id, chunkSize: st.chunkSize, chunks: st.chunks, sent: {}, poster: false, live: false };
+      }
+      var J = vid.job, t0 = Date.now(), done0 = Object.keys(J.sent).length;
+      for (var i = 0; i < J.chunks; i++) {
+        if (J.sent[i]) continue;
+        var doneN = Object.keys(J.sent).length, left = '';
+        if (doneN - done0 >= 3) { var per = (Date.now() - t0) / (doneN - done0), m = Math.ceil(per * (J.chunks - doneN) / 60000); left = m > 1 ? ' About ' + m + ' minutes left.' : ' Almost done.'; }
+        vidStatus('Sending the video… ' + Math.round(doneN / J.chunks * 100) + '%.' + left + ' Keep this screen open.'); vidBar(doneN / J.chunks);
+        await postBytes('/api/videos/' + J.id + '/part/' + i, f.slice(i * J.chunkSize, Math.min(f.size, (i + 1) * J.chunkSize)));
+        J.sent[i] = true;
+      }
+      if (!J.poster && info.poster) {
+        var fd = new FormData();
+        fd.append('poster', info.poster, 'poster.webp'); fd.append('meta', JSON.stringify({ w: info.pw, h: info.ph }));
+        var r = await fetch('/api/videos/' + J.id + '/poster', { method: 'POST', credentials: 'same-origin', body: fd });
+        if (r.ok) J.poster = true;   // without it the page shows a plain play button
+      }
+      if (!J.live) { var fin = await apiJSON('/api/videos/' + J.id + '/finish'); J.live = true; if (fin.video) vid.lastEvent = fin.video.event; }
+      fetch('/api/videos-drive/' + J.id, { method: 'POST', credentials: 'same-origin' }).catch(function () {});
+      vidBar(null);
+      vidStatus('✓ The video is on the Family Moments page. The site is now keeping a copy in Google Drive by itself; you can close the app.');
+      $('#vid-done').hidden = false;
+      vid.file = null; vid.info = null; vid.job = null;
+      ['#vid-file', '#vid-caption', '#vid-event-title'].forEach(function (s) { $(s).value = ''; });
+      $('#vid-label').textContent = '🎬 Choose a video'; $('#vid-poster').hidden = true; $('#vid-note').hidden = true;
+      setTimeout(vidList, 1500);
+    } catch (e) {
+      vidBar(null);
+      vidStatus((e.message || 'Something went wrong.') + ' Tap Send again to pick up where it stopped.', true);
+    }
+    if (lock) try { lock.release(); } catch (e) {}
+    vid.busy = false; vidReady();
+  });
+  async function vidList() {
+    var ul = $('#vid-list');
+    try {
+      var r = await fetch('/api/videos?all=1', { credentials: 'same-origin' });
+      if (!r.ok) throw new Error(r.status);
+      vid.list = (await r.json()).videos || [];
+      fillEvents();
+      ul.innerHTML = '';
+      if (!vid.list.length) { ul.append(el('li', 'muted', 'No videos yet.')); return; }
+      vid.list.forEach(function (x) {
+        var li = el('li', 'ep-row wobbly'), box = el('div');
+        box.append(el('strong', '', x.caption || x.eventTitle));
+        var drive = x.drive === 'done' ? ' · kept in Google Drive' : x.drive === 'failed' ? ' · not in Google Drive yet' : x.drive ? ' · copying to Google Drive' : '';
+        box.append(el('p', 'muted', x.eventTitle + ' · ' + niceDate(x.eventDate) + (x.deleted ? ' · put away' : x.ready ? drive : ' · not finished sending')));
+        var b = el('button', 'chip', x.deleted ? 'Bring back' : 'Put away'); b.type = 'button';
+        b.addEventListener('click', async function () {
+          b.disabled = true;
+          try { await apiJSON('/api/videos/' + x.id + '/' + (x.deleted ? 'restore' : 'delete')); vidList(); } catch (e) { vidStatus(e.message, true); b.disabled = false; }
+        });
+        box.append(b);
+        if (x.ready && x.drive === 'failed') {
+          var d = el('button', 'chip', 'Copy to Google Drive again'); d.type = 'button';
+          d.addEventListener('click', function () { fetch('/api/videos-drive/' + x.id, { method: 'POST', credentials: 'same-origin' }); d.disabled = true; d.textContent = 'Copying…'; });
+          box.append(' ', d);
+        }
+        li.append(box); ul.append(li);
       });
     } catch (e) { ul.innerHTML = ''; ul.append(el('li', 'muted', 'Could not load the list just now.')); }
   }

@@ -416,3 +416,59 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
       .catch(function () { var l = one.querySelector('.ep-loading'); if (l) l.textContent = 'This episode could not be found. It may have been put away.'; });
   }
 })();
+
+// ---------- Family Moments: videos added from the app, in their special day's section ----------
+(function () {
+  'use strict';
+  var area = document.querySelector('.gallery-area[data-videos]');
+  if (!area) return;
+  function nice(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); }
+  function mmss(s) { s = Math.round(s || 0); return s ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : ''; }
+  function make(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function section(v) {
+    var sec = document.getElementById(v.event);
+    if (sec && sec.classList.contains('moment')) return sec;
+    // A special day that has only videos so far: a new section, in date order (newest first).
+    sec = make('section', 'moment'); sec.id = v.event; sec.dataset.date = v.eventDate;
+    var head = make('div', 'moment-head');
+    head.append(make('h2', 'moment-h', v.eventTitle), make('p', 'moment-date', nice(v.eventDate)));
+    sec.append(head);
+    var after = null;
+    area.querySelectorAll('.moment').forEach(function (s) {
+      var d = s.dataset.date || ((s.querySelector('.moment-date time') || {}).dateTime) || '';
+      if (!after && d && d < v.eventDate) after = s;
+    });
+    area.insertBefore(sec, after);
+    var jump = document.querySelector('.moment-jump ul');
+    if (jump) { var li = make('li'), a = make('a', '', v.eventTitle); a.href = '#' + v.event; li.append(a); jump.append(li); }
+    return sec;
+  }
+  fetch(area.dataset.videos, { credentials: 'same-origin' })
+    .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(function (j) {
+      var list = (j.videos || []).slice().reverse();   // oldest first inside each day
+      if (!list.length) return;
+      area.hidden = false;
+      var empty = area.nextElementSibling; if (empty && empty.classList.contains('empty')) empty.hidden = true;
+      list.forEach(function (v) {
+        var sec = section(v), row = sec.querySelector('.video-row');
+        if (!row) { row = make('div', 'video-row'); sec.insertBefore(row, sec.querySelector('.masonry')); }
+        var base = '/api/videos/' + encodeURIComponent(v.id);
+        var fig = make('figure', 'video-tile wobbly');
+        var el = document.createElement('video');
+        el.controls = true; el.preload = 'none'; el.playsInline = true; el.setAttribute('playsinline', '');
+        if (v.poster) el.poster = base + '/poster';
+        if (v.w && v.h) { el.width = v.w; el.height = v.h; }
+        el.src = base + '/play';
+        el.setAttribute('aria-label', 'Play the video' + (v.caption ? ': ' + v.caption : ''));
+        var cap = make('figcaption');
+        if (v.caption) cap.append(make('span', 'art-cap', v.caption));
+        var len = mmss(v.seconds);
+        if (len) cap.append(make('span', 'vid-len', '🎬 ' + len));
+        var oops = make('p', 'vid-oops', 'This video cannot play on this device. Try a phone or a computer.'); oops.hidden = true;
+        el.addEventListener('error', function () { oops.hidden = false; });
+        fig.append(el, cap, oops); row.append(fig);
+      });
+    })
+    .catch(function () { /* the photos stay as they are */ });
+})();

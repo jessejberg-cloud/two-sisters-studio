@@ -449,7 +449,7 @@ function momentPhoto(ev, ph) {
       dl = `<div class="dl-row"><button type="button" class="btn-download save-all" hidden>📱 Save all ${prints.length} to this phone</button>
       <a class="btn-download" href="/${zipRel}" download="${esc(ev.key)}.zip">⬇ Download all ${prints.length} as one zip <span class="dl-size">(for a computer or a photo book, about ${mb} MB)</span></a></div>`;
     }
-    return `<section class="moment" id="${esc(ev.key)}">
+    return `<section class="moment" id="${esc(ev.key)}" data-date="${esc(ev.date)}">
     <div class="moment-head">
       <h2 class="moment-h">${esc(ev.title)}</h2>
       <p class="moment-date">${eventDates(ev)}</p>
@@ -465,11 +465,12 @@ function momentPhoto(ev, ph) {
     section: 'family-moments',
     bodyClass: 'c-yellow',
     title: 'Family Moments',
-    body: `<div class="page-head"><h1>Family Moments</h1><p>Photos from our special days.</p></div>
+    csp: CSP_SELF,   // the girls' photos and the videos load from this site's own functions
+    body: `<div class="page-head"><h1>Family Moments</h1><p>Photos and videos from our special days.</p></div>
 ${livePhotos('/api/pieces?section=moments', `From ${listWords(KIDS.map((k) => k.name))}`, 'Photos the girls took.')}
 ${events.some((ev) => ev.sample) ? '<p class="sample-note">These are sample pictures, so you can see how the page will look. Real photos are coming soon!</p>' : ''}
 ${events.length ? `${jump}
-<div class="gallery-area">
+<div class="gallery-area" data-videos="/api/videos">
 ${blocks}
 </div>
 <dialog class="lightbox" aria-label="Photo">
@@ -477,7 +478,8 @@ ${blocks}
   <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
   <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><button type="button" class="lb-save">⬇ Save this picture</button></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next photo">›</button>
-</dialog>` : gallery([], 'Family photos will show up here soon!')}`,
+</dialog>` : `<div class="gallery-area" data-videos="/api/videos" hidden></div>
+${gallery([], 'Family photos will show up here soon!')}`}`,
   });
 }
 
@@ -584,6 +586,8 @@ pages['parent/index.html'] = page({
 const uploadCfg = {
   folderName: site.uploadFolderName,
   kids: Object.fromEntries(KIDS.map((k) => [k.key, { name: k.name, color: k.color }])),
+  // Family Moments events already on the page, so a video can join one of them.
+  moments: moments.filter((ev) => !ev.sample).map((ev) => ({ key: ev.key, title: ev.title, date: ev.date })),
 };
 const upJs = () => crypto.createHash('sha1').update(fs.readFileSync(path.join(SRC, 'upload/app.js'))).digest('hex').slice(0, 8);
 pages['upload/index.html'] = `<!doctype html>
@@ -613,6 +617,7 @@ pages['upload/index.html'] = `<!doctype html>
     <div class="up-kids up-what">
       <button type="button" class="big-button wobbly c-coral" data-what="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Art<small>A drawing, painting or something they made</small></span></button>
       <button type="button" class="big-button wobbly c-mint" data-what="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo one of the girls took</small></span></button>
+      <button type="button" class="big-button wobbly c-yellow" data-what="video"><span class="big-icon" aria-hidden="true">🎬</span><span class="big-label">A video<small>For Family Moments</small></span></button>
       <button type="button" class="big-button wobbly c-lav" data-what="episode"><span class="big-icon">${ICONS.mic}</span><span class="big-label">A podcast episode<small>Pet Parents audio</small></span></button>
     </div>
     <p class="up-more"><button type="button" class="chip" id="recent">Recent uploads</button> <a class="linkish" href="/parent/">For parents</a></p>
@@ -678,6 +683,31 @@ pages['upload/index.html'] = `<!doctype html>
     <p class="ep-done" id="ep-done" hidden><a class="chip" href="/pet-parents/">🎧 See it on the Pet Parents page</a></p>
     <h2 class="up-h3">On the site</h2>
     <ul class="up-list ep-list" id="ep-list"><li class="muted">Checking…</li></ul>
+  </section>
+
+  <section class="screen c-yellow" id="s-video" hidden>
+    <p><button type="button" class="linkish" id="vid-back">← Back</button></p>
+    <h1 class="up-h2">Add a video to Family Moments</h1>
+    <p class="share-help">It goes on the Family Moments page as soon as it is sent. The site then keeps the video in Google Drive by itself.</p>
+    <label class="big-pick wobbly ep-pick"><input type="file" id="vid-file" accept="video/*"><span id="vid-label">🎬 Choose a video</span></label>
+    <p class="vid-note" id="vid-note" hidden></p>
+    <img class="vid-poster" id="vid-poster" alt="" hidden>
+    <div class="ep-form">
+      <label>Which special day? <select id="vid-event"></select></label>
+      <div class="ep-two" id="vid-new">
+        <label>Name of the day <input type="text" id="vid-event-title" maxlength="80" placeholder="Trip to Grandma's"></label>
+        <label>Date <input type="date" id="vid-event-date"></label>
+      </div>
+      <label>A few words about it <span class="muted">(optional)</span> <input type="text" id="vid-caption" maxlength="200"></label>
+    </div>
+    <div class="up-actions">
+      <button type="button" class="save wobbly" id="vid-save" disabled>Send the video</button>
+    </div>
+    <div class="ep-bar" id="vid-bar" hidden><span id="vid-bar-fill"></span></div>
+    <p class="status" id="vid-status" role="status" aria-live="polite"></p>
+    <p class="ep-done" id="vid-done" hidden><a class="chip" href="/family-moments/">❤️ See it on Family Moments</a></p>
+    <h2 class="up-h3">Videos on the site</h2>
+    <ul class="up-list ep-list" id="vid-list"><li class="muted">Checking…</li></ul>
   </section>
 
   <section class="screen" id="s-edit" hidden>

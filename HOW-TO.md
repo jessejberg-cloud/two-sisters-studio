@@ -81,6 +81,18 @@ the For parents page, that page's version is the one that counts.)
 4. Tell Claude **"new family photos are in"**. Claude puts them on the page. Each event gets a **Download all** button for photo books.
 5. Optional: a caption for a photo goes in a `.json` file with the same name, like `{"caption": "Dancing with Grandma"}`.
 
+## Add a video (Family Moments)
+1. Open the app (**Add art**) on your phone and tap **A video**.
+2. Tap **Choose a video** and pick it from your phone (or from Google Photos).
+3. Pick the special day it belongs to, or **A new special day** and type its name and date.
+4. Optional: a few words about it. Tap **Send the video** and keep the screen open until it says ✓.
+   A long video can take a few minutes. If the signal drops, tap Send again: it picks up where it stopped.
+5. It is on the Family Moments page right away. The site then keeps a copy in Google Drive by itself
+   (Two Sisters Studio / Family Moments / the day's folder).
+- To take one off the page: **Put away** under "Videos on the site" (Bring back undoes it).
+- If the app says the video is in the "high efficiency" (HEVC) format, it may not play on the Fire tablets.
+  Turning HEVC off in your phone's camera settings makes new videos play everywhere.
+
 ## Save pictures to a phone or computer
 - Tap any drawing or photo to open it big, then tap **Save this picture**. On an iPhone, pick **Save Image** in the
   list that opens (it goes to Photos). On Android or a computer it downloads (on Android it shows up in Photos or Gallery).

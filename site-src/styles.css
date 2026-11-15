@@ -579,3 +579,22 @@ body.kid-mode .kid-help { display: block; font-size: 1.2rem; margin: -4px 0 14px
 .ep-done { text-align: center; margin: 12px 0; }
 .ep-row { padding: 12px 14px; background: #fff; border: 3px solid var(--ink); }
 .ep-row p { margin: 2px 0 8px; }
+
+/* Family Moments videos: one row of players at the top of each special day, never cropped. */
+.video-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 18px; margin: 0 0 18px; }
+.video-tile { margin: 0; padding: 10px; background: #fff; border: 3px solid var(--ink); }
+.video-tile video { display: block; width: 100%; height: auto; max-height: 70vh; object-fit: contain; background: #1d1a24; border-radius: 8px; }
+.video-tile figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; margin-top: 8px; }
+.vid-len { font-weight: 800; opacity: .75; white-space: nowrap; }
+.vid-oops { margin: 8px 0 0; font-weight: 700; }
+.vid-oops[hidden] { display: none; }
+@media (max-width: 600px) { .video-row { grid-template-columns: 1fr; gap: 14px; } }
+
+/* Adding a video in the app. */
+.ep-two[hidden] { display: none; }
+.ep-form select { min-height: 48px; padding: 8px 12px; font: 600 1.1rem var(--body); border: 3px solid var(--ink); border-radius: 12px; background: #fff; color: var(--ink); width: 100%; box-sizing: border-box; }
+.vid-poster { display: block; max-width: 100%; max-height: 260px; margin: 0 auto 14px; border: 3px solid var(--ink); border-radius: 12px; background: #fff; }
+.vid-poster[hidden] { display: none; }
+.vid-note { margin: -6px 0 14px; font-weight: 700; }
+.vid-note[hidden] { display: none; }
+#s-video .ep-bar span { background: var(--yellow); }

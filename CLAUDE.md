@@ -126,3 +126,14 @@ racially and ethnically diverse. Busyness medium; gentle movement only, all off 
 node tools/build.cjs && node tools/audit.cjs && python3 tools/add.py check
 python3 -m http.server 5190 --directory dist     # local preview
 ```
+
+## Family Moments videos (Jesse, 2026-11-15)
+- The app's first screen has **A video** (family logins only): choose a phone video, pick the special day (or name a new one
+  with its date), a few optional words, Send. `netlify/functions/videos.mjs`; tests `tests/videos.test.mjs`.
+- The phone sends the video once, to the site, in 3 MB pieces (Blobs store `video`, still picture `vid-<id>` in `images`);
+  it plays from there with Range requests (up to 5 pieces per answer, streamed). The site then copies it into Drive by itself
+  (`video-drive-background.mjs`, `/api/videos-drive/<id>`): `Family Moments/<2026-06-14 Title>/<id>.mp4` + `.json` + poster.
+  Videos keep playing if Drive disconnects. Up to 2 GB per video. HEVC videos get a warning (may not play on the Fire tablets).
+- The Family Moments page shows videos at the top of their day's section (main.js); a day with only videos gets its own section.
+  The page now uses CSP_SELF (connect-src 'self'), which also fixes the girls' Family Moments photos that could not load.
+- Rebuilding the site from Drive does not cover videos yet.
