@@ -725,7 +725,7 @@
     }
   }
 
-  var sending = false;
+  var sending = false, outboxErr = '';
   async function sendOne(q, label) {
     var pr = q.progress;
     if (!pr.start) {
@@ -754,7 +754,11 @@
       f.set('meta', JSON.stringify({ w: p.w, h: p.h, fp: p.fp, edits: p.edits, original: pr.files[n + '-original'], edited: pr.files[n + '-edited'] || null }));
       f.set('web', p.web, 'web'); f.set('thumb', p.thumb, 'thumb');
       var r = await fetch('/api/pieces/' + pr.start.id + '/photo/' + n, { method: 'POST', credentials: 'same-origin', body: f });
-      if (!r.ok) throw new Error('The site did not take the picture (' + r.status + ').');
+      if (!r.ok) {
+        var pj = {}; try { pj = await r.json(); } catch (e) {}
+        throw new Error(pj.error === 'reconnect' ? 'Google Drive needs connecting again (For parents page, then Connect Google Drive).'
+          : pj.error === 'not-connected' ? 'Google Drive is not connected yet (For parents page).' : 'The site did not take the picture (' + r.status + ').');
+      }
       pr.sent[n] = true; await put('outbox2', q);
     }
     await apiJSON('/api/pieces/' + pr.start.id + '/finish');
@@ -773,7 +777,9 @@
       }
       status(kidMode() ? 'Sent! A grown-up will look, then ' + (done === 1 ? 'it shows' : 'they show') + ' in your snapshots.'
         : 'All sent! ' + (done === 1 ? 'It is' : 'They are') + ' on the site now.');
+      outboxErr = '';
     } catch (e) {
+      outboxErr = e.message;
       status((done ? done + ' sent. ' : '') + e.message + ' The rest are still saved on this phone.', true);
     }
     sending = false; refreshOutbox();
@@ -781,10 +787,12 @@
   async function refreshOutbox() {
     var waiting = (await all('outbox2')).length + (await all('outbox')).length, bar = $('#outbox');
     bar.hidden = !waiting;
-    $('#outbox-text').textContent = waiting + ' piece' + (waiting > 1 ? 's' : '') + ' saved on this phone, waiting to go up.';
+    // Say why it did not go, here on the first screen too (the status line lives on the photos screen).
+    $('#outbox-text').textContent = waiting + ' piece' + (waiting > 1 ? 's' : '') + ' saved on this phone, waiting to go up.'
+      + (waiting && outboxErr ? ' It did not go: ' + outboxErr : '');
     return waiting;
   }
-  $('#outbox-send').addEventListener('click', sendOutbox);
+  $('#outbox-send').addEventListener('click', function () { $('#outbox-text').textContent = 'Sending…'; sendOutbox(); });
   window.addEventListener('online', sendOutbox);
 
   // Backup: hand the photos to the Google Drive app through the phone's Share button.
