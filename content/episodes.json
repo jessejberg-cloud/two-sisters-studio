@@ -27,5 +27,26 @@
     "pets": [],
     "audio": "audio/ep-002.mp3",
     "minutes": 13
+  },
+  {
+    "number": 3,
+    "title": "Auntie Al's Family",
+    "date": "2026-11-15",
+    "description": "Auntie Al, Wes, TJ, Aiden and Andrew tell us about Opal the dog, a turtle, hermit crabs and their fish tank.",
+    "guests": [
+      "Al",
+      "Wes",
+      "TJ",
+      "Aiden",
+      "Andrew"
+    ],
+    "pets": [
+      {
+        "name": "Opal",
+        "kind": "dog"
+      }
+    ],
+    "audio": "audio/ep-003.mp3",
+    "minutes": 15
   }
 ]
