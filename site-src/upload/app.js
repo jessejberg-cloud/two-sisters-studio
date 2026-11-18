@@ -168,7 +168,7 @@
         var wc = await webCopies(ep.drawing), fd = new FormData();
         fd.set('meta', JSON.stringify({ w: wc.w, h: wc.h })); fd.set('web', wc.web, 'web'); fd.set('thumb', wc.thumb, 'thumb');
         var r = await fetch('/api/episodes/' + J.id + '/drawing', { method: 'POST', credentials: 'same-origin', body: fd });
-        if (!r.ok) throw new Error('The site did not take the drawing (' + r.status + ').');
+        if (!r.ok) throw await notTaken(r, 'drawing');
         J.drawn = true;
       }
       if (!J.live) { await apiJSON('/api/episodes/' + J.id + '/finish'); J.live = true; }
@@ -543,8 +543,19 @@
     var r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
     var j = {}; try { j = await r.json(); } catch (e) {}
     if (r.status === 401) throw new Error(kidMode() ? 'Ask a grown-up to log in again.' : 'Please log in to the site again (the family password).');
-    if (!r.ok) throw new Error(j.error === 'not-connected' ? 'Google Drive is not connected yet (a parent can do it on the For parents page).' : j.error === 'reconnect' ? 'Google Drive needs connecting again (For parents page).' : 'The site said no (' + (j.message || j.error || r.status) + ').');
+    if (!r.ok) throw new Error(whyNot(j, r.status));
     return j;
+  }
+  // The same plain words for every step that talks to the site, so a Drive sign-in that ran out says so.
+  function whyNot(j, code) {
+    return j.error === 'not-connected' ? 'Google Drive is not connected yet (a parent can do it on the For parents page).'
+      : j.error === 'reconnect' ? 'Google Drive needs connecting again (For parents page).'
+      : 'The site said no (' + (j.message || j.error || code) + ').';
+  }
+  async function notTaken(r, what) {
+    var j = {}; try { j = await r.json(); } catch (e) {}
+    if (j.error === 'not-connected' || j.error === 'reconnect') return new Error(whyNot(j, r.status));
+    return new Error('The site did not take the ' + what + ' (' + r.status + ').');
   }
   // Send one file to Google through its one-time address, in pieces, retrying on a weak signal. Returns the Drive file id.
   async function sendToGoogle(url, blob, onPart) {
@@ -596,7 +607,7 @@
       f.set('meta', JSON.stringify({ w: p.w, h: p.h, fp: p.fp, edits: p.edits, original: pr.files[n + '-original'], edited: pr.files[n + '-edited'] || null }));
       f.set('web', p.web, 'web'); f.set('thumb', p.thumb, 'thumb');
       var r = await fetch('/api/pieces/' + pr.start.id + '/photo/' + n, { method: 'POST', credentials: 'same-origin', body: f });
-      if (!r.ok) throw new Error('The site did not take the picture (' + r.status + ').');
+      if (!r.ok) throw await notTaken(r, 'picture');
       pr.sent[n] = true; await put('outbox2', q);
     }
     await apiJSON('/api/pieces/' + pr.start.id + '/finish');
