@@ -126,3 +126,24 @@ racially and ethnically diverse. Busyness medium; gentle movement only, all off 
 node tools/build.cjs && node tools/audit.cjs && python3 tools/add.py check
 python3 -m http.server 5190 --directory dist     # local preview
 ```
+
+## Family Moments videos (Jesse, 2026-11-15)
+- The app's first screen has **A video** (family logins only): choose a phone video, pick the special day (or name a new one
+  with its date), a few optional words, Send. `netlify/functions/videos.mjs`; tests `tests/videos.test.mjs`.
+- The phone sends the video once, to the site, in 3 MB pieces (Blobs store `video`, still picture `vid-<id>` in `images`);
+  it plays from there with Range requests (up to 5 pieces per answer, streamed). The site then copies it into Drive by itself
+  (`video-drive-background.mjs`, `/api/videos-drive/<id>`): `Family Moments/<2026-06-14 Title>/<id>.mp4` + `.json` + poster.
+  Videos keep playing if Drive disconnects. Up to 2 GB per video. HEVC videos get a warning (may not play on the Fire tablets).
+- The Family Moments page shows videos at the top of their day's section (main.js); a day with only videos gets its own section.
+  The page now uses CSP_SELF (connect-src 'self'), which also fixes the girls' Family Moments photos that could not load.
+- Rebuilding the site from Drive does not cover videos yet.
+- Full screen + save (Jesse, 2026-11-15: "many different families will be using it"): every picture viewer (art galleries,
+  Family Moments photos, snapshots / the girls' Family Moments photos) and every video has **⛶ Full screen** and **⬇ Save**.
+  Shared helper `window.TSS` at the top of main.js (enter/exit full screen, save a file: iPhone share sheet, else download).
+  Where the browser has no full screen (the tablet app's WebView), the item fills the page with a ✕. Videos save by fetching
+  all their ranges into one file in the browser (fine for phone-sized videos).
+- Auto crop (Jesse, 2026-11-19: crop is the most used fix; crop art photos by default, adjust after): every photo added as
+  **Art** is cropped to the paper on the phone (`findArt` in app.js: edge-ring background colour, biggest connected patch
+  that differs, padded bounding box; skipped when it would keep >92% or <10% of the photo). The original is still kept.
+  Under each photo: a big **✂ Crop / ✂ Adjust the crop** button (opens the editor already cropping), **↻ Turn**, and
+  **Undo the crop**. Snapshots and Family Moments photos are not auto-cropped. Crop handles are 44px.

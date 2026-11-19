@@ -35,6 +35,7 @@ Google Drive are never touched.
 
 **If Save will not work:** tap **If Save will not work: share to the Drive app**, pick Drive and the
 **Two Sisters Studio** folder, and tell Claude.
+- Photos of art are **cropped to the paper automatically** (the tag on the photo says ✂ Cropped). To change it, tap **✂ Adjust the crop** under the photo and drag the corners; **Undo the crop** puts the whole photo back. The untouched original is always kept in Google Drive. If the paper and the table are the same color, it may not crop; tap **✂ Crop** to do it by hand.
 
 ## The girls' tablets
 1. On your phone, open **For parents**, type the PIN, and find **The girls' tablets**.
@@ -80,6 +81,18 @@ the For parents page, that page's version is the one that counts.)
 3. Copy the photos you want into that folder (from Google Photos: select them, Share, Drive, pick the folder).
 4. Tell Claude **"new family photos are in"**. Claude puts them on the page. Each event gets a **Download all** button for photo books.
 5. Optional: a caption for a photo goes in a `.json` file with the same name, like `{"caption": "Dancing with Grandma"}`.
+
+## Add a video (Family Moments)
+1. Open the app (**Add art**) on your phone and tap **A video**.
+2. Tap **Choose a video** and pick it from your phone (or from Google Photos).
+3. Pick the special day it belongs to, or **A new special day** and type its name and date.
+4. Optional: a few words about it. Tap **Send the video** and keep the screen open until it says ✓.
+   A long video can take a few minutes. If the signal drops, tap Send again: it picks up where it stopped.
+5. It is on the Family Moments page right away. The site then keeps a copy in Google Drive by itself
+   (Two Sisters Studio / Family Moments / the day's folder).
+- To take one off the page: **Put away** under "Videos on the site" (Bring back undoes it).
+- If the app says the video is in the "high efficiency" (HEVC) format, it may not play on the Fire tablets.
+  Turning HEVC off in your phone's camera settings makes new videos play everywhere.
 
 ## Save pictures to a phone or computer
 - Tap any drawing or photo to open it big, then tap **Save this picture**. On an iPhone, pick **Save Image** in the
