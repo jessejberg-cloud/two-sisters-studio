@@ -399,6 +399,7 @@
     });
     renderList();
     checkDupes(added);
+    if ((state.section || 'art') === 'art') added.reduce(function (p, ph) { return p.then(function () { return autoCrop(ph); }); }, Promise.resolve());
   }
   $('#take').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
   $('#pick').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
@@ -494,7 +495,7 @@
       p.photos.forEach(function (ph, j) {
         var b = el('button', 'item-pic'); b.type = 'button'; b.setAttribute('aria-label', 'Fix up photo ' + (j + 1));
         var img = el('img'); img.src = ph.url; img.alt = '';
-        b.append(img, el('span', 'edit-tag', ph.edited ? '✎ Edited' : '✎ Fix up'));
+        b.append(img, el('span', 'edit-tag', ph.cropping ? '✂ Cropping…' : ph.auto ? '✂ Cropped' : ph.edited ? '✎ Edited' : '✎ Fix up'));
         b.addEventListener('click', function () { openEditor(ph); });
         pics.append(b);
       });
@@ -509,9 +510,16 @@
           c.addEventListener('click', function () { quickLook(ph, o[0], c); });
           row.append(c);
         });
-        var fix = el('button', 'linkish', 'Turn or crop'); fix.type = 'button';
-        fix.addEventListener('click', function () { openEditor(ph); });
-        row.append(fix); quick.append(row);
+        quick.append(row);
+        // Crop is the most used fix: a big button of its own, opening straight into cropping.
+        var tools = el('div', 'crop-row');
+        var crop = el('button', 'crop-btn wobbly', ph.auto ? '✂ Adjust the crop' : '✂ Crop'); crop.type = 'button';
+        crop.addEventListener('click', function () { openEditor(ph, true); });
+        var turn = el('button', 'chip', '↻ Turn'); turn.type = 'button';
+        turn.addEventListener('click', function () { openEditor(ph); });
+        tools.append(crop, turn);
+        if (ph.auto) { var un = el('button', 'linkish', 'Undo the crop'); un.type = 'button'; un.addEventListener('click', function () { undoAutoCrop(ph); }); tools.append(un); }
+        quick.insertBefore(tools, row);
       });
       var more = el('label', 'more-photo');
       var inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment');
@@ -551,6 +559,59 @@
     } catch (err) { status('This photo can’t be changed here, but it can still be saved.', true); }
     renderList();
   }
+
+  // ---------- automatic crop for photos of art (Jesse, 2026-11-19: crop is the most used fix; do it by default) ----------
+  // Finds the paper: the colour around the photo's edges is the table or floor; the biggest connected patch that looks
+  // different from it is the art. Returns a crop box (fractions of the photo) or null when there is nothing sure to crop.
+  function findArt(bmp) {
+    var S = 320, sc = Math.min(1, S / Math.max(bmp.width, bmp.height));
+    var W = Math.max(8, Math.round(bmp.width * sc)), H = Math.max(8, Math.round(bmp.height * sc));
+    var c = document.createElement('canvas'); c.width = W; c.height = H;
+    var g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0, W, H);
+    var d = g.getImageData(0, 0, W, H).data, n = W * H;
+    // The background: the middle colour of a thin ring around the edges.
+    var ring = Math.max(2, Math.round(Math.min(W, H) * 0.03)), rs = [], gs = [], bs = [];
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      if (x >= ring && x < W - ring && y >= ring && y < H - ring) continue;
+      var i = (y * W + x) * 4; rs.push(d[i]); gs.push(d[i + 1]); bs.push(d[i + 2]);
+    }
+    function mid(a) { a.sort(function (p, q) { return p - q; }); return a[a.length >> 1]; }
+    var br = mid(rs.slice()), bg = mid(gs.slice()), bb = mid(bs.slice());
+    var spread = []; for (var k = 0; k < rs.length; k++) spread.push(Math.abs(rs[k] - br) + Math.abs(gs[k] - bg) + Math.abs(bs[k] - bb));
+    var T = Math.max(45, mid(spread) * 3);   // a busy background (wood grain, carpet) needs a bigger difference
+    var on = new Uint8Array(n);
+    for (var p = 0; p < n; p++) { var j = p * 4; if (Math.abs(d[j] - br) + Math.abs(d[j + 1] - bg) + Math.abs(d[j + 2] - bb) > T) on[p] = 1; }
+    // The biggest connected patch.
+    var seen = new Uint8Array(n), stack = new Int32Array(n), best = null;
+    for (var s0 = 0; s0 < n; s0++) {
+      if (!on[s0] || seen[s0]) continue;
+      var top = 0, cnt = 0, x0 = W, x1 = 0, y0 = H, y1 = 0; stack[top++] = s0; seen[s0] = 1;
+      while (top) {
+        var q = stack[--top], qx = q % W, qy = (q / W) | 0; cnt++;
+        if (qx < x0) x0 = qx; if (qx > x1) x1 = qx; if (qy < y0) y0 = qy; if (qy > y1) y1 = qy;
+        var nb = [qx > 0 ? q - 1 : -1, qx < W - 1 ? q + 1 : -1, qy > 0 ? q - W : -1, qy < H - 1 ? q + W : -1];
+        for (var m = 0; m < 4; m++) { var r2 = nb[m]; if (r2 >= 0 && on[r2] && !seen[r2]) { seen[r2] = 1; stack[top++] = r2; } }
+      }
+      if (!best || cnt > best.cnt) best = { cnt: cnt, x0: x0, x1: x1, y0: y0, y1: y1 };
+    }
+    if (!best || best.cnt < n * 0.08) return null;
+    var pad = Math.round(Math.min(W, H) * 0.01);
+    var bx0 = Math.max(0, best.x0 - pad), by0 = Math.max(0, best.y0 - pad), bx1 = Math.min(W - 1, best.x1 + pad), by1 = Math.min(H - 1, best.y1 + pad);
+    var box = { x: bx0 / W, y: by0 / H, w: (bx1 - bx0 + 1) / W, h: (by1 - by0 + 1) / H };
+    if (box.w * box.h > 0.92 || box.w * box.h < 0.1) return null;   // almost the whole photo already, or too small to trust
+    return box;
+  }
+  async function autoCrop(ph) {
+    ph.cropping = true; renderList();
+    try {
+      var bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' });
+      var box = findArt(bmp); bmp.close && bmp.close();
+      ph.cropping = false;
+      if (box && !ph.edit.crop && !ph.edit.rot) { ph.edit.crop = box; ph.auto = true; await quickLook(ph, ph.edit.look); return; }
+    } catch (e) { ph.cropping = false; }
+    renderList();
+  }
+  async function undoAutoCrop(ph) { ph.edit.crop = null; ph.auto = false; ph.noAuto = true; await quickLook(ph, ph.edit.look); }
 
   // ---------- editor: turn, crop, and one look (Auto, Paper white, Vivid, Glow) ----------
   var ed = { ph: null, bmp: null, rot: 0, crop: null, look: '', cropping: false };
@@ -605,10 +666,11 @@
     document.querySelectorAll('[data-look]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.look === ed.look)); });
     $('#ed-crop').textContent = ed.cropping ? '✓ Done cropping' : '✂ Crop';
   }
-  async function openEditor(ph) {
+  async function openEditor(ph, cropNow) {
     ed.ph = ph; ed.rot = ph.edit.rot; ed.crop = ph.edit.crop; ed.look = ph.edit.look; ed.cropping = false;
     try { ed.bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' }); }
     catch (e) { status('This photo can’t be fixed up here, but it can still be saved.', true); return; }
+    if (cropNow) { ed.box = ed.crop ? Object.assign({}, ed.crop) : { x: .05, y: .05, w: .9, h: .9 }; ed.cropping = true; }
     show('s-edit'); edDraw();
   }
   $('#ed-turn').addEventListener('click', function () { ed.rot = (ed.rot + 1) % 4; ed.crop = null; ed.cropping = false; edDraw(); });
@@ -625,6 +687,7 @@
   $('#ed-done').addEventListener('click', function () {
     if (ed.cropping) { ed.crop = ed.box; ed.cropping = false; }
     var ph = ed.ph, changed = ed.rot || ed.crop || ed.look;
+    if (!ed.crop || ed.crop !== ph.edit.crop) ph.auto = false;
     ph.edit = { rot: ed.rot, crop: ed.crop, look: ed.look };
     if (!changed) { ph.edited = null; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(ph.file); show('s-photos'); renderList(); return; }
     var R = rotatedSize(ed.bmp, ed.rot), c = ed.crop || { w: 1, h: 1 };

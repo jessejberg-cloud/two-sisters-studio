@@ -35,6 +35,7 @@ Google Drive are never touched.
 
 **If Save will not work:** tap **If Save will not work: share to the Drive app**, pick Drive and the
 **Two Sisters Studio** folder, and tell Claude.
+- Photos of art are **cropped to the paper automatically** (the tag on the photo says ✂ Cropped). To change it, tap **✂ Adjust the crop** under the photo and drag the corners; **Undo the crop** puts the whole photo back. The untouched original is always kept in Google Drive. If the paper and the table are the same color, it may not crop; tap **✂ Crop** to do it by hand.
 
 ## The girls' tablets
 1. On your phone, open **For parents**, type the PIN, and find **The girls' tablets**.

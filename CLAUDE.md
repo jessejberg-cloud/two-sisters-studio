@@ -142,3 +142,8 @@ python3 -m http.server 5190 --directory dist     # local preview
   Shared helper `window.TSS` at the top of main.js (enter/exit full screen, save a file: iPhone share sheet, else download).
   Where the browser has no full screen (the tablet app's WebView), the item fills the page with a ✕. Videos save by fetching
   all their ranges into one file in the browser (fine for phone-sized videos).
+- Auto crop (Jesse, 2026-11-19: crop is the most used fix; crop art photos by default, adjust after): every photo added as
+  **Art** is cropped to the paper on the phone (`findArt` in app.js: edge-ring background colour, biggest connected patch
+  that differs, padded bounding box; skipped when it would keep >92% or <10% of the photo). The original is still kept.
+  Under each photo: a big **✂ Crop / ✂ Adjust the crop** button (opens the editor already cropping), **↻ Turn**, and
+  **Undo the crop**. Snapshots and Family Moments photos are not auto-cropped. Crop handles are 44px.

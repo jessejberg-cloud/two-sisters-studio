@@ -631,3 +631,12 @@ html.full-open { overflow: hidden; }
 .photo-box.is-full .pb-img { max-width: 100vw; max-height: 100vh; border-radius: 0; }
 .photo-box.is-full .pb-cap, .photo-box.is-full .pb-tools, .photo-box.is-full .pb-prev, .photo-box.is-full .pb-next { display: none; }
 .photo-box.is-full .pb-close { z-index: 2; }
+
+/* Crop: the most used fix, so a big button under each photo (Jesse, 2026-11-19). Photos of art are cropped
+   to the paper automatically; this adjusts or undoes it. */
+.crop-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 4px 0 6px; }
+.crop-btn { min-height: 56px; padding: 8px 22px; font: 400 1.35rem var(--hand); color: var(--ink); background: var(--yellow-soft); cursor: pointer; }
+.crop-btn:active { transform: translateY(1px); }
+.ed-box span { width: 44px; height: 44px; }
+.ed-box [data-h="tl"] { left: -24px; top: -24px; } .ed-box [data-h="tr"] { right: -24px; top: -24px; }
+.ed-box [data-h="bl"] { left: -24px; bottom: -24px; } .ed-box [data-h="br"] { right: -24px; bottom: -24px; }
