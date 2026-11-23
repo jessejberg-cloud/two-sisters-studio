@@ -130,7 +130,7 @@ function initGallery() {
   var img = box.querySelector('.lb-img'), cap = box.querySelector('.lb-cap'), label = box.querySelector('.lb-label');
   var list = [], at = 0, opener = null;
 
-  var more = box.querySelector('.lb-more');
+  var more = box.querySelector('.lb-more'), pdfLink = box.querySelector('.lb-pdf');
   // Slides: one per picture; a piece with several photos (a 3D piece) gives one slide per photo, so a swipe goes through them.
   function slides() {
     var out = [];
@@ -138,7 +138,7 @@ function initGallery() {
       if (a.offsetParent === null) return;
       var phs = a.dataset.photos ? JSON.parse(a.dataset.photos) : null;
       if (phs && phs.length > 1) phs.forEach(function (ph, n) { out.push({ a: a, ph: ph, n: n + 1, of: phs.length }); });
-      else out.push({ a: a, ph: { full: a.dataset.full, w: a.dataset.w, h: a.dataset.h, dl: a.dataset.dl }, n: 1, of: 1 });
+      else out.push({ a: a, ph: { full: a.dataset.full, w: a.dataset.w, h: a.dataset.h, dl: a.dataset.dl, pdf: a.dataset.pdf || '' }, n: 1, of: 1 });
     });
     return out;
   }
@@ -150,6 +150,9 @@ function initGallery() {
     cap.textContent = !a.dataset.caption ? '' : a.closest('.moment') ? a.dataset.caption : '“' + a.dataset.caption + '”';
     label.textContent = a.dataset.label;
     if (more) more.textContent = sl.of > 1 ? 'Photo ' + sl.n + ' of ' + sl.of : '';
+    if (pdfLink) { pdfLink.hidden = !sl.ph.pdf; if (sl.ph.pdf) pdfLink.href = sl.ph.pdf; }
+    if (sl.ph.pdf) { readyFor = sl; ready = null; if (saveBtn) saveBtn.hidden = true; return; }
+    if (saveBtn) saveBtn.hidden = false;
     prepareSave(sl, sl.ph.dl || sl.ph.full, (a.dataset.name || 'picture') + (sl.of > 1 ? '-' + sl.n : ''));
   }
 
@@ -268,7 +271,7 @@ function initGallery() {
   function fromSite(p) {
     return { id: p.id, date: p.date, schoolYear: p.schoolYear, season: p.season, grade: p.grade || '', caption: p.caption || '', starred: !!p.starred,
       kid: p.kid, created: p.created || '',
-      photos: p.photos.map(function (ph) { return { full: '/img/' + p.id + '/' + ph.n, thumb: '/img/' + p.id + '/' + ph.n + '/sm', w: ph.w || 800, h: ph.h || 800 }; }) };
+      photos: p.photos.map(function (ph) { return { full: '/img/' + p.id + '/' + ph.n, thumb: '/img/' + p.id + '/' + ph.n + '/sm', w: ph.w || 800, h: ph.h || 800, pdf: ph.pdf ? '/img/' + p.id + '/' + ph.n + '/pdf' : '' }; }) };
   }
   function label(it) {
     return [it.kid === 'both' ? 'Made together' : it.grade, SEASON[it.season], niceDate(it.date)].filter(Boolean).join(' · ');
@@ -278,11 +281,12 @@ function initGallery() {
     var search = [it.caption, SEASON[it.season], yearLabel(it.schoolYear), it.grade, it.kid === 'both' ? 'made together both' : ''].join(' ').toLowerCase();
     var alt = it.alt || it.caption || ('A drawing by ' + (it.kid === 'both' ? 'both girls' : live.dataset.name));
     return '<figure class="piece' + (big ? ' piece--big' : '') + '" data-search="' + esc(search) + '">' +
-      '<a class="piece-open" href="' + esc(ph.full) + '" data-full="' + esc(ph.full) + '" data-dl="' + esc(ph.full) + '" data-name="' + esc(it.id) + '" data-w="' + ph.w + '" data-h="' + ph.h + '"' +
+      '<a class="piece-open" href="' + esc(ph.full) + '" data-full="' + esc(ph.full) + '" data-dl="' + esc(ph.full) + '" data-name="' + esc(it.id) + '" data-w="' + ph.w + '" data-h="' + ph.h + '"' + (ph.pdf ? ' data-pdf="' + esc(ph.pdf) + '"' : '') +
       (it.photos.length > 1 ? ' data-photos="' + esc(JSON.stringify(it.photos)) + '"' : '') +
       ' data-caption="' + esc(it.caption) + '" data-label="' + esc(lab) + '" aria-label="Open ' + esc(it.caption || 'this drawing') + ' big">' +
       '<img src="' + esc(big ? ph.full : ph.thumb) + '" alt="' + esc(alt) + '" width="' + ph.w + '" height="' + ph.h + '" loading="lazy" decoding="async">' +
       (it.sample ? '<span class="sample-tag">Sample</span>' : '') +
+      (it.photos.some(function (x) { return x.pdf; }) ? '<span class="pdf-tag">PDF</span>' : '') +
       (it.photos.length > 1 ? '<span class="photos-tag">' + it.photos.length + ' photos</span>' : '') +
       (it.kid === 'both' ? '<span class="together-tag">Made together</span>' : '') +
       '</a><figcaption>' + (it.caption ? '<span class="art-cap">“' + esc(it.caption) + '”</span>' : '') + '<span class="art-label">' + esc(lab) + '</span></figcaption></figure>';

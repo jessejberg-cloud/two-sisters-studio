@@ -389,9 +389,52 @@
 
   // ---------- adding photos ----------
   function newPhoto(f) { return { file: f, url: URL.createObjectURL(f), edit: { rot: 0, crop: null, look: '' }, edited: null, fp: '' }; }
+  // ---------- PDFs: a picture of page 1 stands in for the piece; the PDF itself is kept too ----------
+  var pdfLoading = null;
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (!pdfLoading) pdfLoading = new Promise(function (ok, fail) {
+      var s = document.createElement('script'); s.src = '/upload/vendor/pdf.min.js';
+      s.onload = function () { window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/upload/vendor/pdf.worker.min.js'; ok(window.pdfjsLib); };
+      s.onerror = function () { pdfLoading = null; fail(new Error('pdf.js did not load')); };
+      document.head.appendChild(s);
+    });
+    return pdfLoading;
+  }
+  var isPdf = function (f) { return f.type === 'application/pdf' || /\.pdf$/i.test(f.name || ''); };
+  // Returns a JPEG of page 1. If the PDF cannot be drawn (no signal for the library, a locked file), a plain "PDF" card stands in.
+  async function pdfPreview(file) {
+    var c = document.createElement('canvas');
+    try {
+      var lib = await loadPdfJs();
+      var doc = await lib.getDocument({ data: await file.arrayBuffer(), isEvalSupported: false }).promise;
+      var page = await doc.getPage(1), v0 = page.getViewport({ scale: 1 });
+      var vp = page.getViewport({ scale: Math.min(4, 1600 / Math.max(v0.width, v0.height)) });
+      c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+      var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+      await page.render({ canvasContext: g, viewport: vp }).promise;
+      doc.destroy && doc.destroy();
+    } catch (e) {
+      c.width = 800; c.height = 1040;
+      var h = c.getContext('2d'); h.fillStyle = '#fff'; h.fillRect(0, 0, 800, 1040);
+      h.strokeStyle = '#2b2b2b'; h.lineWidth = 8; h.strokeRect(40, 40, 720, 960);
+      h.fillStyle = '#2b2b2b'; h.font = 'bold 220px sans-serif'; h.textAlign = 'center'; h.fillText('PDF', 400, 580);
+    }
+    return toBlob(c, 'image/jpeg', 0.9);
+  }
+  async function addPdf(f, toPiece) {
+    var prev = await pdfPreview(f), ph = newPhoto(prev);
+    ph.file = f; ph.preview = prev; ph.pdf = true;
+    if (toPiece) toPiece.photos.push(ph); else state.pieces.push({ caption: '', starred: false, photos: [ph], dupes: [] });
+    renderList();
+    checkDupes([ph]);
+    if (f.size > 5e6) status('That PDF is over 5 MB. The site will show its picture, and the whole PDF goes to Google Drive.');
+  }
+
   function addFiles(list, toPiece) {
     var added = [];
     Array.prototype.forEach.call(list, function (f) {
+      if (isPdf(f) && (state.section || 'art') === 'art' && !kidMode()) { addPdf(f, toPiece); return; }
       if (!/^image\//.test(f.type)) return;
       var ph = newPhoto(f);
       if (toPiece) toPiece.photos.push(ph); else state.pieces.push({ caption: '', starred: false, photos: [ph], dupes: [] });
@@ -459,7 +502,7 @@
   }
   function hamming(a, b) { var d = 0; for (var i = 0; i < 16; i++) { var x = parseInt(a[i], 16) ^ parseInt(b[i], 16); while (x) { d += x & 1; x >>= 1; } } return d; }
   async function checkDupes(photos) {
-    for (var i = 0; i < photos.length; i++) { try { photos[i].fp = await fingerprint(photos[i].file); } catch (e) { photos[i].fp = ''; } }
+    for (var i = 0; i < photos.length; i++) { try { photos[i].fp = await fingerprint(photos[i].preview || photos[i].file); } catch (e) { photos[i].fp = ''; } }
     // In this batch
     state.pieces.forEach(function (p) { p.dupes = p.dupes.filter(function (d) { return d.saved; }); });
     var seen = [];
@@ -495,13 +538,14 @@
       p.photos.forEach(function (ph, j) {
         var b = el('button', 'item-pic'); b.type = 'button'; b.setAttribute('aria-label', 'Fix up photo ' + (j + 1));
         var img = el('img'); img.src = ph.url; img.alt = '';
-        b.append(img, el('span', 'edit-tag', ph.cropping ? '✂ Cropping…' : ph.auto ? '✂ Cropped' : ph.edited ? '✎ Edited' : '✎ Fix up'));
-        b.addEventListener('click', function () { openEditor(ph); });
+        b.append(img, el('span', 'edit-tag', ph.pdf ? '📄 PDF' : ph.cropping ? '✂ Cropping…' : ph.auto ? '✂ Cropped' : ph.edited ? '✎ Edited' : '✎ Fix up'));
+        b.addEventListener('click', function () { if (!ph.pdf) openEditor(ph); });
         pics.append(b);
       });
       // Quick looks, one tap each, right under the photos (Turn and Crop are in Fix up).
       var quick = el('div', 'quick');
       p.photos.forEach(function (ph, j) {
+        if (ph.pdf) return;   // a PDF has no looks or crop
         var row = el('div', 'quick-row');
         if (p.photos.length > 1) row.append(el('span', 'quick-n', 'Photo ' + (j + 1)));
         [['', 'Original'], ['auto', 'Auto'], ['paper', 'Paper white'], ['vivid', 'Vivid'], ['glow', '✨ Glow']].forEach(function (o) {
@@ -751,9 +795,9 @@
         var p = state.pieces[i], photos = [];
         status('Getting piece ' + (i + 1) + ' of ' + n + ' ready…');
         for (var j = 0; j < p.photos.length; j++) {
-          var ph = p.photos[j], wc = await webCopies(ph.edited || ph.file);
+          var ph = p.photos[j], wc = await webCopies(ph.pdf ? ph.preview : (ph.edited || ph.file));
           var edits = []; if (ph.edit.rot) edits.push('turn'); if (ph.edit.crop) edits.push('crop'); if (ph.edit.look) edits.push(ph.edit.look);
-          photos.push({ original: ph.file, originalType: ph.file.type || 'image/jpeg', edited: ph.edited, web: wc.web, thumb: wc.thumb, w: wc.w, h: wc.h, fp: ph.fp, edits: edits });
+          photos.push({ pdf: !!ph.pdf, original: ph.file, originalType: ph.pdf ? 'application/pdf' : (ph.file.type || 'image/jpeg'), edited: ph.edited, web: wc.web, thumb: wc.thumb, w: wc.w, h: wc.h, fp: ph.fp, edits: edits });
         }
         await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: state.section || 'art',
           caption: p.caption.trim(), starred: p.starred, photos: photos, progress: {}, created: new Date().toISOString() });
@@ -835,6 +879,15 @@
       var r = await fetch('/api/pieces/' + pr.start.id + '/photo/' + n, { method: 'POST', credentials: 'same-origin', body: f });
       if (!r.ok) throw await notTaken(r, 'picture');
       pr.sent[n] = true; await put('outbox2', q);
+    }
+    pr.pdfSent = pr.pdfSent || {};
+    for (var m = 1; m <= q.photos.length; m++) {
+      var pp = q.photos[m - 1];
+      if (!pp.pdf || pr.pdfSent[m] || pp.original.size > 5e6) continue;   // bigger than 5 MB: Drive only
+      var pf = new FormData(); pf.set('pdf', pp.original, 'piece.pdf');
+      var pres = await fetch('/api/pieces/' + pr.start.id + '/pdf/' + m, { method: 'POST', credentials: 'same-origin', body: pf });
+      if (!pres.ok) throw await notTaken(pres, 'PDF');
+      pr.pdfSent[m] = true; await put('outbox2', q);
     }
     await apiJSON('/api/pieces/' + pr.start.id + '/finish');
     await del('outbox2', q.id);

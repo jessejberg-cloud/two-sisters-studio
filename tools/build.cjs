@@ -262,7 +262,7 @@ function artGallery(kid, items) {
 <dialog class="lightbox" aria-label="Picture">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous picture">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><a class="lb-pdf" href="#" target="_blank" rel="noopener" hidden>📄 Open the PDF</a><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next picture">›</button>
 </dialog>
 ${livePhotos(`/api/pieces?kid=${kid.key}&section=photos`, `${kid.name}'s snapshots`, 'Photos she took.', 'snapshots')}`;
@@ -642,7 +642,7 @@ pages['upload/index.html'] = `<!doctype html>
     <p class="kid-help" id="kid-help"></p>
     <div class="up-add">
       <label class="big-pick wobbly pick-take"><input type="file" id="take" accept="image/*" capture="environment"><span>📷 Take a photo</span></label>
-      <label class="big-pick wobbly pick-choose"><input type="file" id="pick" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
+      <label class="big-pick wobbly pick-choose"><input type="file" id="pick" accept="image/*,application/pdf,.pdf" multiple><span>🖼️ Choose photos</span></label>
       <button type="button" class="big-pick wobbly cam-open" id="cam-open" hidden><span>💡 Camera with light</span></button>
     </div>
     <div class="up-where" id="where" hidden><p>Where should it go?</p>
@@ -790,6 +790,8 @@ fs.copyFileSync(path.join(SRC, 'main.js'), path.join(DIST, 'main.js'));
 fs.copyFileSync(path.join(SRC, 'parent.js'), path.join(DIST, 'parent.js'));
 fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'));
 fs.writeFileSync(path.join(DIST, 'upload/sw.js'), swCode);
+// pdf.js (Mozilla, Apache-2.0): turns page 1 of a PDF into a picture on the phone or computer. Loaded only when a PDF is picked.
+fs.cpSync(path.join(SRC, 'upload/vendor'), path.join(DIST, 'upload/vendor'), { recursive: true });
 fs.writeFileSync(path.join(DIST, 'upload/manifest.webmanifest'), JSON.stringify(manifest, null, 2));
 // Unlisted: block every crawler. No sitemap on purpose.
 // Print copies are also served one by one, for "Save this picture".

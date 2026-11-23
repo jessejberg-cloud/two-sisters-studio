@@ -19,7 +19,8 @@ const siteHost = new URL(process.env.URL || site.url).host;
 const UPLOAD_HOSTS = /^(accounts\.google\.com|www\.googleapis\.com)$/;
 const isUpload = (f) => rel(f).split(path.sep)[0] === 'upload';
 
-for (const f of files.filter((f) => /\.(html|css|js)$/.test(f))) {
+// The vendored pdf.js library (upload/vendor/) holds web addresses in its own text but never fetches them: not scanned.
+for (const f of files.filter((f) => /\.(html|css|js)$/.test(f) && !rel(f).startsWith('upload' + path.sep + 'vendor' + path.sep))) {
   const t = fs.readFileSync(f, 'utf8');
   if (BLOCKED.test(t)) problems.push(`${rel(f)}: mentions a blocked site`);
   for (const m of t.matchAll(/https?:\/\/[^\s"'<>)]+/g)) {

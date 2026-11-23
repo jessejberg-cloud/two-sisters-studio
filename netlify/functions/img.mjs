@@ -1,9 +1,10 @@
 // GET /img/<piece id>/<n>        the web copy (1600px)
 // GET /img/<piece id>/<n>/sm     the small copy for the grid
+// GET /img/<piece id>/<n>/pdf    the PDF itself, when the piece was added as a PDF
 // Family: everything. Friends: only pieces of a kid on their link. Put-away pieces: family only.
 import { who } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
-import { getPiece, webName } from '../lib/pieces.mjs';
+import { getPiece, webName, pdfName } from '../lib/pieces.mjs';
 
 export default async (req, context) => {
   const [, , id, n, size] = new URL(req.url).pathname.split('/');
@@ -15,6 +16,11 @@ export default async (req, context) => {
     const kids = p.kid === 'both' ? ['leora', 'amaya'] : [p.kid];
     const allowed = p.section === 'moments' ? me.pages.includes('family-moments') : kids.some((k) => me.pages.includes(k));
     if (p.deleted || p.waiting || !allowed) return new Response('Not found', { status: 404 });
+  }
+  if (size === 'pdf') {
+    const pdf = await store('images', context).getWithMetadata(pdfName(id, +n), { type: 'arrayBuffer' });
+    if (!pdf) return new Response('Not found', { status: 404 });
+    return new Response(pdf.data, { headers: { 'content-type': 'application/pdf', 'content-disposition': `inline; filename="${id}.pdf"`, 'cache-control': 'private, max-age=31536000, immutable' } });
   }
   const got = await store('images', context).getWithMetadata(webName(id, +n, size === 'sm'), { type: 'arrayBuffer' });
   if (!got) return new Response('Not found', { status: 404 });

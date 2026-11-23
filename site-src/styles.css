@@ -459,6 +459,9 @@ button.btn-download { font: inherit; font-weight: 800; cursor: pointer; backgrou
 .loading { color: var(--ink-soft); font-weight: 700; }
 .photos-tag, .together-tag { position: absolute; right: 8px; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 800; padding: 2px 10px; border-radius: 999px; }
 .photos-tag { bottom: 8px; }
+.pdf-tag { position: absolute; left: 8px; top: 8px; background: var(--ink); color: #fff; font-size: .85rem; font-weight: 800; padding: 2px 10px; border-radius: 999px; }
+.lightbox .lb-pdf { display: inline-block; border-radius: 999px; font-size: 1.15rem; font-weight: 800; padding: 10px 22px; margin-top: 8px; min-height: 52px; line-height: 32px; background: var(--yellow); color: var(--ink); border: 3px solid var(--ink); text-decoration: none; box-sizing: border-box; }
+.lightbox .lb-pdf[hidden] { display: none; }
 .together-tag { top: 8px; background: var(--yellow); color: var(--ink); border: 2px solid var(--ink); }
 .lb-more { font-size: 1rem; font-weight: 800; }
 .filter-toggle { display: none; }

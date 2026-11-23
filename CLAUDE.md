@@ -147,3 +147,9 @@ python3 -m http.server 5190 --directory dist     # local preview
   that differs, padded bounding box; skipped when it would keep >92% or <10% of the photo). The original is still kept.
   Under each photo: a big **✂ Crop / ✂ Adjust the crop** button (opens the editor already cropping), **↻ Turn**, and
   **Undo the crop**. Snapshots and Family Moments photos are not auto-cropped. Crop handles are 44px.
+
+## PDF art pieces (Jesse, 2026-11-23)
+- A PDF can be added as an **Art** piece (family login, not the girls' tablets, not snapshots). The app draws page 1 with pdf.js (vendored in
+  `site-src/upload/vendor/`, loaded only when a PDF is picked, not scanned by the audit) and that picture is the web copy; the original PDF goes to Drive as
+  `<id>-<n>-original.pdf`. The PDF itself (up to 5 MB, one function call) is stored in Blobs `images` as `<id>-<n>-pdf` via `POST /api/pieces/<id>/pdf/<n>`
+  and opens from `/img/<id>/<n>/pdf` ("Open the PDF" button in the lightbox). Bigger PDFs: picture only, PDF in Drive. Rebuilding from Drive restores the picture, not the site copy of the PDF.
