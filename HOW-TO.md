@@ -29,6 +29,10 @@ Plain steps for Jesse. The site is **twosistersstudio.com**. Claude does the tec
    it waits on the phone and goes up by itself later; the first screen says how many are waiting, with **Send now**.
 9. If a picture looks like one already saved, the app says so. Save anyway, or tap **Take out**.
 
+**Add a PDF as art:** in **Art**, tap **Choose photos** and pick a PDF (on a computer, the file picker takes PDFs too). The app draws page 1 as the picture, and
+a small **PDF** tag shows on it. On the site, tap the picture and then **Open the PDF**. The original PDF goes to Google Drive like any original. The site keeps
+its own copy only up to 5 MB; a bigger PDF still shows its picture, and the whole file is in Drive. PDFs are for Art only (not snapshots, and not the girls' tablets).
+
 **Change or put away art:** in the app, tap **Recent uploads**. Change a caption or date, star one, or tap
 **Put away**. Put-away art is kept for 30 days under **Recently put away** with **Bring back**. The originals in
 Google Drive are never touched.

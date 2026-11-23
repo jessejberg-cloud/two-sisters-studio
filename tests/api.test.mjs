@@ -102,3 +102,24 @@ test('friends read only their kids, never save', async () => {
   auth.forgetLink('L1');
   assert.equal((await api(F('/api/pieces?kid=amaya'), {})).status, 401, 'a turned-off link stops working');
 });
+
+test('a PDF piece: picture of page 1 in the gallery, the PDF itself opens from /img/<id>/1/pdf', async () => {
+  const s = await (await api(J('/api/pieces/start', { kid: 'amaya', date: '2026-11-04', caption: 'My story', photos: [{ originalType: 'application/pdf', originalSize: 40 }] }), {})).json();
+  assert.equal(s.uploads[0].name.endsWith('-original.pdf'), true, 'the original goes to Drive as a .pdf');
+  const f = new FormData(); f.set('meta', '{"w":800,"h":1040,"fp":"0f0f0f0f0f0f0f0f"}');
+  f.set('web', new Blob(['page1'], { type: 'image/jpeg' })); f.set('thumb', new Blob(['t'], { type: 'image/jpeg' }));
+  assert.equal((await api(R(`/api/pieces/${s.id}/photo/1`, { method: 'POST', body: f }), {})).status, 200);
+  const bad = new FormData(); bad.set('pdf', new Blob(['not a pdf at all'], { type: 'application/pdf' }));
+  assert.equal((await api(R(`/api/pieces/${s.id}/pdf/1`, { method: 'POST', body: bad }), {})).status, 400, 'only real PDFs');
+  const big = new FormData(); big.set('pdf', new Blob(['%PDF-1.4', new Uint8Array(5.1e6)], { type: 'application/pdf' }));
+  assert.equal((await api(R(`/api/pieces/${s.id}/pdf/1`, { method: 'POST', body: big }), {})).status, 400, 'over 5 MB stays in Drive');
+  const ok = new FormData(); ok.set('pdf', new Blob(['%PDF-1.4 hello'], { type: 'application/pdf' }));
+  assert.equal((await api(R(`/api/pieces/${s.id}/pdf/1`, { method: 'POST', body: ok }), {})).status, 200);
+  assert.ok((await (await api(R(`/api/pieces/${s.id}/finish`, { method: 'POST' }), {})).json()).ok);
+  const list = await (await api(R('/api/pieces?kid=amaya'), {})).json();
+  assert.equal(list.pieces.find((p) => p.id === s.id).photos[0].pdf, true);
+  const got = await img(R(`/img/${s.id}/1/pdf`), {});
+  assert.equal(got.headers.get('content-type'), 'application/pdf');
+  assert.equal(await got.text(), '%PDF-1.4 hello');
+  assert.equal((await img(R(`/img/${s.id}/1`), {})).status, 200, 'the page-1 picture still shows');
+});

@@ -15,7 +15,7 @@
 import { who, isParent } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
 import { folder, putSmall, uploadAddress } from '../lib/drive.mjs';
-import { KID_KEYS, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, extOf, details, getPiece, savePiece, readIndex, check, short, sectionOf } from '../lib/pieces.mjs';
+import { KID_KEYS, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, pdfName, extOf, details, getPiece, savePiece, readIndex, check, short, sectionOf } from '../lib/pieces.mjs';
 
 const json = (o, status = 200) => Response.json(o, { status, headers: { 'cache-control': 'no-store' } });
 const now = () => new Date().toISOString();
@@ -67,7 +67,7 @@ async function handle(req, context) {
     }
     return json({ pieces: list.map(({ photos, ...p }) => ({ ...p, photos: photos.map(({ fp, ...ph }) => ph) })) });
   }
-  const kidSaving = me.role === 'kid' && req.method === 'POST' && (parts[0] === 'start' || ['photo', 'finish'].includes(parts[1]));
+  const kidSaving = me.role === 'kid' && req.method === 'POST' && (parts[0] === 'start' || ['photo', 'pdf', 'finish'].includes(parts[1]));
   if (!family && !kidSaving) return json({ error: 'family' }, 401);
 
   if (req.method === 'GET' && parts[0] === 'waiting') {
@@ -129,7 +129,7 @@ async function handle(req, context) {
     const parent = await folder(context, folderParts(piece));
     const origin = url.origin, uploads = [];
     for (const ph of p.photos) {
-      const oext = extOf(ph.originalType) === 'png' ? 'png' : (/heic|heif/.test(ph.originalType || '') ? 'heic' : 'jpg');
+      const oext = ph.originalType === 'application/pdf' ? 'pdf' : extOf(ph.originalType) === 'png' ? 'png' : (/heic|heif/.test(ph.originalType || '') ? 'heic' : 'jpg');
       const o = { n: ph.n, kind: 'original', name: `${id}-${ph.n}-original.${oext}`, type: ph.originalType || 'image/jpeg', size: ph.originalSize };
       uploads.push({ ...o, url: await uploadAddress(context, parent, o.name, o.type, o.size, origin) });
       if (ph.edited) {
@@ -168,6 +168,25 @@ async function handle(req, context) {
     const tf = await putSmall(context, webFolder, `${webName(id, n, true)}.${ext}`, type, await thumb.arrayBuffer());
     Object.assign(ph, { w: +meta.w || 0, h: +meta.h || 0, fp: /^[0-9a-f]{16}$/.test(meta.fp || '') ? meta.fp : '', edits: Array.isArray(meta.edits) ? meta.edits.slice(0, 10) : [],
       original: meta.original || null, edited: meta.edited || null, web: wf.id, thumb: tf.id, webType: type });
+    await pend.setJSON('p/' + id, rec);
+    return json({ ok: true });
+  }
+
+  // A PDF piece: the picture of page 1 came in as the "web" copy above; this is the PDF itself, for opening on the site.
+  // (Up to 5 MB, the most one function call takes. Bigger PDFs stay in Google Drive and show only their picture.)
+  if (parts[1] === 'pdf') {
+    const rec = await pend.get('p/' + id, { type: 'json' });
+    if (!rec) return json({ error: 'unknown' }, 404);
+    if (me.role === 'kid' && rec.piece.by !== me.kid) return json({ error: 'family' }, 401);
+    const ph = rec.piece.photos.find((x) => x.n === +parts[2]);
+    if (!ph) return json({ error: 'photo' }, 400);
+    const form = await req.formData();
+    const file = form.get('pdf');
+    if (!file || file.size > 5e6 || file.size < 8) return json({ error: 'pdf' }, 400);
+    const bytes = await file.arrayBuffer();
+    if (new TextDecoder('latin1').decode(bytes.slice(0, 1024)).indexOf('%PDF-') === -1) return json({ error: 'pdf' }, 400);
+    await store('images', context).set(pdfName(id, ph.n), bytes, { metadata: { type: 'application/pdf', piece: id } });
+    ph.pdf = true;
     await pend.setJSON('p/' + id, rec);
     return json({ ok: true });
   }
