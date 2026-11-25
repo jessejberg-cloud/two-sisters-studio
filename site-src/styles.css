@@ -809,3 +809,12 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .newcat-paper .btn-big { min-width: 110px; }
 .cat-jump { margin: 0 0 16px; }
 .start .st-cats-box > .share-help:first-child { margin-top: 0; }
+/* Setup with fewer frames (Jesse, 2026-11-25 18:04Z): fields are a line to write on, choices are plain text with a ▾, ideas are soft tints. */
+.start .st-label input, .start .st-kid input, .start .own-row input[type="text"] { border: 0; border-bottom: 2px solid #8a8178; border-radius: 0; background: transparent; padding-left: 2px; }
+.start .st-label input:focus, .start .st-kid input:focus, .start .own-row input[type="text"]:focus { outline: none; border-bottom: 3px solid var(--plum); }
+.start .st-kid select { border: 0; background: transparent; color: var(--ink-soft, #5b544c); font-weight: 700; padding-left: 2px; }
+.start .st-kid select:focus-visible { outline: 3px solid var(--plum); outline-offset: 2px; }
+.start .st-kid .st-grade { justify-self: start; width: auto; min-width: 9em; }
+.start .idea { border: 0; background: rgba(0, 0, 0, 0.05); }
+.start .idea[aria-pressed="true"] { background: var(--yellow); }
+.start .st-pin { border: 0; border-bottom: 2px solid #8a8178; border-radius: 0; background: transparent; }
