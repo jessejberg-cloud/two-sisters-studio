@@ -833,7 +833,7 @@ pages['upload/index.html'] = `<!doctype html>
       ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-home="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
     </div>
     <p class="up-extra" id="home-extra"><button type="button" class="chip" data-what="both">🤝 Both</button> <button type="button" class="chip" data-what="episode">🎙️ Podcast</button></p>
-    <p class="up-more"><a class="chip" id="home-site" href="/">🏠 Site</a> <button type="button" class="chip" id="recent">🕘 Recent</button> <a class="chip" id="home-parents" href="/parent/">🔒 Parents<span class="dot-heads" id="heads-dot" hidden></span></a></p>
+    <p class="up-more"><a class="chip" id="home-site" href="/">🏠 Site</a> <button type="button" class="chip" id="recent">🕘 Recent</button> <button type="button" class="chip" id="quick-toggle" aria-pressed="false" title="Open on the camera">⚡ Quick</button> <a class="chip" id="home-parents" href="/parent/">🔒 Parents<span class="dot-heads" id="heads-dot" hidden></span></a></p>
   </section>
 
   <section class="screen" id="s-pick" hidden>
@@ -1034,6 +1034,9 @@ const manifest = {
   background_color: '#fdf8ef', theme_color: '#fdf8ef',
   icons: [{ src: '/assets/brand/app-192.png', sizes: '192x192', type: 'image/png' }, { src: '/assets/brand/app-512.png', sizes: '512x512', type: 'image/png', purpose: 'any maskable' }],
   // Shows "Add art" in the phone's Share list (for example from Google Photos). The service worker catches it.
+  // Hold the app icon (Android): straight to Take a photo for the last artist, or a special day. Each can be dragged onto the home screen.
+  shortcuts: [{ name: 'Take a picture', short_name: 'Picture', url: '/upload/?add=quick', icons: [{ src: '/assets/brand/app-192.png', sizes: '192x192', type: 'image/png' }] },
+    { name: 'A special day', short_name: 'Special day', url: '/upload/?add=day', icons: [{ src: '/assets/brand/app-192.png', sizes: '192x192', type: 'image/png' }] }],
   share_target: { action: '/upload/share', method: 'POST', enctype: 'multipart/form-data', params: { files: [{ name: 'photos', accept: ['image/*'] }] } },
 };
 // The service worker: keeps the app working with no signal, and receives pictures shared from other apps.

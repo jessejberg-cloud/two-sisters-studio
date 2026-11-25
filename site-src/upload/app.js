@@ -54,8 +54,27 @@
     $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (state.section === 'cat' && state.cat ? ' · ' + state.cat.name : state.section === 'photos' ? '’s snapshots' : '’s art');
     document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '') + (devKid() ? ' dev-kid' : '') + (IN_APP ? ' in-app' : '');
     if (!$('#date').value) $('#date').value = today();
+    if (k !== 'both' && !kidMode() && ['art', 'photos', 'cat'].indexOf(state.section) !== -1) {   // quick capture comes back here
+      try { localStorage.setItem('tss-last', JSON.stringify({ s: STUDIO.slug, kid: k, section: state.section, cat: state.cat ? state.cat.key : null })); } catch (e) {}
+    }
     status(''); renderList(); show('s-photos');
   }
+  // ---------- quick capture (Jesse, 2026-11-25): straight to Take a photo for the last artist and category on this phone ----------
+  // From the app icon's shortcut (Android: hold the icon) or, with ⚡ on, every time the app opens (iPhone: the icon itself).
+  function quick() {
+    var last = null; try { last = JSON.parse(localStorage.getItem('tss-last') || 'null'); } catch (e) {}
+    if (!last || last.s !== STUDIO.slug || !cfg.kids[last.kid]) return false;
+    var cat = last.section === 'cat' ? (STUDIO.cats || []).filter(function (c) { return c.key === last.cat; })[0] : null;
+    if (last.section === 'cat' && !cat) return false;
+    setWhere(last.section); state.cat = cat; $('#where').hidden = true; setKid(last.kid);
+    return true;
+  }
+  function quickOn() { try { return localStorage.getItem('tss-quick-' + STUDIO.slug) === '1'; } catch (e) { return false; } }
+  function drawQuick() { var b = $('#quick-toggle'); if (b) b.setAttribute('aria-pressed', String(quickOn())); }
+  $('#quick-toggle').addEventListener('click', function () {
+    try { localStorage.setItem('tss-quick-' + STUDIO.slug, quickOn() ? '0' : '1'); } catch (e) {}
+    drawQuick();
+  });
   // ---------- a girl's own tablet (her tablet password): one big Choose photos, her name already picked ----------
   // Inside the girls' tablet app (Amazon Kids' browser blocks the camera and photo picker; the app does not).
   var IN_APP = / TwoSistersApp\//.test(navigator.userAgent);
@@ -109,7 +128,7 @@
       var who = document.querySelector('#s-who .up-kids'), both = who.querySelector('[data-kid="both"]');
       who.querySelectorAll('[data-kid]:not([data-kid="both"])').forEach(function (b) { b.remove(); });
       STUDIO.kids.forEach(function (k, i) { var b = kidButton(k, i, 'data-kid'); b.addEventListener('click', function () { setKid(k.key); }); who.insertBefore(b, both); });
-      both.remove();
+      if (both) both.remove();
       bindHome();
       drawCats();
     }
@@ -1379,8 +1398,10 @@
   }
   // The ＋ on a site page (Jesse, 2026-11-25) opens the app straight on that page's screen: ?add=art&kid=leora, day, episode, house.
   function jumpTo() {
-    var q = new URLSearchParams(location.search), add = q.get('add'), k = q.get('kid');
+    var q = new URLSearchParams(location.search), add = q.get('add') || (quickOn() && !q.get('welcome') ? 'quick' : null), k = q.get('kid');
+    drawQuick();
     if (!add || kidMode()) return;
+    if (add === 'quick') { try { history.replaceState(null, '', '/upload/'); } catch (e) {} quick(); return; }
     try { history.replaceState(null, '', '/upload/' + (q.get('welcome') ? '?welcome=1' : '')); } catch (e) {}
     if (houseMode()) { var hb = document.querySelector('[data-housewhat="' + (add === 'day' ? 'day' : 'house') + '"]'); if (hb) hb.click(); return; }
     if (add === 'day') openVideo();
