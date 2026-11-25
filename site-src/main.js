@@ -658,3 +658,75 @@ function addToDays(pieces) {
     if (TSS.bindSaveAll) TSS.bindSaveAll(phone);
   });
 }
+
+// ---------- "Share this page" (Jesse, 2026-11-25): family logins make a link to one page and send it in one go ----------
+// The link is the key: whoever taps it sees that page only, until it ends or a parent turns it off on the For parents page.
+// Making a link needs the parent PIN once; a parent's phone then remembers it for 30 days.
+(function () {
+  'use strict';
+  var btns = document.querySelectorAll('.share-page');
+  var root = document.documentElement;
+  if (!btns.length || root.classList.contains('is-friend') || root.classList.contains('is-kid')) return;
+  function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
+  var box = make('dialog', 'share-box'); box.setAttribute('aria-label', 'Share this page');
+  var h = make('h2', 'share-h'), note = make('p', 'share-note', 'Anyone with the link can see this page, nothing else.');
+  var how = make('p', 'share-how', 'The link works for');
+  var chips = make('div', 'chips share-chips'), expiry = 'month';
+  [['week', 'A week'], ['month', 'A month'], ['year', 'A year'], ['never', 'No end date']].forEach(function (o) {
+    var c = make('button', 'chip', o[1]); c.type = 'button'; c.dataset.v = o[0]; c.setAttribute('aria-pressed', String(o[0] === expiry));
+    c.addEventListener('click', function () { expiry = o[0]; made = null; go.textContent = '📤 Share the link'; chips.querySelectorAll('.chip').forEach(function (x) { x.setAttribute('aria-pressed', String(x === c)); }); });
+    chips.append(c);
+  });
+  var pinRow = make('label', 'share-pin'), pin = make('input');
+  pin.type = 'password'; pin.inputMode = 'numeric'; pin.autocomplete = 'off';
+  pinRow.append(make('span', '', 'Parent PIN (this phone remembers it for 30 days)'), pin); pinRow.hidden = true;
+  var go = make('button', 'btn-big share-go', '📤 Share the link'); go.type = 'button';
+  var msg = make('p', 'share-msg'); msg.setAttribute('role', 'status');
+  var shut = make('button', 'linkish share-close', 'Close'); shut.type = 'button';
+  box.append(h, note, how, chips, pinRow, go, msg, shut);
+  document.body.append(box);
+  shut.addEventListener('click', function () { box.close(); });
+  box.addEventListener('click', function (e) { if (e.target === box) box.close(); });
+  var page = null, label = '', made = null;
+  btns.forEach(function (b) {
+    b.hidden = false;
+    b.addEventListener('click', function () {
+      page = b.dataset.share; label = b.dataset.label; made = null;
+      h.textContent = 'Share ' + label; msg.textContent = ''; go.textContent = '📤 Share the link'; go.disabled = false;
+      if (typeof box.showModal === 'function') box.showModal(); else box.setAttribute('open', '');
+    });
+  });
+  async function post(url, body) {
+    var r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    var j = {}; try { j = await r.json(); } catch (e) {}
+    return j;
+  }
+  async function send() {
+    var what = { title: label, text: label + ' on our family art site:', url: made };
+    try {
+      if (navigator.share) { await navigator.share(what); msg.textContent = '✓ Sent. To stop it working, turn it off on the For parents page.'; return; }
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      if (e.name === 'NotAllowedError') { go.textContent = '📤 Send the link'; msg.textContent = 'The link is ready. Tap Send the link.'; return; }
+    }
+    try { await navigator.clipboard.writeText(made); msg.textContent = '✓ Link copied. Paste it into a text or an email.'; }
+    catch (e) { msg.textContent = 'Copy this link: ' + made; }
+  }
+  go.addEventListener('click', async function () {
+    if (made) return send();
+    go.disabled = true; msg.textContent = 'Making the link…';
+    try {
+      if (!pinRow.hidden) {
+        if (!pin.value) { msg.textContent = 'Type the parent PIN.'; pin.focus(); go.disabled = false; return; }
+        var p = await post('/api/parent', { pin: pin.value });
+        if (!p.ok) { msg.textContent = p.error === 'wait' ? 'Too many tries. Please wait 15 minutes.' : 'That PIN did not work.'; go.disabled = false; return; }
+        pinRow.hidden = true; pin.value = '';
+      }
+      var j = await post('/api/links', { pages: [page], expiry: expiry });
+      if (j.error === 'pin') { pinRow.hidden = false; pin.focus(); msg.textContent = 'Type the parent PIN once, then tap Share the link.'; go.disabled = false; return; }
+      if (!j.ok) throw new Error(j.error || 'no');
+      made = j.link.url; go.disabled = false;
+      await send();
+    } catch (e) { msg.textContent = 'That did not work. Try again?'; go.disabled = false; }
+  });
+})();

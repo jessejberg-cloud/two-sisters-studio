@@ -24,23 +24,16 @@ test('links need the parent PIN', async () => {
   assert.equal(s.status, 401);
 });
 
-test('a friend opens a link, logs in with the friends password, sees only the chosen pages; turning it off logs them out', async () => {
+test('a link is the key: opening it lets someone in on the chosen pages only, no password; turning it off logs them out', async () => {
   const p = await parent();
   const made = await (await share(post('/api/links', p, { pages: ['amaya', 'nope'], expiry: 'month' }), {})).json();
   assert.ok(made.ok); assert.deepEqual(made.link.pages, ['amaya']); assert.match(made.link.url, /\/s\/[A-Za-z0-9_-]{16}$/);
-  const pw = await (await share(req('/api/links/password', p), {})).json();
-  assert.equal(pw.password, 'friends-pw');
 
   const open = await share(req('/s/' + made.link.id, {}), {});
-  assert.equal(open.status, 303); assert.equal(open.headers.get('location'), '/login/?kind=friend');
-  const c1 = jar(open);
-  const form = (pwd) => { const f = new FormData(); f.set('password', pwd); f.set('kind', 'friend'); return f; };
-  const bad = await login(req('/api/login', c1, { method: 'POST', body: form('family-pw') }), {});
-  assert.match(bad.headers.get('location'), /e=pw/, 'the family password is not the friends password');
-  const good = await login(req('/api/login', c1, { method: 'POST', body: form('friends-pw') }), {});
-  assert.equal(good.headers.get('location'), '/');
-  const friend = jar(good);
+  assert.equal(open.status, 303); assert.equal(open.headers.get('location'), '/amaya/', 'one page: straight to it');
+  const friend = jar(open);
   assert.equal(decodeURIComponent(friend.tssv), 'amaya');
+  assert.equal((await share(req('/s/bad-link-0000000', {}), {})).headers.get('location'), 'https://twosistersstudio.com/login/?e=link', 'a made-up link does not open');
   const me = await auth.who(req('/', friend), {});
   assert.equal(me.role, 'friend'); assert.deepEqual(me.pages, ['amaya']);
   assert.equal(auth.friendMayOpen(me.pages, '/amaya/'), true);
@@ -86,4 +79,10 @@ test('changing the family password logs out other devices but keeps this one', a
   assert.equal(await auth.isParent(req('/', { tss: mine.tss, tssp: mine.tssp }), {}), true);
   const pin = await (await share(post('/api/admin/password', { tss: mine.tss, tssp: mine.tssp }, { level: 'pin', password: '12' }), {})).json();
   assert.equal(pin.error, 'short', 'a PIN is 4 to 8 numbers');
+});
+
+test('the parent PIN is remembered for 30 days on that phone', async () => {
+  const now = { tss: encodeURIComponent(await auth.makeLogin('family', {})) };   // the family password changed above
+  const res = await login(post('/api/parent', now, { pin: '2468' }), { ip: '9.9.9.9' });
+  assert.match(res.headers.get('set-cookie') || '', /tssp=[^;]+;.*Max-Age=2592000/i);
 });

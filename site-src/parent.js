@@ -25,14 +25,10 @@
       $('#g-connect').textContent = 'Connect again';
     } else $('#g-status').textContent = 'Not connected yet. Uploads need this once.';
     if (q.get('connected')) $('#g-status').textContent = 'Connected! ' + $('#g-status').textContent;
-    showRebuild(); showLinks(); getFriendsPw(); showWaiting(); showTablets();
+    showRebuild(); showLinks(); showWaiting(); showTablets();
   }
 
   // ---------- share links ----------
-  var friendsPw = null;
-  function getFriendsPw() {
-    fetch('/api/links/password', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) { friendsPw = j.password || null; }, function () {});
-  }
   var pageBoxes = Array.prototype.slice.call(document.querySelectorAll('input[name="pages"]'));
   $('#pages-all').addEventListener('change', function () { var on = this.checked; pageBoxes.forEach(function (b) { b.checked = on; }); });
   pageBoxes.forEach(function (b) { b.addEventListener('change', function () { $('#pages-all').checked = pageBoxes.every(function (x) { return x.checked; }); }); });
@@ -53,21 +49,16 @@
     if (!pages.length) { msg.textContent = 'Tick at least one page.'; msg.hidden = false; return; }
     var j = {}; try { j = await (await post('/api/links', { pages: pages, expiry: exp ? exp.value : 'month' })).json(); } catch (e) {}
     if (!j.ok) {
-      msg.textContent = j.error === 'pin' ? 'Please type the parent PIN again.' : j.error === 'friends-not-set' ? 'Set a friends password first (below, or FRIENDS_PASSWORD in Netlify).' : 'That did not work. Try again?';
+      msg.textContent = j.error === 'pin' ? 'Please type the parent PIN again.' : 'That did not work. Try again?';
       msg.hidden = false; if (j.error === 'pin') location.reload(); return;
     }
     current = j.link;
     $('#link-url').textContent = j.link.names.join(', ') + ', ' + until(j.link) + ':\n' + j.link.url;
-    $('#send-note').textContent = 'Send the link first, then the password, as two separate texts.';
+    $('#send-note').textContent = 'Tap Send link and pick who gets it. They tap it and they are in.';
     $('#link-made').hidden = false;
-    if (!friendsPw) getFriendsPw();
     showLinks();
   });
   $('#send-link').addEventListener('click', function () { if (current) send({ url: current.url }, $('#send-note')); });
-  $('#send-pw').addEventListener('click', function () {
-    if (!friendsPw) { $('#send-note').textContent = 'The friends password was changed outside this page. Set it again below to send it from here.'; return; }
-    send({ text: 'Password for the art site: ' + friendsPw }, $('#send-note'));
-  });
   var linksTurn = 0;
   async function showLinks() {
     var turn = ++linksTurn, j = {};
@@ -146,7 +137,7 @@
       var j = {}; try { j = await (await post('/api/admin/password', { level: level, password: input.value })).json(); } catch (e) {}
       if (j.ok) {
         msg.textContent = '✓ ' + name + (kidKey ? ' set. Type it on her tablet to log in. A tablet using an older one is logged out.' : ' changed. Every other device using it is logged out.');
-        if (level === 'friends') friendsPw = input.value.trim(); input.value = ''; showLinks(); if (kidKey) showTablets();
+        input.value = ''; showLinks(); if (kidKey) showTablets();
       }
       else msg.textContent = j.error === 'short' ? (level === 'pin' ? 'A PIN is 4 to 8 numbers.' : kidKey ? 'Use at least 4 letters or numbers.' : 'Use at least 6 letters or numbers.')
         : j.error === 'same' ? 'That one is already used by another login. Pick a different one.'

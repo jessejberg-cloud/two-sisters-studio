@@ -6,9 +6,9 @@ Plain steps for Jesse. The site is **twosistersstudio.com**. Claude does the tec
 - **Family** (you, your partner, the girls): the family password. It opens the whole site and the Add art app, and
   the phone stays logged in for about a year.
 - **Parents**: the parent PIN, on the **For parents** page (in the Add art app, or twosistersstudio.com/parent/).
-  It is asked again after 15 minutes. Only parents make share links and change passwords.
-- **Friends**: a share link from a parent, plus the friends password. They see only the pages on their link,
-  and never the Add art app.
+  Your phone remembers it for 30 days. Only parents make share links and change passwords.
+- **Friends and family far away**: a share link from a parent. No password: they tap the link and they are in.
+  They see only the pages on their link, and never the Add art app.
 
 ## Add art
 1. On your phone, open the **Add art** app (twosistersstudio.com/upload/, or its home-screen icon).
@@ -55,17 +55,19 @@ Her login cannot delete or change anything, and never sees the parent page. Sett
 tablet out.
 
 ## Share with a friend
-1. Open **For parents** and type the parent PIN.
-2. Under **Share with a friend**, tick the pages (or **All of them**) and how long it works: a week, a month,
-   a year, or no end date.
-3. Tap **Make a link**. Then tap **Send link** (a text with only the link) and **Send password** (a text that says
-   "Password for the art site: ..."). Each opens your phone's share list. On a computer they copy instead.
-4. **Links you made** lists every link. Tap **Turn off** to stop one; anyone using it is logged out within a minute.
-   Changing the friends password also logs out every friend, even on "no end date" links.
+**Quickest:** on the page you want to share (Leora, Amaya, Pet Parents or Family Moments), tap **📤 Share this page**,
+pick how long it works (a month is already picked), tap **Share the link**, then pick who gets it. The first time,
+it asks for the parent PIN; your phone then remembers it for 30 days.
+
+**Several pages in one link:** open **For parents**, tick the pages under **Share with a friend**, pick how long it
+works, tap **Make a link**, then **Send link**.
+
+**Links you made** (on For parents) lists every link. Tap **Turn off** to stop one; anyone using it is logged out
+within a minute. Changing the friends password (Netlify only now) logs out everyone on every link at once.
 
 ## Change a password or the PIN
 On **For parents**, under **Passwords and PIN**, type the new one and tap **Change**. Every other phone and
-computer using it is logged out; yours stays in. Family and friends passwords need at least 6 letters or
+computer using it is logged out; yours stays in. The family password needs at least 6 letters or
 numbers; the PIN is 4 to 8 numbers. Tell the family the new family password yourself.
 (The first passwords come from Netlify: **Project configuration → Environment variables**. Once you change one on
 the For parents page, that page's version is the one that counts.)

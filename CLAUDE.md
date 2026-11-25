@@ -164,3 +164,11 @@ python3 -m http.server 5190 --directory dist     # local preview
   A day with app photos gets **Download all** as a zip made in the browser (`TSS.zip`) plus Save all on phones; no build needed.
   The girls' own Family Moments photos (no day) stay in their own row. `tools/add.py moments` still works for hand-added days.
 - Audit and the next two batches (one-link sharing; scan fix + girls add art): /mnt/project-files/two-sisters-studio/ease-audit-2026-11-25.md. Tests: tests/moments.test.mjs.
+
+## One-link sharing (Jesse, 2026-11-25; audit batch 2 of 3)
+- A share link is the key: `/s/<id>` logs the visitor in as a friend on the link's pages (straight to the page when there is one),
+  no friends password. Links still expire and can be turned off; the friends-password generation still exists, so changing
+  FRIENDS_PASSWORD in Netlify logs every friend out at once. "Send password" and the friends password row on For parents are gone.
+- **📤 Share this page** on Leora, Amaya, Pet Parents and Family Moments (family logins only; main.js): pick how long, Share the link,
+  the phone's Share list opens. Asks for the parent PIN when needed.
+- The parent PIN cookie lasts 30 days (`PARENT_MINUTES` in netlify/lib/core.mjs).

@@ -39,6 +39,8 @@ const TABS = [
   ...site.sections,
 ];
 const PP = '/pet-parents';
+// "Share this page": family logins only (main.js shows it). Makes a link to this one page and opens the phone's Share list.
+const shareBtn = (key, label) => `<button type="button" class="share-page" data-share="${esc(key)}" data-label="${esc(label)}" hidden>📤 Share this page</button>`;
 // Content-Security-Policy is set per page (a meta tag), so the upload app can talk to Google Drive
 // while every other page can reach nothing outside this site.  (The upload app talks to Google Drive.)
 const CSP_STRICT = "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'";
@@ -309,7 +311,7 @@ for (const kid of KIDS) {
     bodyClass: `c-${kid.color}`,
     title: `${kid.name}'s Art`,
     csp: CSP_SELF,
-    body: `<div class="page-head"><h1>${esc(kid.name)}'s Art</h1></div>
+    body: `<div class="page-head"><h1>${esc(kid.name)}'s Art</h1>${shareBtn(kid.key, `${kid.name}'s Art`)}</div>
 <p class="snap-jump" hidden><a class="chip" href="#snapshots">📷 ${esc(kid.name)}'s snapshots</a></p>
 ${artGallery(kid, items)}`,
   });
@@ -324,6 +326,7 @@ pages['pet-parents/index.html'] = page({
 <section class="hero">
   <h1 class="hero-logo">${podcastMark()}</h1>
   <p class="hero-tag">A podcast about pets and the people who love them.</p>
+  ${shareBtn('pet-parents', site.podcastName)}
   <div class="hero-art">${drawing('hero')}</div>
 </section>
 <div class="pp-live" data-empty="${episodes.length ? '' : '1'}">
@@ -467,7 +470,7 @@ function momentPhoto(ev, ph) {
     bodyClass: 'c-yellow',
     title: 'Family Moments',
     csp: CSP_SELF,   // the girls' photos and the videos load from this site's own functions
-    body: `<div class="page-head"><h1>Family Moments</h1><p>Photos and videos from our special days.</p></div>
+    body: `<div class="page-head"><h1>Family Moments</h1><p>Photos and videos from our special days.</p>${shareBtn('family-moments', 'Family Moments')}</div>
 ${livePhotos('/api/pieces?section=moments', `From ${listWords(KIDS.map((k) => k.name))}`, 'Photos the girls took.')}
 ${events.some((ev) => ev.sample) ? '<p class="sample-note">These are sample pictures, so you can see how the page will look. Real photos are coming soon!</p>' : ''}
 ${events.length ? `${jump}
@@ -547,7 +550,7 @@ pages['parent/index.html'] = page({
   </section>
   <section class="parent-card wobbly" id="share-card">
     <h2>Share with a friend</h2>
-    <p>Pick the pages and how long the link works. Your friend also needs the friends password, which you send in a second text.</p>
+    <p>Pick the pages and how long the link works. Anyone with the link can see those pages, nothing else, until it ends or you turn it off. Each page also has its own Share this page button.</p>
     <fieldset class="ticks"><legend>Pages</legend>
       ${TABS.map((n) => `<label class="tick"><input type="checkbox" name="pages" value="${n.key}"> ${esc(n.label)}</label>`).join('\n      ')}
       <label class="tick"><input type="checkbox" id="pages-all"> All of them</label>
@@ -562,7 +565,7 @@ pages['parent/index.html'] = page({
     <p class="login-error" id="link-msg" hidden></p>
     <div class="link-made" id="link-made" hidden>
       <p class="link-url" id="link-url"></p>
-      <div class="send-row"><button type="button" class="btn-big" id="send-link">Send link</button><button type="button" class="btn-big" id="send-pw">Send password</button></div>
+      <div class="send-row"><button type="button" class="btn-big" id="send-link">Send link</button></div>
       <p class="share-help" id="send-note"></p>
     </div>
     <h3>Links you made</h3>
@@ -572,7 +575,6 @@ pages['parent/index.html'] = page({
     <h2>Passwords and PIN</h2>
     <p>Changing one logs out every other phone and computer that uses it. This one stays in.</p>
     <div class="pw-row"><label>Family password <input type="text" id="pw-family" autocomplete="off" spellcheck="false"></label><button type="button" class="chip" data-change="family">Change</button></div>
-    <div class="pw-row"><label>Friends password <input type="text" id="pw-friends" autocomplete="off" spellcheck="false"></label><button type="button" class="chip" data-change="friends">Change</button></div>
     <div class="pw-row"><label>Parent PIN (4 to 8 numbers) <input type="text" id="pw-pin" inputmode="numeric" autocomplete="off"></label><button type="button" class="chip" data-change="pin">Change</button></div>
     <p class="share-help" id="pw-msg" role="status"></p>
   </section>

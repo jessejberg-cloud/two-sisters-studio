@@ -654,3 +654,22 @@ html.full-open { overflow: hidden; }
 .ed-box span { width: 44px; height: 44px; }
 .ed-box [data-h="tl"] { left: -24px; top: -24px; } .ed-box [data-h="tr"] { right: -24px; top: -24px; }
 .ed-box [data-h="bl"] { left: -24px; bottom: -24px; } .ed-box [data-h="br"] { right: -24px; bottom: -24px; }
+
+/* "Share this page" (family logins only) and its small box. */
+.share-page { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; margin-top: 10px; padding: 8px 18px; font: inherit; font-weight: 800; color: var(--ink);
+  background: #fff; border: 3px solid var(--ink); border-radius: var(--wobble); box-shadow: 4px 4px 0 var(--ink); cursor: pointer; }
+.share-page:hover, .share-page:focus-visible { background: var(--yellow-soft); }
+.share-page[hidden] { display: none; }
+.share-box { width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 22px; border: 3px solid var(--ink); border-radius: var(--wobble); background: var(--paper, #fdf8ef); color: var(--ink); box-shadow: 6px 6px 0 var(--ink); }
+.share-box::backdrop { background: rgba(29, 26, 36, .45); }
+.share-h { margin: 0 0 6px; }
+.share-note, .share-how { margin: 0 0 10px; }
+.share-how { font-weight: 800; }
+.share-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+.share-chips .chip[aria-pressed="true"] { background: var(--yellow); }
+.share-pin { display: grid; gap: 6px; margin: 0 0 14px; font-weight: 800; }
+.share-pin[hidden] { display: none; }
+.share-pin input { font: inherit; min-height: 48px; padding: 6px 12px; border: 3px solid var(--ink); border-radius: 12px; }
+.share-go { width: 100%; }
+.share-msg { min-height: 1.4em; margin: 12px 0 4px; font-weight: 700; overflow-wrap: anywhere; }
+.share-close { display: block; margin: 6px auto 0; min-height: 44px; }
