@@ -82,6 +82,8 @@ Priorities, in order (spec):
 - Save: kept on the phone, then the original goes to Drive and a web copy to the site. It shows on the site right away.
 - Kids' uploads from tablets wait for a parent's OK (OK all on For parents and on a parent's app home).
 - PDFs can be art (page 1 is the picture). Episodes and videos: Jesse's studio only, for now.
+- Quick capture: hold the app icon (Android) for Take a picture (last artist and category) or A special day; ⚡ on the
+  app home opens straight on the camera every time (useful on iPhone).
 
 **Looking (the website)**
 - Galleries by school year (Sept to Aug), newest open; fall, winter, spring, then summer. Featured pieces large; never cropped.
