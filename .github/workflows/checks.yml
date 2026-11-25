@@ -54,7 +54,7 @@ jobs:
       - name: Build
         run: node tools/build.cjs
       - name: Phones, intent and look
-        run: npx playwright test --update-snapshots=missing
+        run: npx playwright test
         env: { VISUAL: '1' }
       - name: Keep the report
         if: always()

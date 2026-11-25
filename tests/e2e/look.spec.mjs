@@ -12,7 +12,16 @@ async function shot(page, name, testInfo) {
   await settled(page);
   // Today's date and anything else that changes by itself is covered over.
   const mask = [page.locator('input[type=date], time, .art-label, .day-date, #status')];
-  if (COMPARE) return expect(page).toHaveScreenshot(name + '.png', { fullPage: true, mask });
+  if (COMPARE) {
+    // No approved picture yet for this size (before the first "Approve the look"): keep this one in the report, do not fail.
+    const approved = testInfo.snapshotPath(name + '.png');
+    if (!fs.existsSync(approved) && testInfo.config.updateSnapshots !== 'all') {
+      testInfo.annotations.push({ type: 'look', description: `no approved picture yet: ${name}` });
+      await page.screenshot({ path: testInfo.outputPath(name + '.png'), fullPage: true, mask });
+      return;
+    }
+    return expect(page).toHaveScreenshot(name + '.png', { fullPage: true, mask });
+  }
   const dir = `screens/${testInfo.project.name}`;
   fs.mkdirSync(dir, { recursive: true });
   await page.screenshot({ path: `${dir}/${name}.png`, fullPage: true, mask });

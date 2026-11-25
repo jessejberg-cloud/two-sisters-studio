@@ -22,7 +22,8 @@ export const test = base.extend({
 export async function guard(page, problems) {
   await watch(page, problems);
   await fakeGoogleInBrowser(page);
-  await page.route((u) => !['localhost', 'www.googleapis.com'].includes(u.hostname), (r) => {
+  // blob: and data: addresses are the page's own (WebKit shows them to routes; Chromium does not).
+  await page.route((u) => /^https?:$/.test(u.protocol) && !['localhost', 'www.googleapis.com'].includes(u.hostname), (r) => {
     problems.push('outside request: ' + r.request().url());
     return r.abort();
   });
@@ -65,8 +66,9 @@ export async function fakeGoogleInBrowser(page) {
     if (!to.startsWith('https://accounts.google.com/')) return r.fulfill({ response: res });
     const u = new URL(to), back = new URL(u.searchParams.get('redirect_uri'));
     back.search = new URLSearchParams({ code: 'fake-code', state: u.searchParams.get('state') }).toString();
-    const headers = { ...res.headers(), location: back.toString() };
-    return r.fulfill({ status: 302, headers });
+    // A page that moves on at once (WebKit will not let a test answer with a redirect). Google's cookie rides along.
+    const headers = { 'content-type': 'text/html', 'set-cookie': res.headers()['set-cookie'] || '' };
+    return r.fulfill({ status: 200, headers, body: `<meta http-equiv="refresh" content="0;url=${back}">` });
   });
 }
 

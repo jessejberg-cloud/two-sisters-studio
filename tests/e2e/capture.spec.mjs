@@ -49,3 +49,17 @@ test('no signal: Save keeps it on the phone and sends it when the signal comes b
   await page.goto('/leora/');
   await expect(page.locator('img[src*="/img/"]').first()).toBeVisible();
 });
+
+test('an older phone without createImageBitmap (old iPhones) still saves art', async ({ page }) => {
+  await page.addInitScript(() => { delete window.createImageBitmap; window.createImageBitmap = undefined; });
+  await login(page);
+  await page.goto('/upload/');
+  await page.click('[data-home=leora]');
+  await page.click('[data-pick=art]');
+  await page.setInputFiles('#pick', FILES.art);
+  await expect(page.locator('#save')).toBeEnabled();
+  await page.click('#save');
+  await waitAllSent(page);
+  await page.goto('/leora/');
+  await expect(page.locator('img[src*="/img/"]').first()).toBeVisible();
+});
