@@ -1,7 +1,7 @@
 // The app's intent, checked by machine on every page and every size (docs/GUIDE.md, "Checklist": the items marked [auto]).
 // Private, easy for a 5-year-old and for Grandma, calm, nothing that leaves the site.
 import AxeBuilder from '@axe-core/playwright';
-import { test, expect, login, ownerInvite } from './helpers.mjs';
+import { test, expect, login, ownerInvite, newPhone, settled } from './helpers.mjs';
 
 const PAGES = ['/', '/leora/', '/amaya/', '/pet-parents/', '/family-moments/', '/upload/', '/parent/'];
 // Problems that were already on the site when these checks started (2026-11-25). Each is in docs/GUIDE.md "Known issues".
@@ -16,12 +16,7 @@ for (const path of PAGES) {
   test(`intent: ${path}`, async ({ page }) => {
     await login(page, undefined, path);
     const res = await page.goto(path);
-    // Load every picture now (they wait until scrolled to), so sizes are real.
-    await page.evaluate(async () => {
-      document.querySelectorAll('img[loading=lazy]').forEach((i) => { i.loading = 'eager'; });
-      await Promise.all([...document.images].map((i) => i.complete ? 0 : new Promise((ok) => { i.onload = i.onerror = ok; setTimeout(ok, 3000); })));
-    });
-    await page.waitForTimeout(300);
+    await settled(page);
 
     // Private: never in Google (GUIDE: Privacy 1-2).
     expect(res.headers()['x-robots-tag'] || '', 'X-Robots-Tag header').toMatch(/noindex/);
@@ -59,10 +54,10 @@ test('intent: a stranger with no link sees only the login page', async ({ page }
   expect((await page.request.get('/api/pieces?kid=leora')).status()).toBe(401);
 });
 
-test('intent: a new family setup has few words and the PIN is the only step that cannot be skipped', async ({ page, browser }) => {
+test('intent: a new family setup has few words; only the PIN and Google Drive cannot be skipped', async ({ page, browser }, info) => {
   const invite = await ownerInvite(page, 'Words');
-  const ctx = await browser.newContext({ viewport: page.viewportSize(), baseURL: new URL(page.url()).origin });
-  const p = await ctx.newPage();
+  const problems = [];
+  const p = await newPhone(browser, info, page, problems);
   await p.goto(invite);
   const steps = await p.$$eval('section.step[data-step]', (s) => s.filter((x) => x.dataset.step !== '0').map((x) => ({
     step: x.dataset.step,
@@ -72,8 +67,11 @@ test('intent: a new family setup has few words and the PIN is the only step that
       .filter((e) => !e.closest('[hidden]')).map((e) => e.textContent).join(' ').replace(/[^\p{L}\s]/gu, ' ').split(/\s+/).filter(Boolean).length),
   })));
   for (const s of steps) {
+    // Skip on every step but the PIN (2), Google Drive (3: studios need Drive, Jesse 2026-11-25) and the last (6: Camera).
     if (['1', '4', '5'].includes(s.step)) expect(s.skip, `step ${s.step} has Skip`).toBeTruthy();
+    if (['2', '3'].includes(s.step)) expect(s.skip, `step ${s.step} has no Skip`).toBeFalsy();
     expect(s.words, `step ${s.step}: words on screen`).toBeLessThanOrEqual(25);
   }
-  await ctx.close();
+  expect(problems).toEqual([]);
+  await p.context().close();
 });

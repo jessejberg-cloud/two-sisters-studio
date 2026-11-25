@@ -1,16 +1,13 @@
 // Another family sets up their own studio alone (spec: "one relative on iPhone does full setup alone"),
 // adds art from their phone, and a View link can look but never add.
-import { test, expect, watch, fakeGoogleInBrowser, ownerInvite, waitAllSent, driveFiles, FILES } from './helpers.mjs';
+import { test, expect, newPhone, ownerInvite, waitAllSent, driveFiles, FILES } from './helpers.mjs';
 
-test('a new family: invite, setup, Drive, first art; a View link looks but cannot add', async ({ page, browser, request }) => {
+test('a new family: invite, setup, Drive, first art; a View link looks but cannot add', async ({ page, browser, request }, info) => {
   const invite = await ownerInvite(page, 'Rivera');
 
   // A brand-new phone opens the invite.
-  const phoneCtx = await browser.newContext({ ...pageOptions(page), serviceWorkers: 'block' });
-  const phone = await phoneCtx.newPage();
   const problems = [];
-  await watch(phone, problems);
-  await fakeGoogleInBrowser(phone);
+  const phone = await newPhone(browser, info, page, problems);
   await phone.goto(invite);
   await expect(phone).toHaveURL(/\/start\//);
 
@@ -48,20 +45,13 @@ test('a new family: invite, setup, Drive, first art; a View link looks but canno
   // The View link, from the studio's For parents.
   await phone.request.post('/api/studio/rivera/pin', { data: { pin: '4321' } });
   const view = new URL((await (await phone.request.get('/api/studio/rivera/parent')).json()).view).pathname;
-  const viewerCtx = await browser.newContext({ ...pageOptions(page), serviceWorkers: 'block' });
-  const viewer = await viewerCtx.newPage();
+  const viewer = await newPhone(browser, info, page, problems);
   await viewer.goto(view);
   await expect(viewer).toHaveURL(/\/rivera\//);
   await viewer.goto('/upload/');
   await expect(viewer).not.toHaveURL(/\/upload\//);
   const start = await viewer.request.post('/api/pieces/start', { data: { studio: 'rivera', kid: 'sol', date: '2026-11-20', photos: [{ originalType: 'image/jpeg' }] } });
   expect(start.status()).toBe(401);
-  expect(problems, 'no errors on the new phone').toEqual([]);
-  await phoneCtx.close(); await viewerCtx.close();
+  expect(problems, 'no errors and nothing sent outside the site, on the new phone or the viewer').toEqual([]);
+  await phone.context().close(); await viewer.context().close();
 });
-
-// The same phone size as this project (iPhone, Pixel, tablet, computer).
-function pageOptions(page) {
-  const vp = page.viewportSize();
-  return { viewport: vp, userAgent: undefined, baseURL: new URL(page.url()).origin };
-}

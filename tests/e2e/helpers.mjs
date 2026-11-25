@@ -11,16 +11,40 @@ export const test = base.extend({
   page: async ({ page, request }, use) => {
     await request.post('/__test/reset');
     const problems = [];
-    watch(page, problems);
-    await fakeGoogleInBrowser(page);
-    await page.route(/^https?:\/\/(?!localhost(:\d+)?\/|(www|accounts)\.google(apis)?\.com\/)/, (r) => {
-      problems.push('outside request: ' + r.request().url());
-      return r.abort();
-    });
+    await guard(page, problems);
     await use(page);
     expect(problems, 'no page errors and nothing sent outside the site').toEqual([]);
   },
 });
+
+// Everything a test page needs: errors noticed, Google faked, and any request that tries to leave the site
+// caught (and counted as a problem). Use it on every page, including new phones made with browser.newContext().
+export async function guard(page, problems) {
+  await watch(page, problems);
+  await fakeGoogleInBrowser(page);
+  await page.route((u) => !['localhost', 'www.googleapis.com'].includes(u.hostname), (r) => {
+    problems.push('outside request: ' + r.request().url());
+    return r.abort();
+  });
+}
+
+// A second phone, the same kind as this test's (iPhone, Pixel, tablet, computer), with nothing on it yet.
+export async function newPhone(browser, testInfo, page, problems) {
+  const ctx = await browser.newContext({ ...testInfo.project.use, baseURL: new URL(page.url()).origin, serviceWorkers: 'block' });
+  const p = await ctx.newPage();
+  await guard(p, problems);
+  return p;
+}
+
+// Waits until the page has drawn: no network for a moment (or 5 s), every picture loaded, fonts ready.
+export async function settled(page) {
+  await page.waitForLoadState('networkidle', { timeout: 5000 }).catch(() => {});
+  await page.evaluate(async () => {
+    document.querySelectorAll('img[loading=lazy]').forEach((i) => { i.loading = 'eager'; });
+    await Promise.all([...document.images].map((i) => i.complete ? 0 : new Promise((ok) => { i.onload = i.onerror = ok; })));
+    await document.fonts.ready;
+  });
+}
 
 // Page errors, and promise errors nobody caught (an async click handler that throws shows nothing on screen).
 export function watch(page, problems) {
@@ -44,7 +68,6 @@ export async function fakeGoogleInBrowser(page) {
     const headers = { ...res.headers(), location: back.toString() };
     return r.fulfill({ status: 302, headers });
   });
-  await page.route('https://accounts.google.com/**', (r) => r.abort());
 }
 
 // Log in the way a person does: the login page, one box.

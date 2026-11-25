@@ -10,11 +10,16 @@ on:
         required: true
 permissions:
   contents: write
+  actions: write
 jobs:
   approve:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Never main (main changes only by a PR Jesse approved)
+        env: { BRANCH: '${{ inputs.branch }}' }
+        run: |
+          case "$BRANCH" in main|'') echo "Run this on the PR's branch, not main."; exit 1;; esac
       - uses: actions/checkout@v4
         with: { ref: '${{ inputs.branch }}' }
       - uses: actions/setup-node@v4
@@ -25,10 +30,13 @@ jobs:
       - name: Remake the approved pictures
         run: npx playwright test look --update-snapshots=all
         env: { VISUAL: '1', CI: '1' }
-      - name: Save them on the branch
+      - name: Save them on the branch, then run the checks again on it
+        env: { BRANCH: '${{ inputs.branch }}', GH_TOKEN: '${{ github.token }}' }
         run: |
           git config user.name "approve-the-look"
           git config user.email "actions@users.noreply.github.com"
           git add tests/e2e/approved
-          git diff --cached --quiet || git commit -m "Approved look: new pictures for the look checks"
-          git push origin HEAD:${{ inputs.branch }}
+          git diff --cached --quiet && exit 0
+          git commit -m "Approved look: new pictures for the look checks"
+          git push origin "HEAD:refs/heads/$BRANCH"
+          gh workflow run checks.yml --ref "$BRANCH"

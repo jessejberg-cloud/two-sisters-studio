@@ -8,13 +8,18 @@ import fs from 'node:fs';
 let input = {};
 try { input = JSON.parse(fs.readFileSync(0, 'utf8') || '{}'); } catch {}
 const sh = (c) => execSync(c, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+const PATHS = 'site-src netlify content tools tests package.json playwright.config.mjs';
 let dirty = '';
-try { dirty = sh('git status --porcelain -- site-src netlify content tools tests package.json playwright.config.mjs'); } catch { process.exit(0); }
+try {
+  // Not committed yet, or committed on this branch but not on main yet: both count.
+  dirty = sh(`git status --porcelain -- ${PATHS}`);
+  try { dirty += sh(`git diff --name-only origin/main...HEAD -- ${PATHS}`); } catch {}
+} catch { process.exit(0); }
 if (!dirty.trim()) process.exit(0);
 if (!fs.existsSync('node_modules/@playwright/test')) { console.error('Stop check: run `npm ci` first; tests were not run.'); process.exit(0); }
 
-const hash = createHash('sha1').update(sh('git diff HEAD') + dirty).digest('hex');
-const mark = '.git/stop-check';
+const hash = createHash('sha1').update(sh('git rev-parse HEAD') + sh('git diff HEAD') + dirty).digest('hex');
+const mark = sh('git rev-parse --git-path stop-check').trim();
 let last = {};
 try { last = JSON.parse(fs.readFileSync(mark, 'utf8')); } catch {}
 if (last.hash === hash && last.ok) process.exit(0);
@@ -23,12 +28,13 @@ if (last.hash === hash && !last.ok && input.stop_hook_active) {
   process.exit(0);
 }
 
-const run = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', timeout: 240_000 });
+// Together under the hook's 600 s limit (.claude/settings.json).
+const run = (cmd, args, s) => spawnSync(cmd, args, { encoding: 'utf8', timeout: s * 1000 });
 const steps = [
-  ['server tests', run('npm', ['test', '--silent'])],
-  ['build + audit', run('sh', ['-c', 'node tools/build.cjs && node tools/audit.cjs'])],
+  ['server tests', run('npm', ['test', '--silent'], 120)],
+  ['build + audit', run('sh', ['-c', 'node tools/build.cjs && node tools/audit.cjs'], 60)],
 ];
-if (steps.every(([, r]) => r.status === 0)) steps.push(['robot phone (Pixel)', run('npx', ['playwright', 'test', '--project=pixel', '--reporter=line'])]);
+if (steps.every(([, r]) => r.status === 0)) steps.push(['robot phone (Pixel)', run('npx', ['playwright', 'test', '--project=pixel', '--reporter=line'], 360)]);
 const bad = steps.filter(([, r]) => r.status !== 0);
 fs.writeFileSync(mark, JSON.stringify({ hash, ok: !bad.length, at: new Date().toISOString() }));
 if (!bad.length) process.exit(0);

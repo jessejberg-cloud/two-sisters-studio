@@ -4,13 +4,12 @@
 // to screens/<size>/ for Claude to look at and send to Jesse; nothing is compared.
 // New look approved by Jesse -> run the "Approve the look" workflow in GitHub; it remakes the approved pictures.
 import fs from 'node:fs';
-import { test, expect, login, ownerInvite, waitAllSent, FILES } from './helpers.mjs';
+import { test, expect, login, ownerInvite, waitAllSent, newPhone, settled, FILES } from './helpers.mjs';
 
 const COMPARE = process.env.VISUAL === '1';
 
 async function shot(page, name, testInfo) {
-  await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(250);
+  await settled(page);
   // Today's date and anything else that changes by itself is covered over.
   const mask = [page.locator('input[type=date], time, .art-label, .day-date, #status')];
   if (COMPARE) return expect(page).toHaveScreenshot(name + '.png', { fullPage: true, mask });
@@ -28,10 +27,6 @@ test('look: home, a gallery, Family Moments, For parents', async ({ page }, info
   await login(page);
   for (const [path, name] of [['/', 'home'], ['/leora/', 'gallery-leora'], ['/family-moments/', 'family-moments'], ['/parent/', 'for-parents']]) {
     await page.goto(path);
-    await page.evaluate(async () => {
-      document.querySelectorAll('img[loading=lazy]').forEach((i) => { i.loading = 'eager'; });
-      await Promise.all([...document.images].map((i) => i.complete ? 0 : new Promise((ok) => { i.onload = i.onerror = ok; setTimeout(ok, 3000); })));
-    });
     await shot(page, name, info);
   }
 });
@@ -53,10 +48,11 @@ test('look: the app, from home to a saved piece', async ({ page }, info) => {
 
 test('look: a new family\'s setup, first step', async ({ page, browser }, info) => {
   const invite = await ownerInvite(page, 'Look');
-  const ctx = await browser.newContext({ ...info.project.use, baseURL: new URL(page.url()).origin, serviceWorkers: 'block' });
-  const p = await ctx.newPage();
+  const problems = [];
+  const p = await newPhone(browser, info, page, problems);
   await p.goto(invite);
   await expect(p.locator('#st-name')).toBeVisible();
   await shot(p, 'setup-1', info);
-  await ctx.close();
+  expect(problems).toEqual([]);
+  await p.context().close();
 });

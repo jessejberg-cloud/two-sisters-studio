@@ -54,7 +54,8 @@ Priorities, in order (spec):
 11. Big tap targets (48px aim, never under 44px), big text (19px body), AA contrast, text follows the phone's size setting.
 12. Few words. In setup: one word per label, no intro, welcome, tips or persuasion. A picture or a word, not both.
 13. Fewest screens and taps. Home: 2 to 4 big buttons.
-14. Nothing required except the PIN in setup. Every other setup step has Skip; skipped things show in For parents.
+14. Nothing required except, in setup, the PIN and Google Drive (Jesse, 2026-11-25: studios need Drive). Every other
+    setup step has Skip (the last step, Camera, is simply the end); skipped things show in For parents.
 15. Hand-drawn, neat, kid-friendly, not Office-looking. Gentle movement only, all off for reduced motion.
 16. Website = view. App = capture. The website's design stays as it is unless Jesse asks.
 
@@ -98,12 +99,14 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 2. [auto] Privacy audit passes (`tools/audit.cjs`): noindex, no outside links or trackers, CSP.
 3. [auto] Pictures and audio carry no hidden data (`tools/add.py check`).
 4. [auto] A stranger with no link sees only the login page.
-5. [auto] On iPhone, Pixel, Fire tablet and computer: adding art, a snapshot, and a new family's whole setup work end to end; the original reaches (fake) Drive; nothing leaves the site; no page errors.
+5. [auto] On iPhone, Pixel, Fire tablet and computer (each test's second phone is the same kind): adding art, a snapshot,
+   and a new family's whole setup work end to end; the original reaches (fake) Drive; nothing leaves the site; no page
+   errors, including promise errors nobody caught.
 6. [auto] No signal: Save keeps it and sends it later.
 7. [auto] A View link can look and cannot add.
 8. [auto] Every page: no sideways scroll; tap targets at least 44px; accessibility (WCAG 2.1 AA: contrast, labels, names).
-9. [auto] Setup: Skip on every step but the PIN; 25 words or fewer per step.
-10. [auto] The look matches the last approved pictures (GitHub only).
+9. [auto] Setup: Skip on steps 1, 4 and 5, none on the PIN and Drive steps; 25 words or fewer per step.
+10. [auto] The look matches the last approved pictures (GitHub only; active once `tests/e2e/approved/` has pictures).
 11. [auto] This guide got a Build log row.
 12. [Claude] A new or changed feature has a test written first, and the test failed before the change.
 13. [Claude] Screenshots of every changed screen at iPhone and tablet size, looked at, attached to the PR.
@@ -155,7 +158,14 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
   2. In Netlify, Deploy Previews: give FAMILY_PASSWORD and PARENT_PIN their own test values (not the real ones).
   3. In GitHub, the repo's Settings → Secrets → Actions: add PREVIEW_FAMILY_PASSWORD, PREVIEW_PARENT_PIN (the same test
      values) and PREVIEW_DRIVE_EMAIL (the spare account's address).
-  4. On a PR preview, For parents → Google Drive → connect the spare account.
+  4. Google Cloud console (project two-sisters-studio): while the app is in Testing, add the spare account as a test user.
+  5. Connect the spare account once, on a preview address Google already knows (deploy-preview-1, or add one more
+     redirect address in Google Cloud). All previews share one storage, so every later preview uses that connection.
+  - Good to know: in Testing mode Google ends the connection after 7 days, so the preview test turns red weekly
+    ("invalid_grant") until the app is In production. If Netlify's own visitor password covers previews, the robot
+    cannot get in; turn it off for previews. The test starts working once this PR is merged (GitHub runs it from main).
+  - Safety: before sending anything, the robot checks that the preview's Drive is the spare account. If previews are
+    connected to the family Drive now, it stops instead.
 - Google Cloud app "In production" (other families cannot connect Drive until then).
 
 ## Build log
