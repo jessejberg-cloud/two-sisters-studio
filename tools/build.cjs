@@ -121,7 +121,7 @@ const homeGuide = () => `<dialog class="guide" id="guide" aria-label="Add to Hom
   <p><button type="button" class="btn-big guide-skip">Skip</button></p>
 </dialog>`;
 
-function page({ key, title, body, section, bodyClass, csp = CSP_SELF, tabs = true, scripts = [] }) {
+function page({ key, title, body, section, bodyClass, csp = CSP_SELF, tabs = true, scripts = [], pre = [] }) {
   const fullTitle = title ? `${title} · ${site.siteName}` : site.siteName;
   const current = section || key;
   // The small ＋ on every page (Jesse, 2026-11-25): opens the app on the right screen for this page. main.js shows it
@@ -157,6 +157,7 @@ function page({ key, title, body, section, bodyClass, csp = CSP_SELF, tabs = tru
 <link rel="preload" href="${asset('fonts/kalam-latin-700-normal.woff2')}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${asset('fonts/nunito-latin-600-normal.woff2')}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css?v=${cssHash()}">
+${pre.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).join('\n')}
 <script src="/main.js?v=${jsHash()}" defer></script>
 ${scripts.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).join('\n')}
 </head>
@@ -539,6 +540,116 @@ pages['households/index.html'] = page({
 <template id="house-tpl">${livePhotos('', '', '', '')}</template>`,
 });
 
+// ---------- a family's studio (build spec, 2026-11-25): /<slug>/, /<slug>/<kid>/, /<slug>/family-moments/, /<slug>/for-parents/ ----------
+// One page for every studio (netlify.toml sends every address with no file of its own here). studio.js runs before
+// main.js: it reads the address, puts the right template on the page, and fills in the studio's names and tabs.
+const lightboxTpl = `<dialog class="lightbox" aria-label="Photo">
+  <button type="button" class="lb-close" aria-label="Close">✕</button>
+  <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
+  <button type="button" class="lb-next" aria-label="Next photo">›</button>
+</dialog>`;
+// Category ideas (Jesse, 2026-11-25): each comes with its template: 📄 paper gets the scan fix, the rest are plain photos.
+const CAT_IDEAS = [{ name: 'School papers', icon: '📄', scan: true }, { name: 'Awards', icon: '🏅', scan: true }, { name: 'Stories', icon: '📝', scan: true },
+  { name: 'Lego and builds', icon: '🧱', scan: false }, { name: 'Crafts', icon: '✂️', scan: false }, { name: 'Sports', icon: '⚽', scan: false }];
+const ideasJson = `<script type="application/json" id="cat-ideas">${JSON.stringify(CAT_IDEAS)}</script>`;
+const swatches = (name) => ['coral', 'lav', 'mint', 'yellow', 'sky'].map((c, i) => `<label class="swatch c-${c}"><input type="radio" name="${name}" value="${c}"${i === 4 ? ' checked' : ''}><span class="sr">${c}</span></label>`).join('');
+pages['studio/index.html'] = page({
+  key: 'studio', title: '', tabs: false, pre: ['studio.js'],
+  body: `<div id="studio-root"><p class="loading">…</p></div>
+<template id="tpl-home"><section class="welcome"><h1 class="hero-logo studio-name"></h1><ul class="big-buttons" id="studio-buttons"></ul></section></template>
+<template id="tpl-kid"><div class="page-head"><h1 class="studio-kid-h"></h1></div>
+${artGallery({ key: '', name: '' }, []).replace('<div class="art-live" data-kid="" data-name="" data-empty="\'s art will show up here soon!"></div>', '<div class="art-live" data-kid="" data-name="" data-empty=""></div>')}</template>
+<template id="tpl-moments"><div class="page-head"><h1>Family Moments</h1></div>
+${livePhotos('', '', '')}
+<div class="gallery-area" data-videos="" hidden></div>
+<div class="empty wobbly"><p>Nothing here yet.</p></div>
+${lightboxTpl}</template>
+<template id="tpl-parents"><div class="page-head"><h1>For parents</h1></div>
+<section class="parent-pin wobbly" id="pin-box">
+  <p>PIN</p>
+  <div class="pin-row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" aria-label="PIN"><button type="button" class="btn-big" id="pin-go">Open</button></div>
+  <p class="login-error" id="pin-msg" hidden></p>
+</section>
+<div id="parent-tools" hidden>
+  <section class="parent-card wobbly heads" id="heads-card" hidden><h2>Heads-up</h2><ul class="link-list" id="heads-list"></ul></section>
+  <section class="parent-card wobbly" id="skipped-card" hidden><h2>Not done yet</h2><ul class="link-list" id="skipped-list"></ul></section>
+  <section class="parent-card wobbly" id="studio-links">
+    <h2>Links</h2>
+    <div class="slink" data-link="view"><h3>👀 View</h3><p class="share-help">To look. Nobody can add with it.</p><p class="link-url" data-url></p>
+      <div class="send-row"><button type="button" class="btn-big" data-act="share">📤 Send</button><button type="button" class="chip" data-act="copy">📋 Copy</button><button type="button" class="linkish" data-act="reset">New link</button></div><p class="share-help" data-note role="status"></p></div>
+    <div class="slink" data-link="invite"><h3>📷 Invite</h3><p class="share-help">For a phone in your family that adds pictures. It opens the app.</p><p class="link-url" data-url></p>
+      <div class="send-row"><button type="button" class="btn-big" data-act="share">📤 Send</button><button type="button" class="chip" data-act="copy">📋 Copy</button><button type="button" class="linkish" data-act="reset">New link</button></div><p class="share-help" data-note role="status"></p></div>
+    <p class="share-help">Links never end. New link stops the old one; the other link keeps working.</p>
+  </section>
+  <section class="parent-card wobbly"><h2>Phones</h2><p class="share-help">A kid's name hides Put away and For parents on that phone.</p><ul class="link-list" id="phone-list"></ul></section>
+  <section class="parent-card wobbly" id="kids-card"><h2>Artists</h2><p class="share-help">Kids, grown-ups or pets. Only kids have a grade.</p><ul class="kid-edit" id="kid-list"></ul>
+    <p><button type="button" class="chip" id="kid-add">＋ Add</button> <button type="button" class="btn-big" id="kids-save">Save</button></p><p class="share-help" id="kids-msg" role="status"></p></section>
+  <section class="parent-card wobbly" id="cats-card"><h2>Categories</h2><p class="share-help">Beside Artwork, Snapshots and Family Moments. 📄 Paper gets the scan fix. 📷 Photo stays a plain picture.</p><ul class="kid-edit" id="cat-list"></ul>
+    <p><button type="button" class="chip" id="cat-add">＋ Add</button> <button type="button" class="btn-big" id="cats-save">Save</button></p><p class="share-help" id="cats-msg" role="status"></p></section>
+  <section class="parent-card wobbly"><h2>Name</h2><div class="pw-row"><label>Studio <input type="text" id="studio-name" maxlength="40"></label><button type="button" class="chip" id="name-save">Save</button></div>
+    <h2>Color</h2><div class="swatches" id="look">${swatches('look')}</div><p class="share-help" id="look-msg" role="status"></p></section>
+  <section class="parent-card wobbly"><h2>Google Drive</h2><p id="g-status">…</p><p><a class="btn-big" id="g-connect" href="#">Connect Google Drive</a></p></section>
+  <section class="parent-card wobbly"><h2>PIN</h2><div class="pw-row"><label>New PIN (4 numbers) <input type="text" id="new-pin" inputmode="numeric" maxlength="4" autocomplete="off"></label><button type="button" class="chip" id="pin-save">Change</button></div><p class="share-help" id="pin-save-msg" role="status"></p></section>
+</div></template>
+<template id="tpl-none"><section class="empty wobbly"><p>This page is not here.</p><p><a class="btn-big" href="/">Home</a></p></section></template>`,
+});
+
+// ---------- onboarding (build spec): a family makes its own studio from Jesse's invite. One word per label ----------
+const gradeOptions = ['', 'Pre-K', 'K4', 'K5', '1st grade', '2nd grade', '3rd grade', '4th grade', '5th grade', '6th grade', '7th grade', '8th grade', '9th grade', '10th grade', '11th grade', '12th grade']
+  .map((g) => `<option value="${esc(g)}">${g ? esc(g) : 'Grade'}</option>`).join('');
+pages['start/index.html'] = page({
+  key: 'start', title: '', tabs: false, scripts: ['start.js'],
+  body: `<div class="start">
+  <section class="step" data-step="1">
+    <label class="st-label">Studio <input type="text" id="st-name" maxlength="40" autocomplete="off" enterkeyhint="next"></label>
+    <p class="st-label">Artists</p>
+    <p class="share-help st-help">Kids, grown-ups or pets.</p>
+    <ul class="st-kids" id="st-kids"></ul>
+    <template id="st-kid"><li class="st-kid"><input type="text" maxlength="30" autocomplete="off" aria-label="Name"><select aria-label="Who" class="st-kind"><option value="kid">Kid</option><option value="adult">Grown-up</option><option value="pet">Pet</option></select><select aria-label="Grade" class="st-grade">${gradeOptions}</select></li></template>
+    <p><button type="button" class="linkish st-more" id="st-more">＋ Add someone</button></p>
+    <p><button type="button" class="linkish st-more" id="st-cats-open" aria-expanded="false">＋ Categories (optional)</button></p>
+    <div class="st-cats-box" id="st-cats-box" hidden>
+      <p class="share-help">Artwork, Snapshots and Family Moments are there already. Tap to add more.</p>
+      <div class="idea-chips" id="st-ideas"></div>
+      <div class="own-row"><input type="text" id="st-own" maxlength="30" autocomplete="off" placeholder="Your own" aria-label="Your own category"><label class="paper-q"><input type="checkbox" id="st-own-paper"> On paper</label><button type="button" class="linkish" id="st-own-add">Add</button></div>
+    </div>
+    ${ideasJson}
+    <p class="st-nav"><button type="button" class="linkish" data-next>Skip</button> <button type="button" class="btn-big" data-next>→</button></p>
+  </section>
+  <section class="step" data-step="2" hidden>
+    <p class="st-label">PIN</p>
+    <div class="pin-dots" id="pin-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+    <input type="password" id="st-pin" inputmode="numeric" maxlength="4" autocomplete="off" aria-label="PIN" class="st-pin">
+    <div class="swatches" id="st-color">${swatches('st-color')}</div>
+    <p class="login-error" id="st-msg" hidden></p>
+    <p class="st-nav"><button type="button" class="linkish" data-back>←</button> <button type="button" class="btn-big" id="st-make">→</button></p>
+  </section>
+  <section class="step" data-step="3" hidden>
+    <p class="st-label">Drive</p>
+    <p><a class="btn-big st-drive" id="st-drive" href="#"><span aria-hidden="true">☁️</span> Google Drive</a></p>
+    <p class="login-error" id="st-drive-msg" hidden></p>
+  </section>
+  <section class="step" data-step="4" hidden>
+    <div class="st-links">
+      <button type="button" class="big-button wobbly c-mint" data-copy="invite"><span class="big-icon" aria-hidden="true">📋</span><span class="big-label">Invite</span></button>
+      <button type="button" class="big-button wobbly c-sky" data-copy="view"><span class="big-icon" aria-hidden="true">📋</span><span class="big-label">View</span></button>
+    </div>
+    <p class="share-help st-copied" id="st-copied" role="status"></p>
+    <p class="st-nav"><button type="button" class="linkish" data-next>Skip</button> <button type="button" class="btn-big" data-next>→</button></p>
+  </section>
+  <section class="step" data-step="5" hidden>
+    <div class="guide-pic" data-os="ios">${guidePic('ios')}</div>
+    <div class="guide-pic" data-os="android" hidden>${guidePic('android')}</div>
+    <p class="st-nav"><button type="button" class="linkish" data-next>Skip</button> <button type="button" class="btn-big" data-next>→</button></p>
+  </section>
+  <section class="step" data-step="6" hidden>
+    <p><a class="btn-big st-camera" id="st-camera" href="/upload/"><span aria-hidden="true">📷</span></a></p>
+  </section>
+  <section class="step" data-step="0" hidden><p class="empty wobbly">This link was turned off. Ask for a new one.</p></section>
+</div>`,
+});
+
 // ---------- login (the gate sends everyone without a login here) ----------
 pages['login/index.html'] = page({
   key: 'login', title: 'Log in', csp: CSP_LOGIN, tabs: false,
@@ -585,6 +696,14 @@ pages['parent/index.html'] = page({
       <p class="share-help" data-note role="status"></p>
     </div>
     <p class="share-help">Links never end. New link stops the old one; the other link keeps working.</p>
+  </section>
+  <section class="parent-card wobbly" id="owner-card" hidden>
+    <h2>Families</h2>
+    <p class="share-help">Invite a family to make their own studio. They pick the name, kids, PIN and connect their own Google Drive. Only you see this card (owner PIN).</p>
+    <div class="pw-row"><label>Who is it for? <input type="text" id="fam-name" maxlength="40" autocomplete="off" placeholder="The Smiths"></label><button type="button" class="btn-big" id="fam-make">Make an invite</button></div>
+    <p class="share-help" id="fam-msg" role="status"></p>
+    <h3>Invites</h3><ul class="link-list" id="fam-invites"><li class="muted">None yet.</li></ul>
+    <h3>Studios</h3><ul class="link-list" id="fam-studios"></ul>
   </section>
   <section class="parent-card wobbly" id="phones-card">
     <h2>Phones</h2>
@@ -726,6 +845,18 @@ pages['upload/index.html'] = `<!doctype html>
       <button type="button" class="big-button wobbly c-yellow" data-pick="moment"><span class="big-icon">${ICONS.heart}</span><span class="big-label">Family Moments</span></button>
       <button type="button" class="big-button wobbly c-sky vid-only" data-pick="video"><span class="big-icon" aria-hidden="true">🎬</span><span class="big-label">A video</span></button>
     </div>
+    <p class="pick-more"><button type="button" class="linkish" id="pick-more" hidden>More…</button> <button type="button" class="linkish" id="pick-new" hidden>＋ Something else</button></p>
+  </section>
+
+  <section class="screen" id="s-newcat" hidden>
+    <p><button type="button" class="linkish" id="newcat-back">← Back</button></p>
+    <h1 class="up-h2">Something else</h1>
+    <div class="idea-chips idea-big" id="newcat-ideas"></div>
+    <div class="own-row"><input type="text" id="newcat-own" maxlength="30" autocomplete="off" placeholder="Your own" aria-label="Your own category"></div>
+    <div class="newcat-paper" id="newcat-paper" hidden><p class="up-lead">Is it on paper?</p>
+      <p><button type="button" class="btn-big" data-paper="1">Yes</button> <button type="button" class="btn-big" data-paper="">No</button></p></div>
+    <p class="share-help" id="newcat-msg" role="status"></p>
+    ${ideasJson}
   </section>
 
   <section class="screen" id="s-name" hidden>
@@ -925,6 +1056,7 @@ fs.cpSync(path.join(SRC, 'assets'), path.join(DIST, 'assets'), { recursive: true
 fs.copyFileSync(path.join(SRC, 'styles.css'), path.join(DIST, 'styles.css'));
 fs.copyFileSync(path.join(SRC, 'main.js'), path.join(DIST, 'main.js'));
 fs.copyFileSync(path.join(SRC, 'parent.js'), path.join(DIST, 'parent.js'));
+for (const f of ['studio.js', 'start.js']) fs.copyFileSync(path.join(SRC, f), path.join(DIST, f));
 fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'));
 fs.writeFileSync(path.join(DIST, 'upload/sw.js'), swCode);
 // pdf.js (Mozilla, Apache-2.0): turns page 1 of a PDF into a picture on the phone or computer. Loaded only when a PDF is picked.

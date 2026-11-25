@@ -191,3 +191,77 @@ test('Jesse\'s old logins keep working on his studio', async () => {
   assert.ok(!p.studio, 'Jesse\'s pieces have no studio field');
   assert.ok(p.uploads.length > 0, 'his Drive gets the original');
 });
+
+test('changing a studio PIN keeps this phone in For parents; the old PIN stops working', async () => {
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '4321' }), {}));
+  const r = await studios(post('/api/studio/smith/parent', par, { do: 'pin', pin: '5678' }), {});
+  assert.equal((await r.json()).ok, true);
+  const after = jar(par, r);
+  assert.equal((await (await studios(req('/api/studio/smith/parent', after), {})).json()).ok, true, 'still in');
+  assert.equal((await (await studios(req('/api/studio/smith/parent', par), {})).json()).error, 'pin', 'the old cookie is out');
+  assert.equal((await (await studios(post('/api/studio/smith/pin', phone, { pin: '4321' }), {})).json()).error, 'pin');
+});
+
+test('a phone added with Jesse\'s own Invite can add a Family Moments video and watch videos and episodes', async () => {
+  const { default: videos } = await import('../netlify/functions/videos.mjs');
+  const { default: episodes } = await import('../netlify/functions/episodes.mjs');
+  const o = await ownerCookie();
+  const inv = (await (await studios(req('/api/studio/main/parent', o), {})).json()).invite;
+  let gp = jar('', await studios(req(new URL(inv).pathname, ''), {}));
+  gp = jar(gp, await studios(post('/api/studio/main/device', gp, { name: 'Aunt Sara' }), {}));
+  assert.equal((await videos(req('/api/videos', gp), {})).status, 200);
+  assert.equal((await episodes(req('/api/episodes', gp), {})).status, 200);
+  const s = await (await videos(post('/api/videos/start', gp, { eventTitle: 'Thanksgiving', eventDate: '2026-11-26', size: 5, type: 'video/mp4' }), {})).json();
+  assert.ok(s.id, JSON.stringify(s));
+  assert.equal((await videos(req('/api/videos/' + s.id + '/part/0', gp, { method: 'POST', body: new Uint8Array(5) }), {})).status, 200);
+  const fin = await (await videos(post('/api/videos/' + s.id + '/finish', gp, {}), {})).json();
+  assert.equal(fin.video.from, 'Aunt Sara');
+  const view = (await (await studios(req('/api/studio/main/parent', o), {})).json()).view;
+  const vp = jar('', await studios(req(new URL(view).pathname, ''), {}));
+  assert.equal((await videos(post('/api/videos/start', vp, { eventTitle: 'X', eventDate: '2026-11-26', size: 5 }), {})).status, 401, 'a View link only looks');
+});
+
+test('artists: a kid, a grown-up or a pet; a grown-up\'s name is not kid mode; a studio\'s own categories', async () => {
+  const j = await (await studios(post('/api/owner', owner, { do: 'invite', name: 'Lee' }), {})).json();
+  let p = jar('', await studios(req(new URL(j.creates[0].url).pathname, ''), {}));
+  const r = await studios(post('/api/studios/create', p, { name: 'Lee', pin: '2222', kids: [{ name: 'Mia', kind: 'kid', grade: 'K5' },
+    { name: 'Grandpa Joe', kind: 'adult', grade: '3rd grade' }, { name: 'Biscuit', kind: 'pet' }], cats: [{ name: 'School papers', scan: true }, { name: 'Lego', scan: false }, { name: 'Art' }] }), {});
+  const made = await r.json();
+  assert.ok(made.ok, JSON.stringify(made));
+  p = jar(p, r);
+  assert.deepEqual(made.studio.kids.map((k) => [k.key, k.kind, k.grade]), [['mia', 'kid', 'K5'], ['grandpa-joe', 'adult', ''], ['biscuit', 'pet', '']], 'only kids have a grade');
+  assert.deepEqual(made.studio.cats.map((c) => [c.key, c.scan]), [['school-papers', true], ['lego', false], ['art2', false]], 'never a built-in key');
+  // Grandpa's phone: his artist name, not kid mode.
+  p = jar(p, await studios(post('/api/studio/lee/device', p, { kid: 'grandpa-joe' }), {}));
+  const s = await (await studios(req('/api/studio/lee', p), {})).json();
+  assert.deepEqual(s.me.device, { name: 'Grandpa Joe', kid: null });
+  // His Lego, in its own category, on his page.
+  const lego = await save(p, { studio: 'lee', kid: 'grandpa-joe', section: 'cat', cat: 'lego', caption: 'A castle' });
+  assert.equal(lego.section, 'cat'); assert.equal(lego.cat, 'lego'); assert.equal(lego.grade, '');
+  const bad = await (await api(post('/api/pieces/start', p, { studio: 'lee', kid: 'mia', section: 'cat', cat: 'nope', date: '2026-11-20', photos: [{ originalType: 'image/jpeg' }] }), {})).json();
+  assert.equal(bad.error, 'bad');
+  const list = await (await api(req('/api/pieces?studio=lee&kid=grandpa-joe&section=cat&cat=lego', p), {})).json();
+  assert.deepEqual(list.pieces.map((x) => x.id), [lego.id]);
+  assert.equal((await (await api(req('/api/pieces?studio=lee&kid=grandpa-joe', p), {})).json()).pieces.length, 0, 'not in the art gallery');
+  // For parents: rename a category, add an artist; keys stay.
+  const k = await (await studios(post('/api/studio/lee/parent', p, { do: 'cats', cats: [{ key: 'lego', name: 'Lego builds' }] }), {})).json();
+  assert.deepEqual(k.studio.cats, [{ key: 'lego', name: 'Lego builds', scan: false, icon: '' }]);
+  const a = await (await studios(post('/api/studio/lee/parent', p, { do: 'kids', kids: [...made.studio.kids, { name: 'Aunt Bee', kind: 'adult' }] }), {})).json();
+  assert.deepEqual(a.studio.kids.map((x) => x.key), ['mia', 'grandpa-joe', 'biscuit', 'aunt-bee']);
+});
+
+test('a grown-up phone adds a category from the app; a kid-mode phone cannot', async () => {
+  const j = await (await studios(post('/api/owner', owner, { do: 'invite', name: 'Kim' }), {})).json();
+  const inv = new URL(j.creates[0].url).pathname;
+  let p = jar('', await studios(req(inv, ''), {}));
+  p = jar(p, await studios(post('/api/studios/create', p, { name: 'Kim', pin: '3333', kids: [{ name: 'Jo' }] }), {}));
+  const r = await (await studios(post('/api/studio/kim/cats', p, { name: 'Awards', scan: true, icon: '🏅' }), {})).json();
+  assert.deepEqual(r.cat, { key: 'awards', name: 'Awards', scan: true, icon: '🏅' });
+  const again = await (await studios(post('/api/studio/kim/cats', p, { name: 'awards', scan: false }), {})).json();
+  assert.equal(again.studio.cats.length, 1, 'the same name twice is one category');
+  let t = jar('', await studios(req(inv, ''), {}));
+  t = jar(t, await studios(post('/api/studio/kim/device', t, { kid: 'jo' }), {}));
+  assert.equal((await studios(post('/api/studio/kim/cats', t, { name: 'Lego' }), {})).status, 401);
+  const bad = await (await studios(post('/api/studio/kim/cats', p, { name: 'Sports', icon: '<b>' }), {})).json();
+  assert.equal(bad.cat.icon, '');
+});

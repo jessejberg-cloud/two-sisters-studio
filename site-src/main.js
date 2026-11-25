@@ -448,7 +448,7 @@ function initGallery() {
   var done = false;
   function fallback() { if (!done) { done = true; draw(data); } }
   var timer = setTimeout(fallback, 8000);
-  fetch('/api/pieces?kid=' + encodeURIComponent(kid), { credentials: 'same-origin' })
+  fetch(live.dataset.api || '/api/pieces?kid=' + encodeURIComponent(kid), { credentials: 'same-origin' })
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(function (j) { if (done) return; done = true; clearTimeout(timer); var mine = (j.pieces || []).map(fromSite);
       // Sample pictures step aside as soon as real art is saved.
@@ -522,7 +522,7 @@ function livePhotos(sec) {
         return;
       }
       list.forEach(function (p, i) {
-        p.byName = sec.dataset.src.indexOf('moments') !== -1 ? (names[p.kid] || (p.kid.charAt(0).toUpperCase() + p.kid.slice(1))) : '';
+        p.byName = sec.dataset.src.indexOf('moments') !== -1 ? (p.from || p.byName || names[p.kid] || (p.kid.charAt(0).toUpperCase() + p.kid.slice(1))) : '';
         var li = document.createElement('li'), b = document.createElement('button'), t = document.createElement('img');
         b.type = 'button'; b.className = 'photo-tile';
         t.src = '/img/' + encodeURIComponent(p.id) + '/1/sm'; t.alt = p.caption || 'Photo'; t.loading = 'lazy';
@@ -610,7 +610,7 @@ function livePhotos(sec) {
 (function () {
   'use strict';
   var area = document.querySelector('.gallery-area[data-videos]');
-  if (!area) return;
+  if (!area || !area.dataset.videos) return;   // a family's studio: no videos yet
   function nice(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); }
   function mmss(s) { s = Math.round(s || 0); return s ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : ''; }
   function make(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -801,10 +801,11 @@ function addToDays(pieces) {
 })();
 
 // ---------- the family menu (build spec): every studio's View link, in every studio. Shows once there are two ----------
-(function () {
+TSS.famMenu = function () {
   'use strict';
   var li = document.querySelector('.tab-fam-li'), root = document.documentElement;
-  if (!li || root.classList.contains('is-friend') || root.classList.contains('is-kid')) return;
+  if (!li || li.dataset.done || root.classList.contains('is-friend') || root.classList.contains('is-kid')) return;
+  li.dataset.done = '1';
   function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
   fetch('/api/studios/menu', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
     var list = j.studios || [];
@@ -822,4 +823,5 @@ function addToDays(pieces) {
     li.querySelector('button').addEventListener('click', function () { if (box.showModal) box.showModal(); else box.setAttribute('open', ''); });
     li.hidden = false;
   }).catch(function () {});
-})();
+};
+TSS.famMenu();

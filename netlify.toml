@@ -54,3 +54,10 @@
   [headers.values]
     Content-Type = "application/vnd.android.package-archive"
     Content-Disposition = "attachment; filename=two-sisters-studio.apk"
+
+# Family studios (build spec, 2026-11-25): any address with no file of its own (twosistersstudio.com/smith/...) shows
+# the one studio page; studio.js reads the address. Real pages and files always win (no force).
+[[redirects]]
+  from = "/*"
+  to = "/studio/index.html"
+  status = 200

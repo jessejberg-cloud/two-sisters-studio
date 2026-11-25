@@ -43,7 +43,7 @@ export function baseId(kid, iso, caption) {
 // Sections: art (the galleries), photos (a girl's own "My photos", from her tablet), moments (Family Moments:
 // photos of a special day added from the app (Jesse, 2026-11-25), and photos the girls add when a parent allows it).
 // house: a household's own photos (Grandma's photos), on the More family page.
-export const SECTIONS = ['art', 'photos', 'moments', 'house'];
+export const SECTIONS = ['art', 'photos', 'moments', 'house', 'cat'];   // cat: one of a studio's own categories (p.cat, p.catName)
 export const sectionOf = (p) => (SECTIONS.includes(p.section) ? p.section : 'art');
 // A special day: its key, and its Drive folder (the same one the day's videos use): Family Moments / 2026-06-14 Wedding /
 export const dayKey = (date, title) => `${date}-${slug(title, 6)}`;
@@ -53,6 +53,7 @@ export const studioOf = (p) => p.studio || 'main';
 export const tagsOf = (p) => (Array.isArray(p.studios) && p.studios.length ? p.studios : [studioOf(p)]);
 const kidLabel = (p) => p.kidName || KIDS[p.kid];
 export const folderParts = (p) => studioOf(p) !== 'main' ? (sectionOf(p) === 'moments' ? (p.event ? dayFolder(p.eventDate, p.eventTitle) : ['Family Moment', p.schoolYear])
+    : sectionOf(p) === 'cat' ? [kidLabel(p) || 'Family', String(p.catName || 'More').replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'More', p.schoolYear]
     : [kidLabel(p) || 'Kids', sectionOf(p) === 'photos' ? 'Snapshots' : p.schoolYear, ...(sectionOf(p) === 'photos' ? [p.schoolYear] : [SEASON_LABEL[p.season]])])
   : sectionOf(p) === 'house' ? ['Family', `${String(p.from || 'Family').replace(/[\\/:*?"<>|]+/g, ' ').trim()}'s photos`, p.schoolYear]
   : sectionOf(p) === 'photos' ? [KIDS[p.kid], 'My photos', p.schoolYear]
@@ -91,7 +92,7 @@ export function check(p, kidKeys = KID_KEYS) {
 // Short form for the gallery index.
 export const short = (p) => ({ id: p.id, kid: p.kid, date: p.date, schoolYear: p.schoolYear, season: p.season, grade: p.grade,
   caption: p.caption || '', starred: !!p.starred, deleted: p.deleted || null, updated: p.updated,
-  purged: !!p.purged, created: p.created, section: sectionOf(p), waiting: !!p.waiting, by: p.by || null, ...dayOf(p), photos: p.photos.map((ph) => ({ n: ph.n, w: ph.w, h: ph.h, fp: ph.fp || '', pdf: !!ph.pdf, print: !!ph.print })) });
+  purged: !!p.purged, created: p.created, section: sectionOf(p), ...(p.cat ? { cat: p.cat, catName: p.catName || '' } : {}), waiting: !!p.waiting, by: p.by || null, ...dayOf(p), photos: p.photos.map((ph) => ({ n: ph.n, w: ph.w, h: ph.h, fp: ph.fp || '', pdf: !!ph.pdf, print: !!ph.print })) });
 
 export async function getPiece(context, id) { return store('pieces', context).get('p/' + id, { type: 'json' }); }
 

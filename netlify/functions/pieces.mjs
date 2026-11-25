@@ -87,6 +87,7 @@ async function handle(req, context) {
     const section = url.searchParams.get('section') || 'art', kid = url.searchParams.get('kid');
     const idx = (await readIndex(context)).filter((p) => !p.deleted && !p.waiting);
     const list = section === 'moments' ? idx.filter((p) => sectionOf(p) === 'moments' && tagsOf(p).includes(askStudio))
+      : section === 'cat' ? idx.filter((p) => studioOf(p) === askStudio && sectionOf(p) === 'cat' && p.cat === url.searchParams.get('cat') && p.kid === kid)
       : idx.filter((p) => studioOf(p) === askStudio && sectionOf(p) === (section === 'photos' ? 'photos' : 'art') && p.kid === kid);
     return json({ pieces: list.map(({ photos, ...p }) => ({ ...p, photos: photos.map(({ fp, ...ph }) => ph) })) });
   }
@@ -353,7 +354,9 @@ async function startStudio(req, context, url, me, sid, dev, b, pend) {
   if (!st || st.off || st.removed) return json({ error: 'studio' }, 404);
   if (b.clientId) { const prev = await pend.get('c/' + b.clientId, { type: 'json' }); if (prev) return json(prev); }   // a retry: same id
   const device = await getDevice(dev.slice(2), context);
-  const section = b.section === 'moments' ? 'moments' : b.section === 'photos' ? 'photos' : 'art';
+  const cat = b.section === 'cat' && !st.main ? (st.cats || []).find((c) => c.key === b.cat) : null;
+  if (b.section === 'cat' && !cat) return json({ error: 'bad', fields: ['cat'] }, 400);
+  const section = cat ? 'cat' : b.section === 'moments' ? 'moments' : b.section === 'photos' ? 'photos' : 'art';
   const kids = st.kids || [];
   const p = { kid: section === 'moments' ? 'both' : b.kid, date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
   const bad = check(p, [...kids.map((k) => k.key), 'both']);
@@ -374,14 +377,14 @@ async function startStudio(req, context, url, me, sid, dev, b, pend) {
   const kid = kids.find((k) => k.key === p.kid);
   const drive = st.main ? true : await hasDrive(context, sid);
   const prefix = st.main ? '' : sid + '_';
-  let id = prefix + (day ? `${day.event.slice(0, 50)}_${p.date}_${slug(b.caption || 'photo', 3)}` : baseId(p.kid, p.date, b.caption)) + (section === 'art' ? '' : '_' + section), n = 1;
+  let id = prefix + (day ? `${day.event.slice(0, 50)}_${p.date}_${slug(b.caption || 'photo', 3)}` : baseId(p.kid, p.date, b.caption)) + (section === 'art' ? '' : '_' + (cat ? cat.key : section)), n = 1;
   id = id.slice(0, 110);
   while ((await getPiece(context, id + (n > 1 ? '-' + n : ''))) || (await pend.get('p/' + id + (n > 1 ? '-' + n : '')))) n++;
   if (n > 1) id += '-' + n;
   const piece = { id, kid: p.kid, date: p.date, season: seasonOf(p.date), schoolYear: schoolYearOf(p.date), caption: String(b.caption || '').slice(0, 200),
     starred: !!b.starred && section === 'art', created: now(), updated: now(), deleted: null, photos: p.photos.map((ph) => ({ n: ph.n })),
     section, waiting: false, by: dev, dev: dev.slice(2), byName: device?.name || '', ...(day || {}),
-    ...(st.main ? {} : { studio: sid }), ...(tags ? { studios: tags } : {}), ...(kid && !st.main ? { kidName: kid.name } : {}), ...(drive ? {} : { noDrive: true }) };
+    ...(st.main ? {} : { studio: sid }), ...(tags ? { studios: tags } : {}), ...(kid && !st.main ? { kidName: kid.name } : {}), ...(cat ? { cat: cat.key, catName: cat.name } : {}), ...(drive ? {} : { noDrive: true }) };
   piece.grade = section === 'moments' || p.kid === 'both' ? '' : st.main ? gradeFor(p.kid, p.date) : gradeFor(p.kid, p.date, bases(st));
   const uploads = [];
   if (drive) {

@@ -4,11 +4,13 @@
 //   GET  /v/<view link>                 a studio's View link: this phone can look (no adding), never ends
 //   GET  /api/studio/<slug>             what the pages and the app need: the studio, and what this phone may do there
 //   GET  /api/studios/menu              the family menu: every studio's View link
-//   POST /api/studios/create            onboarding: { name, kids: [{ name, grade }], pin, color } (needs Jesse's invite on this phone)
+//   POST /api/studios/create            onboarding: { name, kids: [{ name, kind, grade }], cats: [{ name, scan }], pin, color }
+//                                       (needs Jesse's invite on this phone; kids are the artists: a kid, a grown-up or a pet)
 //   POST /api/studio/<slug>/device      this phone picks its name once: { name, kid? } (a kid's name turns on kid mode)
+//   POST /api/studio/<slug>/cats        a grown-up phone adds a category from the app: { name, scan, icon }
 //   POST /api/studio/<slug>/pin         { pin } -> opens For parents for this visit (the studio PIN, or Jesse's owner PIN)
 //   GET  /api/studio/<slug>/parent      For parents: links, kids, devices, Drive, skipped onboarding items
-//   POST /api/studio/<slug>/parent      { do: view-reset | invite-reset | kids | look | pin | device | skip | unskip, ... }
+//   POST /api/studio/<slug>/parent      { do: view-reset | invite-reset | kids | cats | look | pin | device | skip | unskip, ... }
 //   GET  /api/owner                     Jesse only (owner PIN): every studio, its use, and the studio invites
 //   POST /api/owner                     { do: invite, name } | { do: invite-off, id, off } | { do: remove, slug }
 import { who, isParent, isOwner, addKey, mayView, deviceKey, checkStudioPin, checkOwner, makeParentFor, readKeys, validKeys } from '../lib/auth.mjs';
@@ -16,7 +18,7 @@ import { setCookie, randomId, cookies, verify, sign, sha256, COOKIE, PARENT_MINU
 import { secret } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
 import { MAIN, COLORS, GRADES, getStudio, putStudio, listStudios, makeStudio, newView, newInvite, studioByView, readInvite, writeInvite,
-  getDevice, putDevice, newDevice, devicesOf, setPin, pubStudio, cleanKids, forget } from '../lib/studios.mjs';
+  getDevice, putDevice, newDevice, devicesOf, setPin, pubStudio, cleanKids, cleanCats, kindOf, forget } from '../lib/studios.mjs';
 import { houseInvite } from './houses.mjs';
 import { googleInfo } from '../lib/drive.mjs';
 
@@ -141,7 +143,7 @@ async function handle(req, context) {
     const b = await req.json().catch(() => ({}));
     const pin = String(b.pin || '');
     if (!/^\d{4}$/.test(pin)) return json({ ok: false, error: 'pin' });
-    const s = await makeStudio({ name: clean(b.name, 40) || rec.name || 'Family', kids: b.kids, color: b.color, pin, by: c.c }, context);
+    const s = await makeStudio({ name: clean(b.name, 40) || rec.name || 'Family', kids: b.kids, cats: b.cats, color: b.color, pin, by: c.c }, context);
     // Jesse's invite becomes the studio's own Invite: the same link now adds this household's phones.
     const links = store('links', context);
     await links.delete('invite/' + s.invite.secret);
@@ -227,12 +229,27 @@ async function handle(req, context) {
     const d = dk && (await getDevice(dk.d, context));
     if (!d) return json({ ok: false, error: 'device' }, 401);
     const b = await req.json().catch(() => ({}));
-    const kid = (s.kids || []).find((k) => k.key === b.kid);
-    d.name = clean(kid ? kid.name : b.name, 30) || d.name; d.kid = kid ? kid.key : null; d.named = new Date().toISOString();
+    const kid = (s.kids || []).find((k) => k.key === b.kid && kindOf(k) !== 'pet');
+    d.name = clean(kid ? kid.name : b.name, 30) || d.name; d.kid = kid && kindOf(kid) === 'kid' ? kid.key : null;   // a grown-up artist: just the name d.named = new Date().toISOString();
     await putDevice(d, context);
     const { token, keys } = await keysAfter(req, { t: 'd', s: s.slug, d: d.id }, context);
     const h = new Headers(); keyCookies(h, token, keys);
     return json({ ok: true, device: { name: d.name, kid: d.kid } }, 200, h);
+  }
+
+  // A grown-up phone of this studio adds a category from the app ("＋ Something else"; Jesse, 2026-11-25). Never a kid-mode phone.
+  if (parts[3] === 'cats' && req.method === 'POST') {
+    const dk = deviceKey(me, s.slug);
+    const d = dk && (await getDevice(dk.d, context));
+    const parent = await isParent(req, context, s.slug);
+    if (s.main || !((d && !d.off && !d.kid) || parent)) return json({ ok: false, error: 'device' }, 401);
+    const b = await req.json().catch(() => ({}));
+    const old = s.cats || [];
+    if (old.length >= 8) return json({ ok: false, error: 'full' });
+    const same = old.find((c) => c.name.toLowerCase() === clean(b.name, 30).toLowerCase());
+    if (!same) { s.cats = cleanCats([...old, { name: b.name, scan: b.scan, icon: b.icon }], old); await putStudio(s, context); }
+    const fresh = await getStudio(s.slug, context);
+    return json({ ok: true, studio: pubStudio(fresh), cat: pubStudio(fresh).cats.find((c) => c.name.toLowerCase() === clean(b.name, 30).toLowerCase()) || null });
   }
 
   if (parts[3] === 'pin' && req.method === 'POST') {
@@ -260,17 +277,24 @@ async function handle(req, context) {
       else if (b.do === 'invite-reset') await newInvite(s, context);
       else if (b.do === 'invite-off') { s.invite = { ...(s.invite || {}), off: !!b.off }; await putStudio(s, context); }
       else if (b.do === 'kids' && !s.main) { s.kids = cleanKids(b.kids, s.kids); s.skipped = (s.skipped || []).filter((x) => x !== 'kids' || !s.kids.length); await putStudio(s, context); }
+      else if (b.do === 'cats' && !s.main) { s.cats = cleanCats(b.cats, s.cats || []); await putStudio(s, context); }
       else if (b.do === 'look') {
         if (COLORS.includes(b.color)) s.color = b.color;
         if (Array.isArray(b.pages)) s.pages = b.pages.filter((p) => typeof p === 'string').slice(0, 20);
         s.skipped = (s.skipped || []).filter((x) => x !== 'look'); await putStudio(s, context);
       } else if (b.do === 'name' && !s.main) { const n = clean(b.name, 40); if (n) { s.name = n; s.skipped = (s.skipped || []).filter((x) => x !== 'name'); await putStudio(s, context); } }
-      else if (b.do === 'pin' && !s.main) { if (!/^\d{4}$/.test(String(b.pin || ''))) return json({ ok: false, error: 'pin' }); await setPin(s, b.pin, context); }
+      else if (b.do === 'pin' && !s.main) {
+        if (!/^\d{4}$/.test(String(b.pin || ''))) return json({ ok: false, error: 'pin' });
+        await setPin(s, b.pin, context);
+        // This phone stays in For parents on the new PIN (unless it came in with Jesse's owner PIN, which still works).
+        if (!(await isOwner(req, context))) return json({ ok: true }, 200, { 'set-cookie': setCookie(COOKIE.parent, await makeParentFor(s.slug, context, PARENT_MINUTES), { maxAge: PARENT_MINUTES * 60 }) });
+        return json({ ok: true });
+      }
       else if (b.do === 'device') {
         const d = await getDevice(b.id, context);
         if (!d || d.studio !== s.slug) return json({ ok: false, error: 'device' });
         if (typeof b.name === 'string' && clean(b.name, 30)) d.name = clean(b.name, 30);
-        if ('kid' in b) d.kid = (s.kids || []).some((k) => k.key === b.kid) ? b.kid : null;
+        if ('kid' in b) d.kid = (s.kids || []).some((k) => k.key === b.kid && kindOf(k) === 'kid') ? b.kid : null;
         if (typeof b.off === 'boolean') d.off = b.off ? new Date().toISOString() : false;
         await putDevice(d, context);
       } else if (b.do === 'skip' && typeof b.item === 'string') { s.skipped = [...new Set([...(s.skipped || []), b.item.slice(0, 20)])]; await putStudio(s, context); }

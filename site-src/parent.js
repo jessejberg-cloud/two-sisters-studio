@@ -25,7 +25,7 @@
       $('#g-connect').textContent = 'Connect again';
     } else $('#g-status').textContent = 'Not connected yet. Uploads need this once.';
     if (q.get('connected')) $('#g-status').textContent = 'Connected! ' + $('#g-status').textContent;
-    showRebuild(); showLinks(); showWaiting(); showTablets(); showHouses(); showStudio();
+    showRebuild(); showLinks(); showWaiting(); showTablets(); showHouses(); showStudio(); showOwner();
   }
 
   // ---------- family who add photos: one invite link per household (Jesse, 2026-11-25) ----------
@@ -129,6 +129,55 @@
       if (r.error === 'pin') { location.reload(); return; }
       note.textContent = '✓ New link made. Send it again to whoever needs it.'; showStudio();
     });
+  });
+
+  // ---------- Families (owner only): invite a family to make its own studio; every studio and its use ----------
+  function li(cls, text) { var x = document.createElement('li'); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
+  function mb(b) { return b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(0, Math.round(b / 1e6)) + ' MB'; }
+  async function showOwner(body) {
+    var j = {};
+    try { j = body ? await (await post('/api/owner', body)).json() : await (await fetch('/api/owner', { credentials: 'same-origin' })).json(); } catch (e) { return; }
+    if (!j.ok) return;
+    $('#owner-card').hidden = false;
+    var inv = $('#fam-invites'); inv.textContent = '';
+    if (!j.creates.length) inv.append(li('muted', 'None yet.'));
+    j.creates.forEach(function (c) {
+      var it = li('link-item' + (c.off ? ' is-off' : '')), t = document.createElement('p');
+      t.textContent = (c.name || 'Family') + (c.used ? ' · made /' + c.used + '/' : ' · not used yet') + (c.off ? ' · turned off' : '');
+      var row = document.createElement('div'); row.className = 'send-row';
+      if (!c.used && !c.off) {
+        var s = document.createElement('button'); s.type = 'button'; s.className = 'btn-big'; s.textContent = '📤 Send';
+        s.addEventListener('click', function () { send({ text: (c.name ? c.name + ', ' : '') + 'tap this to make your family’s studio:', url: c.url }, t); });
+        row.append(s);
+      }
+      if (!c.used) {
+        var o = document.createElement('button'); o.type = 'button'; o.className = 'linkish'; o.textContent = c.off ? 'Turn back on' : 'Turn off';
+        o.addEventListener('click', function () { showOwner({ do: 'invite-off', id: c.id, off: !c.off }); });
+        row.append(o);
+      }
+      it.append(t, row); inv.append(it);
+    });
+    var sl = $('#fam-studios'); sl.textContent = '';
+    j.studios.forEach(function (s) {
+      var it = li('link-item' + (s.removed ? ' is-off' : '')), t = document.createElement('p');
+      var a = document.createElement('a'); a.href = s.href; a.textContent = s.name;
+      t.append(a, ' · ' + s.pieces + ' pictures · ' + mb(s.bytes) + ' on the site' + (s.main ? '' : s.drive ? ' · Google Drive on' : ' · no Google Drive') + (s.removed ? ' · removed' : ''));
+      it.append(t);
+      if (!s.main) {
+        var r = document.createElement('button'); r.type = 'button'; r.className = 'linkish'; r.textContent = s.removed ? 'Bring back' : 'Remove';
+        r.addEventListener('click', function () {
+          if (!s.removed && !confirm('Remove ' + s.name + '? Its pages and links stop working. Nothing is deleted: its pictures and Google Drive stay, and you can bring it back.')) return;
+          showOwner({ do: s.removed ? 'restore' : 'remove', slug: s.slug });
+        });
+        it.append(r);
+      }
+      sl.append(it);
+    });
+  }
+  $('#fam-make').addEventListener('click', async function () {
+    var n = $('#fam-name').value.trim();
+    await showOwner({ do: 'invite', name: n });
+    $('#fam-name').value = ''; $('#fam-msg').textContent = '✓ Invite made. Tap Send beside it.';
   });
 
   // ---------- share links ----------

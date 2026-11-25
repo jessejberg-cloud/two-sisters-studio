@@ -51,7 +51,7 @@
   function status(msg, bad) { var s = $('#status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
   function setKid(k) {
     state.kid = k; state.day = null; $('#tag-chips').hidden = true;
-    $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (state.section === 'photos' ? '’s snapshots' : '’s art');
+    $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (state.section === 'cat' && state.cat ? ' · ' + state.cat.name : state.section === 'photos' ? '’s snapshots' : '’s art');
     document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '') + (devKid() ? ' dev-kid' : '') + (IN_APP ? ' in-app' : '');
     if (!$('#date').value) $('#date').value = today();
     status(''); renderList(); show('s-photos');
@@ -60,6 +60,8 @@
   // Inside the girls' tablet app (Amazon Kids' browser blocks the camera and photo picker; the app does not).
   var IN_APP = / TwoSistersApp\//.test(navigator.userAgent);
   if (IN_APP) document.body.classList.add('in-app');
+  // Artwork, and a studio category marked 📄 Paper, get the scan fix; everything else is a plain photo (Turn only).
+  function scans() { return (state.section || 'art') === 'art' || (state.section === 'cat' && !!state.cat && !!state.cat.scan); }
   function kidMode() { return !!(state.me && state.me.role === 'kid'); }
 
   // ---------- which studio this phone adds to (build spec, 2026-11-25) ----------
@@ -81,7 +83,7 @@
   var KID_EMOJI = ['🎨', '🖍️', '✏️', '🌈', '⭐', '🦄', '🚀', '🌻'];
   function kidButton(k, i, attr) {
     var b = el('button', 'big-button wobbly c-' + k.color); b.type = 'button'; b.setAttribute(attr, k.key);
-    b.append(el('span', 'big-icon', KID_EMOJI[i % KID_EMOJI.length]), el('span', 'big-label', k.name));
+    b.append(el('span', 'big-icon', k.kind === 'pet' ? '🐾' : KID_EMOJI[i % KID_EMOJI.length]), el('span', 'big-label', k.name));
     return b;
   }
   async function loadStudio() {
@@ -109,6 +111,7 @@
       STUDIO.kids.forEach(function (k, i) { var b = kidButton(k, i, 'data-kid'); b.addEventListener('click', function () { setKid(k.key); }); who.insertBefore(b, both); });
       both.remove();
       bindHome();
+      drawCats();
     }
     document.querySelector('[data-what="both"]').hidden = !STUDIO.main;
     document.querySelector('[data-what="episode"]').hidden = !fam;
@@ -142,10 +145,66 @@
   }
   function studioQ(sep) { return (sep || '?') + 'studio=' + encodeURIComponent(STUDIO.slug); }
 
+
+  // ---------- a studio's own categories on the artist's picker (Jesse, 2026-11-25) ----------
+  // The three this phone uses most show; the rest wait under More. A grown-up phone can add one: ＋ Something else.
+  function catUse() { try { return JSON.parse(localStorage.getItem('tss-catuse-' + STUDIO.slug) || '{}'); } catch (e) { return {}; } }
+  function useCat(key) { var u = catUse(); u[key] = (u[key] || 0) + 1; try { localStorage.setItem('tss-catuse-' + STUDIO.slug, JSON.stringify(u)); } catch (e) {} }
+  function drawCats() {
+    var pick = document.querySelector('#s-pick .up-what'), vid = pick.querySelector('[data-pick="video"]'), u = catUse();
+    pick.querySelectorAll('[data-cat]').forEach(function (b) { b.remove(); });
+    var cats = (STUDIO.cats || []).map(function (c, i) { return { c: c, i: i }; })
+      .sort(function (x, y) { return (u[y.c.key] || 0) - (u[x.c.key] || 0) || x.i - y.i; });
+    cats.forEach(function (x, n) {
+      var c = x.c, b = el('button', 'big-button wobbly c-' + ['lav', 'sky', 'mint', 'coral'][x.i % 4]); b.type = 'button'; b.dataset.cat = c.key;
+      b.append(el('span', 'big-icon', c.icon || (c.scan ? '📄' : '📷')), el('span', 'big-label', c.name));
+      b.hidden = n >= 3;
+      b.addEventListener('click', function () { openCat(c); });
+      pick.insertBefore(b, vid);
+    });
+    $('#pick-more').hidden = cats.length <= 3;
+    $('#pick-new').hidden = STUDIO.main || devKid() || (STUDIO.cats || []).length >= 8;
+  }
+  function openCat(c) { useCat(c.key); setWhere('cat'); state.cat = c; $('#where').hidden = true; setKid(state.pickKid); }
+  $('#pick-more').addEventListener('click', function () { document.querySelectorAll('#s-pick [data-cat]').forEach(function (b) { b.hidden = false; }); this.hidden = true; });
+  var IDEAS = []; try { IDEAS = JSON.parse(document.querySelector('#s-newcat #cat-ideas').textContent); } catch (e) {}
+  var newOwn = null;
+  $('#pick-new').addEventListener('click', function () {
+    var box = $('#newcat-ideas'); box.textContent = '';
+    var have = (STUDIO.cats || []).map(function (c) { return c.name.toLowerCase(); });
+    IDEAS.filter(function (c) { return have.indexOf(c.name.toLowerCase()) === -1; }).forEach(function (c) {
+      var b = el('button', 'idea', (c.icon ? c.icon + ' ' : '') + c.name); b.type = 'button';
+      b.addEventListener('click', function () { makeCat(c); });
+      box.append(b);
+    });
+    $('#newcat-own').value = ''; $('#newcat-paper').hidden = true; $('#newcat-msg').textContent = '';
+    show('s-newcat');
+  });
+  $('#newcat-back').addEventListener('click', function () { show('s-pick'); });
+  $('#newcat-own').addEventListener('input', function () { $('#newcat-paper').hidden = !this.value.trim(); });
+  $('#newcat-own').addEventListener('keydown', function (e) { if (e.key === 'Enter' && this.value.trim()) $('#newcat-paper').hidden = false; });
+  document.querySelectorAll('[data-paper]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var n = $('#newcat-own').value.trim(); if (!n) { $('#newcat-own').focus(); return; }
+      var paper = !!b.dataset.paper; makeCat({ name: n, scan: paper, icon: paper ? '📄' : '📷' });
+    });
+  });
+  async function makeCat(c) {
+    $('#newcat-msg').textContent = '…';
+    try {
+      var j = await apiJSON('/api/studio/' + encodeURIComponent(STUDIO.slug) + '/cats', c);
+      if (!j.ok || !j.cat) throw new Error(j.error || 'no');
+      STUDIO.cats = j.studio.cats;
+      try { var k = 'tss-studio-' + STUDIO.slug, o = JSON.parse(localStorage.getItem(k) || '{}'); o.studio = Object.assign(o.studio || {}, { cats: STUDIO.cats }); localStorage.setItem(k, JSON.stringify(o)); } catch (e) {}
+      drawCats(); openCat(j.cat);
+    } catch (e) { $('#newcat-msg').textContent = navigator.onLine ? 'That did not work. Try again?' : 'No signal. Try again when there is.'; }
+  }
+
   // ---------- the name screen: once per phone, its name for "added by" (a kid's name turns on kid mode) ----------
   function askName() {
     var box = $('#name-faces'); box.textContent = '';
     (STUDIO.kids || []).forEach(function (k, i) {
+      if (k.kind === 'pet') return;   // a pet does not hold a phone
       var b = kidButton(k, i, 'data-face');
       b.addEventListener('click', function () { saveName({ kid: k.key }); });
       box.append(b);
@@ -217,7 +276,7 @@
     });
   });
   function setWhere(w) {
-    state.section = w;
+    state.section = w; state.cat = null;
     document.querySelectorAll('[data-where]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.where === w)); });
   }
   document.querySelectorAll('[data-where]').forEach(function (b) { b.addEventListener('click', function () { setWhere(b.dataset.where); }); });
@@ -647,7 +706,7 @@
     });
     renderList();
     checkDupes(added);
-    if ((state.section || 'art') === 'art') added.reduce(function (p, ph) { return p.then(function () { return autoScan(ph); }); }, Promise.resolve());
+    if (scans()) added.reduce(function (p, ph) { return p.then(function () { return autoScan(ph); }); }, Promise.resolve());
   }
   $('#take').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
   $('#pick').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
@@ -743,7 +802,7 @@
       p.photos.forEach(function (ph, j) {
         var b = el('button', 'item-pic'); b.type = 'button'; b.setAttribute('aria-label', 'Fix up photo ' + (j + 1));
         var img = el('img'); img.src = ph.url; img.alt = '';
-        var art = (state.section || 'art') === 'art' && !ph.pdf;
+        var art = scans() && !ph.pdf;
         b.append(img, el('span', 'edit-tag', ph.pdf ? '📄 PDF' : ph.working ? '… Fixing' : art ? (ph.edit.orig ? 'Original' : ph.fixed ? '✓ Straightened' : '✎ Fix corners') : ph.edit.rot ? '↻ Turned' : ''));
         if (!art || ph.pdf) b.querySelector('.edit-tag').hidden = !ph.pdf && !ph.edit.rot && !ph.working;
         b.addEventListener('click', function () { if (art && !ph.working) openEditor(ph); });
@@ -758,7 +817,7 @@
         var turn = el('button', 'fix-btn wobbly', '↻ Turn'); turn.type = 'button'; turn.disabled = !!ph.working;
         turn.addEventListener('click', function () { turnOne(ph); });
         tools.append(turn);
-        if ((state.section || 'art') === 'art') {
+        if (scans()) {
           var corners = el('button', 'fix-btn wobbly', '✂ Fix corners'); corners.type = 'button'; corners.disabled = !!ph.working;
           corners.addEventListener('click', function () { openEditor(ph); });
           tools.append(corners);
@@ -1052,6 +1111,7 @@
         }
         await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: state.section || 'art', event: state.day,
           studio: STUDIO.slug, studios: state.day && !$('#tag-chips').hidden ? tags.slice() : null,
+          cat: state.section === 'cat' && state.cat ? state.cat.key : null,
           caption: p.caption.trim(), starred: p.starred, photos: photos, progress: {}, created: new Date().toISOString() });
       }
       clearPieces(); renderList();
@@ -1104,7 +1164,7 @@
   async function sendOne(q, label) {
     var pr = q.progress;
     if (!pr.start) {
-      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, section: q.section || 'art', event: q.event || null, caption: q.caption, starred: q.starred,
+      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, section: q.section || 'art', cat: q.cat || undefined, event: q.event || null, caption: q.caption, starred: q.starred,
         studio: q.studio || 'main', studios: q.studios || undefined,
         photos: q.photos.map(function (ph) { return { originalType: ph.originalType, originalSize: ph.original.size, edited: !!ph.edited, editedSize: ph.edited ? ph.edited.size : 0 }; }) });
       await put('outbox2', q);
