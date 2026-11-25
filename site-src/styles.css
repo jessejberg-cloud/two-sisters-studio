@@ -828,8 +828,8 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .lightbox .lb-share, .pb-tools .pb-share { min-height: 52px; padding: 10px 20px; margin-top: 8px; border-radius: 999px; border: 3px solid var(--ink); background: #fff; color: var(--ink); font: 800 1.05rem var(--body); cursor: pointer; }
 .lightbox .lb-share[hidden], .pb-tools .pb-share[hidden] { display: none; }
 /* Pick several to share */
-.pick-start { margin-left: 0; }
-.share-page { margin-right: 10px; }
+.pick-start { display: inline-flex; align-items: center; min-height: 44px; margin: 10px 0 0 6px; padding: 4px 10px; border: 0; background: none; color: #5d554d; font: 600 .95rem var(--body); text-decoration: underline; text-decoration-color: #c9c2b8; text-underline-offset: 4px; cursor: pointer; vertical-align: top; }
+.pick-start:hover, .pick-start:focus-visible { color: var(--ink); }
 .piece-open.is-picked, .photo-tile.is-picked { outline: 5px solid var(--plum); outline-offset: 2px; }
 .piece-open.is-picked::after, .photo-tile.is-picked::after { content: '✓'; position: absolute; top: 8px; left: 8px; width: 36px; height: 36px; border-radius: 50%; background: var(--plum); color: #fff; font: 800 1.3rem/36px var(--body); text-align: center; }
 .photo-tile { position: relative; }

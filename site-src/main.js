@@ -984,7 +984,7 @@ TSS.exportStudio = function (sid) {
   var bar = make('div', 'pick-bar'); bar.hidden = true; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Picked pictures');
   var count = make('span', 'pick-count'), go = make('button', 'btn-big pick-go', '📤 Share'), stop = make('button', 'linkish pick-stop', 'Cancel');
   go.type = stop.type = 'button'; bar.append(count, go, stop);
-  var btn = make('button', 'share-page pick-start', '☑ Pick several to share'); btn.type = 'button'; btn.hidden = true;
+  var btn = make('button', 'pick-start', '☑ Pick several');   // rarely used (Jesse): small and quiet, still a button btn.type = 'button'; btn.hidden = true;
   function idOf(el) {
     var im = el.querySelector('img'), src = el.getAttribute('href') || (im && im.getAttribute('src')) || '';
     var m = /^\/img\/([^/]+)\//.exec(src); return m ? decodeURIComponent(m[1]) : null;

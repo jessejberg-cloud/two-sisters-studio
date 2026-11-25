@@ -75,7 +75,7 @@ Priorities, in order (spec):
 - For parents needs the studio PIN; a trusted phone is remembered 30 days. Jesse's owner PIN opens every studio's For parents.
 - Share links (`/s/…`): open only what was shared; can be turned off.
 - Sharing one thing (`netlify/functions/shared.mjs`): 📤 Share in every picture viewer and under every video, and
-  📤 Share this day on a special day, and ☑ Pick several to share at the top of a page (tap pictures, then 📤 Share:
+  📤 Share this day on a special day, and a small ☑ Pick several link at the top of a page (tap pictures, then 📤 Share:
   one link for up to 60). Grown-up phones that add to the studio only (not kid mode, not View links); a
   household shares only what it may see, and a studio shares only its own things (not a day another studio tagged in). The
   link opens `/shared/?l=…` with no login and shows just that picture, video or day (a day link shows photos added
