@@ -13,7 +13,8 @@
 // Where things live. Google Drive (the archive): Two Sisters Studio / Pet Parents / Episode 3 - <title> /
 //   the original audio (sent by the phone straight to Google), the drawing, and episode.json (the details).
 // Netlify Blobs (for playing): episodes e/<id> + index, audio <id>/<i> (3 MB pieces, under Netlify's 6 MB limit).
-import { who } from '../lib/auth.mjs';
+import { who, mayView } from '../lib/auth.mjs';
+import { MAIN } from '../lib/studios.mjs';
 import { store } from '../lib/store.mjs';
 import { folder, putSmall, uploadAddress } from '../lib/drive.mjs';
 import { slug } from '../lib/pieces.mjs';
@@ -68,7 +69,7 @@ async function handle(req, context) {
   const me = await who(req, context);
   if (!me) return json({ error: 'login' }, 401);
   const family = me.role === 'family';
-  const mayListen = family || (me.pages || []).includes('pet-parents');
+  const mayListen = family || (me.pages || []).includes('pet-parents') || (me.role === 'guest' && mayView(me, MAIN));   // Jesse's studio's View link or Invite
   if (!mayListen) return json({ error: 'page' }, 401);
 
   // ----- listening -----

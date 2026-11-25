@@ -107,9 +107,11 @@ export function setCookie(name, value, { maxAge, httpOnly = true, path = '/' } =
 }
 
 export const DAY = 86400000;
-export const COOKIE = { login: 'tss', parent: 'tssp', link: 'tssl', view: 'tssv', gstate: 'tssg', next: 'tssn' };
+export const COOKIE = { login: 'tss', parent: 'tssp', link: 'tssl', view: 'tssv', gstate: 'tssg', next: 'tssn', keys: 'tsk', hint: 'tssw', create: 'tssc' };
 export const LOGIN_DAYS = 365;          // family devices stay logged in for a year, renewed as they visit
-export const PARENT_MINUTES = 30 * 24 * 60;   // the parent PIN is remembered on a parent's phone for 30 days (Jesse, 2026-11-25)
+// The parent PIN (Jesse, 2026-11-25, answer 6): a phone that has had the PIN typed on it is trusted, so it is not asked
+// again while it keeps being used: the answer lasts 30 days. Changing the PIN logs every phone out of For parents.
+export const PARENT_MINUTES = 30 * 24 * 60;
 export const PAGES = ['leora', 'amaya', 'pet-parents', 'family-moments'];
 
 // Storage names: previews never touch the live site's data.

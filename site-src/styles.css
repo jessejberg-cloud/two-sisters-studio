@@ -723,3 +723,28 @@ html.full-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .add-fab:hover, .add-fab:focus-visible { transform: none; } }
 .site-footer { padding-bottom: 88px; }
 html.has-fab .tab-add-li { display: none !important; }
+
+/* ---------- Studios (build spec, 2026-11-25): app home, picker, name screen, home screen guide ---------- */
+#home-buttons { margin-top: 8px; }
+.up-extra { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 16px 0 0; }
+#s-kid .up-more { justify-content: center; gap: 12px; margin-top: 22px; }
+.up-more .chip { text-decoration: none; color: var(--ink); }
+.dot-heads { display: inline-block; width: 12px; height: 12px; border-radius: 50%; background: #c8102e; margin-left: 6px; vertical-align: middle; border: 2px solid var(--paper); }
+#s-pick .up-h2 { text-align: center; font-size: 2.2rem; }
+.name-faces { margin-bottom: 22px; }
+.name-own { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: center; }
+.name-own label { display: grid; gap: 6px; font-weight: 800; font-size: 1.2rem; }
+.name-own input { font: inherit; font-size: 1.25rem; min-height: 52px; padding: 8px 12px; border: 3px solid var(--ink); border-radius: var(--wobble); background: #fff; min-width: 220px; }
+.tag-chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 4px 0 16px; }
+.tag-chips .chip { min-height: 48px; font-size: 1.1rem; }
+.guide { border: 4px solid var(--ink); border-radius: var(--wobble-lg); background: var(--paper); padding: 20px 18px 14px; width: min(92vw, 420px); text-align: center; }
+.guide::backdrop { background: rgba(29, 26, 36, .55); }
+.guide svg { width: 100%; height: auto; display: block; }
+.guide .guide-skip { margin-top: 14px; min-width: 160px; }
+body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
+.fam-list { list-style: none; padding: 0; margin: 0 0 14px; display: grid; gap: 14px; }
+.fam-list .big-button { min-height: 72px; justify-content: center; text-decoration: none; }
+.phone-row { flex-wrap: wrap; align-items: center; gap: 10px; }
+.phone-row input, .phone-row select { font: inherit; min-height: 48px; padding: 6px 10px; border: 2px solid var(--ink); border-radius: 10px; background: #fff; flex: 1 1 160px; }
+.slink { border-top: 2px dashed var(--ink-soft); padding-top: 12px; margin-top: 12px; }
+.slink:first-of-type { border-top: 0; margin-top: 0; padding-top: 0; }

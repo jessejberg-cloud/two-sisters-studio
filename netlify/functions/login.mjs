@@ -1,7 +1,7 @@
 // POST /api/login  (the login page's form)   fields: password, next, kind (family | friend)
 // POST /api/logout
 // POST /api/parent  { pin }  -> parent cookie for 15 minutes (needs a family login first)
-import { checkLevel, makeLogin, makeParent, who, getLink, linkOpen, kidLevel, GIRLS, houseByInvite, housePages, makeHouseLogin } from '../lib/auth.mjs';
+import { checkLevel, makeLogin, makeParent, who, getLink, linkOpen, kidLevel, GIRLS } from '../lib/auth.mjs';
 import { setCookie, cookies, verify, sha256, COOKIE, LOGIN_DAYS, PARENT_MINUTES } from '../lib/core.mjs';
 import { secret } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
@@ -75,17 +75,12 @@ export default async (req, context) => {
     return new Response(null, { status: 303, headers: h });
   }
 
-  // A household's invite link pasted into the box (an iPhone Home Screen app does not share Safari's login).
-  const inv = /\/i\/([A-Za-z0-9_-]{20,40})/.exec(pw.trim());
-  if (inv) {
-    const house = await houseByInvite(inv[1], context);
-    await tooMany(req, context, !house);
-    if (!house) return back(url, { e: 'invite', next });
-    const hh = new Headers({ location: next === '/' || next.startsWith('/parent') ? '/upload/' : next });
-    hh.append('set-cookie', setCookie(COOKIE.login, await makeHouseLogin(house), { maxAge: LOGIN_DAYS * 86400 }));
-    hh.append('set-cookie', setCookie(COOKIE.view, [...housePages(house), 'upload', 'house'].join(','), { maxAge: LOGIN_DAYS * 86400, httpOnly: false }));
-    hh.append('set-cookie', setCookie(COOKIE.next, '', { maxAge: 0 }));
-    return new Response(null, { status: 303, headers: hh });
+  // A link pasted into the box (an iPhone Home Screen app does not share Safari's login): an Invite, a View link or a
+  // share link. The phone just goes to it, and that link logs it in, the same as tapping it.
+  const pasted = /\/(i|v|s)\/([A-Za-z0-9_-]{6,40})/.exec(pw.trim());
+  if (pasted) {
+    await tooMany(req, context, false);
+    return new Response(null, { status: 303, headers: { location: '/' + pasted[1] + '/' + pasted[2], 'cache-control': 'no-store' } });
   }
 
   const ok = await checkLevel('family', pw, context);

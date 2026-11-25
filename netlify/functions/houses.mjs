@@ -21,22 +21,25 @@ const pub = (h, origin) => ({ id: h.id, name: h.name, pages: housePages(h).filte
 // Invite text for the phone's Share list.
 export const inviteText = (name) => `${name ? name + ', tap' : 'Tap'} this link to see the girls' pictures and add your own photos. No password needed.`;
 
+// GET /i/<invite> for a household (studios.mjs owns /i/ and hands household invites here).
+export async function houseInvite(req, context, secretPart) {
+  const url = new URL(req.url);
+  const house = await houseByInvite(secretPart, context);
+  if (!house) return Response.redirect(new URL('/login/?e=invite', url), 303);
+  const me = await who(req, context);
+  // A family phone stays a family phone (Jesse testing his own link must not log himself out).
+  if (me?.role === 'family') return Response.redirect(new URL('/households/?mine=1', url), 303);
+  const h = new Headers({ location: '/upload/?welcome=1#i=' + house.invite, 'cache-control': 'no-store' });
+  h.append('set-cookie', setCookie(COOKIE.login, await makeHouseLogin(house), { maxAge: LOGIN_DAYS * 86400 }));
+  h.append('set-cookie', setCookie(COOKIE.view, [...housePages(house), 'upload', 'house'].join(','), { maxAge: LOGIN_DAYS * 86400, httpOnly: false }));
+  h.append('set-cookie', setCookie(COOKIE.parent, '', { maxAge: 0 }));
+  return new Response(null, { status: 303, headers: h });
+}
+
 export default async (req, context) => {
   const url = new URL(req.url);
   const parts = url.pathname.split('/').filter(Boolean);
-
-  if (parts[0] === 'i') {
-    const house = await houseByInvite(parts[1], context);
-    if (!house) return Response.redirect(new URL('/login/?e=invite', url), 303);
-    const me = await who(req, context);
-    // A family phone stays a family phone (Jesse testing his own link must not log himself out).
-    if (me?.role === 'family') return Response.redirect(new URL('/households/?mine=1', url), 303);
-    const h = new Headers({ location: '/upload/?welcome=1#i=' + house.invite, 'cache-control': 'no-store' });
-    h.append('set-cookie', setCookie(COOKIE.login, await makeHouseLogin(house), { maxAge: LOGIN_DAYS * 86400 }));
-    h.append('set-cookie', setCookie(COOKIE.view, [...housePages(house), 'upload', 'house'].join(','), { maxAge: LOGIN_DAYS * 86400, httpOnly: false }));
-    h.append('set-cookie', setCookie(COOKIE.parent, '', { maxAge: 0 }));
-    return new Response(null, { status: 303, headers: h });
-  }
+  if (parts[0] === 'i') return houseInvite(req, context, parts[1]);
 
   const me = await who(req, context);
   if (me?.role !== 'family') return json({ error: 'login' }, 401);
@@ -80,4 +83,4 @@ export default async (req, context) => {
   return json({ ok: true, house: pub(h, url.origin), text: inviteText(h.name) });
 };
 
-export const config = { path: ['/i/*', '/api/houses', '/api/houses/*'] };
+export const config = { path: ['/api/houses', '/api/houses/*'] };

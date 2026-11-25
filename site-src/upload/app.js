@@ -17,7 +17,7 @@
   // ---------- dates ----------
   function today() { var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
   function niceDate(iso) { var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }); }
-  function kidName(k) { return k === 'both' ? cfg.kids.leora.name + ' and ' + cfg.kids.amaya.name : cfg.kids[k].name; }
+  function kidName(k) { return k === 'both' ? Object.keys(cfg.kids).map(function (x) { return cfg.kids[x].name; }).join(' and ') : cfg.kids[k].name; }
 
   // ---------- the phone's own storage (IndexedDB) ----------
   var dbp = null;
@@ -50,9 +50,9 @@
   function show(id) { document.querySelectorAll('.screen').forEach(function (s) { s.hidden = s.id !== id; }); window.scrollTo(0, 0); }
   function status(msg, bad) { var s = $('#status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
   function setKid(k) {
-    state.kid = k; state.day = null;
+    state.kid = k; state.day = null; $('#tag-chips').hidden = true;
     $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (state.section === 'photos' ? '’s snapshots' : '’s art');
-    document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '') + (IN_APP ? ' in-app' : '');
+    document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '') + (devKid() ? ' dev-kid' : '') + (IN_APP ? ' in-app' : '');
     if (!$('#date').value) $('#date').value = today();
     status(''); renderList(); show('s-photos');
   }
@@ -61,6 +61,130 @@
   var IN_APP = / TwoSistersApp\//.test(navigator.userAgent);
   if (IN_APP) document.body.classList.add('in-app');
   function kidMode() { return !!(state.me && state.me.role === 'kid'); }
+
+  // ---------- which studio this phone adds to (build spec, 2026-11-25) ----------
+  // Jesse's studio is 'main' (the family login, the girls' tablets, households). A phone added with a studio's Invite
+  // holds a key for it (the readable hint cookie tssw lists them); it picks its name once ("added by").
+  var STUDIO = { slug: 'main', main: true, name: '', kids: [], drive: true }, DEV = null, MENU = [];
+  function hintKeys() {
+    var m = /(?:^|;\s*)tssw=([^;]*)/.exec(document.cookie);
+    return m ? decodeURIComponent(m[1]).split(',').filter(Boolean).map(function (x) { var p = x.split(':'); return { s: p[0], t: p[1], kid: p[2] === 'kid' }; }) : [];
+  }
+  function pickSlug() {
+    var keys = hintKeys().filter(function (k) { return k.t === 'd'; }), has = function (x) { return keys.some(function (k) { return k.s === x; }); };
+    var q = new URLSearchParams(location.search).get('s'); if (q && has(q)) return q;
+    try { var last = localStorage.getItem('tss-studio'); if (last && has(last)) return last; } catch (e) {}
+    return keys.length ? keys[0].s : 'main';
+  }
+  function guest() { return !!(state.me && state.me.role === 'guest'); }
+  function devKid() { return !!(DEV && DEV.kid); }
+  var KID_EMOJI = ['🎨', '🖍️', '✏️', '🌈', '⭐', '🦄', '🚀', '🌻'];
+  function kidButton(k, i, attr) {
+    var b = el('button', 'big-button wobbly c-' + k.color); b.type = 'button'; b.setAttribute(attr, k.key);
+    b.append(el('span', 'big-icon', KID_EMOJI[i % KID_EMOJI.length]), el('span', 'big-label', k.name));
+    return b;
+  }
+  async function loadStudio() {
+    var slug = guest() ? pickSlug() : 'main';
+    try {
+      var r = await fetch('/api/studio/' + encodeURIComponent(slug), { credentials: 'same-origin' });
+      if (r.ok) { var j = await r.json(); STUDIO = j.studio; DEV = j.me.device; STUDIO.named = j.me.named; }
+    } catch (e) { /* no signal: Jesse's studio as built, or the last one this phone knew */
+      try { var c = JSON.parse(localStorage.getItem('tss-studio-' + slug) || 'null'); if (c) { STUDIO = c.studio; DEV = c.dev; } } catch (e2) {}
+    }
+    try { localStorage.setItem('tss-studio', STUDIO.slug); localStorage.setItem('tss-studio-' + STUDIO.slug, JSON.stringify({ studio: STUDIO, dev: DEV })); } catch (e) {}
+    if (STUDIO.kids && STUDIO.kids.length) { cfg.kids = {}; STUDIO.kids.forEach(function (k) { cfg.kids[k.key] = { name: k.name, color: k.color }; }); }
+    drawHome();
+    fetch('/api/studios/menu', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) { MENU = j.studios || []; drawTags(); }).catch(function () {});
+  }
+  // The first screen: one big button per kid, then Family Moment. Jesse's studio keeps its drawn buttons.
+  function drawHome() {
+    var fam = !!(state.me && state.me.role === 'family');
+    if (!STUDIO.main) {
+      var box = $('#home-buttons');
+      box.querySelectorAll('[data-home]').forEach(function (b) { b.remove(); });
+      STUDIO.kids.forEach(function (k, i) { box.append(kidButton(k, i, 'data-home')); });
+      var who = document.querySelector('#s-who .up-kids'), both = who.querySelector('[data-kid="both"]');
+      who.querySelectorAll('[data-kid]:not([data-kid="both"])').forEach(function (b) { b.remove(); });
+      STUDIO.kids.forEach(function (k, i) { var b = kidButton(k, i, 'data-kid'); b.addEventListener('click', function () { setKid(k.key); }); who.insertBefore(b, both); });
+      both.remove();
+      bindHome();
+    }
+    document.querySelector('[data-what="both"]').hidden = !STUDIO.main;
+    document.querySelector('[data-what="episode"]').hidden = !fam;
+    $('#home-extra').hidden = !STUDIO.main;
+    $('#home-site').href = STUDIO.main ? '/' : '/' + STUDIO.slug + '/';
+    $('#home-parents').href = STUDIO.main ? '/parent/' : '/' + STUDIO.slug + '/for-parents/';
+    $('#home-parents').hidden = devKid();
+    document.body.classList.toggle('dev-kid', devKid());
+    // Videos go to a studio's own Google Drive; until that is built, only Jesse's studio takes videos.
+    document.querySelectorAll('.vid-only').forEach(function (x) { x.hidden = !STUDIO.main; });
+  }
+  // Family Moment: the studios it shows in (build spec). This studio is picked already; tap others to add them.
+  var tags = [];
+  function drawTags() {
+    var box = $('#tag-chips'); box.textContent = '';
+    var others = MENU.filter(function (m) { return m.slug !== STUDIO.slug; });
+    if (!others.length) { box.dataset.none = '1'; box.hidden = true; return; }
+    delete box.dataset.none;
+    tags = [STUDIO.slug];
+    [{ slug: STUDIO.slug, name: STUDIO.name || 'Us' }].concat(others).forEach(function (m) {
+      var c = el('button', 'chip', m.name); c.type = 'button'; c.setAttribute('aria-pressed', String(m.slug === STUDIO.slug));
+      c.addEventListener('click', function () {
+        var on = tags.indexOf(m.slug) === -1;
+        if (!on && tags.length === 1) return;   // one studio at least
+        tags = on ? tags.concat(m.slug) : tags.filter(function (x) { return x !== m.slug; });
+        c.setAttribute('aria-pressed', String(on));
+      });
+      box.append(c);
+    });
+    box.hidden = !state.day;
+  }
+  function studioQ(sep) { return (sep || '?') + 'studio=' + encodeURIComponent(STUDIO.slug); }
+
+  // ---------- the name screen: once per phone, its name for "added by" (a kid's name turns on kid mode) ----------
+  function askName() {
+    var box = $('#name-faces'); box.textContent = '';
+    (STUDIO.kids || []).forEach(function (k, i) {
+      var b = kidButton(k, i, 'data-face');
+      b.addEventListener('click', function () { saveName({ kid: k.key }); });
+      box.append(b);
+    });
+    document.body.className = 'up c-sky' + (IN_APP ? ' in-app' : '');
+    show('s-name');
+  }
+  async function saveName(body) {
+    try { var j = await apiJSON('/api/studio/' + encodeURIComponent(STUDIO.slug) + '/device', body); DEV = j.device; STUDIO.named = true; }
+    catch (e) { DEV = { name: body.name || '', kid: body.kid || null }; }
+    drawHome(); goHome();
+  }
+  $('#name-ok').addEventListener('click', function () { var n = $('#name-own').value.trim(); if (n) saveName({ name: n }); else $('#name-own').focus(); });
+  $('#name-own').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#name-ok').click(); });
+  function goHome() { document.body.className = 'up c-' + (STUDIO.color || 'coral') + (devKid() ? ' dev-kid' : '') + (IN_APP ? ' in-app' : ''); show('s-kid'); refreshOutbox(); }
+
+  // Home buttons: a kid opens My art / A snapshot (the girls' picker); Family Moment opens the special day screen.
+  function bindHome() {
+    document.querySelectorAll('[data-home]').forEach(function (b) {
+      if (b.dataset.bound) return; b.dataset.bound = '1';
+      b.addEventListener('click', function () {
+        var k = b.dataset.home;
+        state.pickKid = k;
+        $('#pick-who').textContent = cfg.kids[k].name;
+        document.body.className = 'up c-' + cfg.kids[k].color + (devKid() ? ' dev-kid' : '') + (IN_APP ? ' in-app' : '');
+        show('s-pick');
+      });
+    });
+  }
+  bindHome();
+  document.querySelectorAll('[data-pick]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var w = b.dataset.pick;
+      if (w === 'moment') { openVideo(); return; }
+      if (w === 'video') { openVideo(); $('#vid-file').click(); return; }   // straight to the phone's video picker
+      setWhere(w); $('#where').hidden = true; setKid(state.pickKid);
+    });
+  });
+  $('#pick-back').addEventListener('click', goHome);
   // A household's phone (Grandma's, from an invite link; Jesse, 2026-11-25): My photos (their own page) or A special day.
   function houseMode() { return !!(state.me && state.me.role === 'house'); }
   var HM = function () { return houseMode() ? ' house-mode' : ''; };
@@ -121,13 +245,14 @@
   function chooseWhat(what) {
     if (what === 'episode') { openEpisode(); return; }
     if (what === 'video') { openVideo(); return; }
+    if (what === 'both') { setWhere('art'); $('#where').hidden = true; setKid('both'); return; }
     state.section = what;
     $('#who-lead').textContent = what === 'photos' ? 'Whose snapshot is it?' : 'Whose art is it?';
     document.querySelector('[data-kid="both"]').hidden = what === 'photos';
     show('s-who');
   }
   document.querySelectorAll('[data-what]').forEach(function (b) { b.addEventListener('click', function () { chooseWhat(b.dataset.what); }); });
-  $('#who-back').addEventListener('click', function () { show('s-kid'); });
+  $('#who-back').addEventListener('click', goHome);
   document.querySelectorAll('[data-kid]').forEach(function (b) { b.addEventListener('click', function () { setKid(b.dataset.kid); }); });
 
   // ---------- a Pet Parents episode: audio, details, maybe a drawing ----------
@@ -145,7 +270,7 @@
   }
   $('#ep-back').addEventListener('click', function () {
     if (ep.busy && !confirm('The episode is still sending. Leave anyway? You can send it again later.')) return;
-    show('s-kid');
+    goHome();
   });
   $('#ep-audio').addEventListener('change', function (e) {
     var f = e.target.files[0]; if (!f) return;
@@ -288,7 +413,7 @@
   // The special days that already have photos from the app, so new photos and videos can join them.
   async function dayList() {
     try {
-      var r = await fetch('/api/pieces?section=moments', { credentials: 'same-origin' });
+      var r = await fetch('/api/pieces?section=moments' + (STUDIO.main ? '' : studioQ('&')), { credentials: 'same-origin' });
       if (!r.ok) return;
       var seen = {};
       vid.days = ((await r.json()).pieces || []).filter(function (p) { if (!p.event || seen[p.event]) return false; seen[p.event] = 1; return true; })
@@ -319,13 +444,14 @@
     state.kid = 'both'; state.section = 'moments'; state.day = day;
     $('#who').textContent = '❤️ ' + day.title;
     $('#date').value = day.date;
+    $('#tag-chips').hidden = !!$('#tag-chips').dataset.none || !$('#tag-chips').children.length;
     document.body.className = 'up c-yellow day-mode' + HM() + (IN_APP ? ' in-app' : '');
     status(''); show('s-photos');
     addFiles(files);
   });
   $('#vid-back').addEventListener('click', function () {
     if (vid.busy && !confirm('The video is still sending. Leave anyway? You can send it again later.')) return;
-    if (houseMode()) { document.body.className = 'up c-sky house-mode' + (IN_APP ? ' in-app' : ''); show('s-househome'); } else show('s-kid');
+    if (houseMode()) { document.body.className = 'up c-sky house-mode' + (IN_APP ? ' in-app' : ''); show('s-househome'); } else goHome();
   });
   // Videos in the newer "high efficiency" (HEVC) format play on most phones but may not play on the Fire tablets.
   async function isHevc(f) {
@@ -459,7 +585,7 @@
     if (state.pieces.length && !confirm('Leave without saving these pictures?')) return;
     var wasDay = !!state.day;
     clearPieces(); state.day = null;
-    if (wasDay) openVideo(); else if (kidMode()) show('s-kidhome'); else if (houseMode()) show('s-househome'); else { show('s-kid'); refreshOutbox(); }
+    if (wasDay) openVideo(); else if (kidMode()) show('s-kidhome'); else if (houseMode()) show('s-househome'); else goHome();
   });
   function clearPieces() {
     state.pieces.forEach(function (p) { p.photos.forEach(function (ph) { URL.revokeObjectURL(ph.url); }); });
@@ -596,7 +722,7 @@
     var fps = photos.map(function (p) { return p.fp; }).filter(Boolean);
     if (fps.length && navigator.onLine) {
       try {
-        var r = await fetch('/api/pieces/dupes?fp=' + fps.join(','), { credentials: 'same-origin' });
+        var r = await fetch('/api/pieces/dupes?fp=' + fps.join(',') + studioQ('&'), { credentials: 'same-origin' });
         var m = (await r.json()).matches || [];
         m.forEach(function (x) {
           state.pieces.forEach(function (p) {
@@ -925,6 +1051,7 @@
           photos.push({ print: print, pdf: !!ph.pdf, original: ph.file, originalType: ph.pdf ? 'application/pdf' : (ph.file.type || 'image/jpeg'), edited: ph.edited, web: wc.web, thumb: wc.thumb, w: wc.w, h: wc.h, fp: ph.fp, edits: edits });
         }
         await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: state.section || 'art', event: state.day,
+          studio: STUDIO.slug, studios: state.day && !$('#tag-chips').hidden ? tags.slice() : null,
           caption: p.caption.trim(), starred: p.starred, photos: photos, progress: {}, created: new Date().toISOString() });
       }
       clearPieces(); renderList();
@@ -937,7 +1064,7 @@
   async function apiJSON(url, body) {
     var r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body || {}) });
     var j = {}; try { j = await r.json(); } catch (e) {}
-    if (r.status === 401) throw new Error(kidMode() ? 'Ask a grown-up to log in again.' : 'Please log in to the site again (the family password).');
+    if (r.status === 401) throw new Error(kidMode() || devKid() ? 'Ask a grown-up to log in again.' : guest() ? 'This phone needs its invite link again. Tap the link you were sent.' : 'Please log in to the site again (the family password).');
     if (!r.ok) throw new Error(whyNot(j, r.status));
     return j;
   }
@@ -978,6 +1105,7 @@
     var pr = q.progress;
     if (!pr.start) {
       pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, section: q.section || 'art', event: q.event || null, caption: q.caption, starred: q.starred,
+        studio: q.studio || 'main', studios: q.studios || undefined,
         photos: q.photos.map(function (ph) { return { originalType: ph.originalType, originalSize: ph.original.size, edited: !!ph.edited, editedSize: ph.edited ? ph.edited.size : 0 }; }) });
       await put('outbox2', q);
     }
@@ -1083,7 +1211,7 @@
     var list = $('#recent-list'), gone = $('#deleted-list');
     list.textContent = 'Loading…'; gone.textContent = '';
     var j;
-    try { j = await (await fetch('/api/pieces/recent', { credentials: 'same-origin' })).json(); }
+    try { j = await (await fetch('/api/pieces/recent' + studioQ(), { credentials: 'same-origin' })).json(); }
     catch (e) { list.textContent = 'Needs signal to show recent uploads.'; return; }
     list.textContent = '';
     if (!j.recent || !j.recent.length) list.append(el('li', 'muted', 'Nothing uploaded yet.'));
@@ -1099,14 +1227,14 @@
     if (deleted) {
       var until = new Date(Date.parse(p.deleted) + keepDays * 86400000).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
       box.append(el('p', 'muted', (p.caption ? '“' + p.caption + '” · ' : '') + niceDate(p.date) + ' · kept until ' + until));
-      var back = el('button', 'chip', 'Bring back'); back.type = 'button';
+      var back = el('button', 'chip', 'Bring back'); back.type = 'button'; back.hidden = devKid();
       back.addEventListener('click', async function () { back.disabled = true; try { await apiJSON('/api/pieces/' + p.id + '/restore'); openRecent(); } catch (e) { status(e.message, true); back.disabled = false; } });
       box.append(back); li.append(img, box); return li;
     }
     var cap = el('input'); cap.type = 'text'; cap.value = p.caption; cap.maxLength = 140; cap.placeholder = 'Caption (optional)'; cap.setAttribute('aria-label', 'Caption');
     var date = el('input'); date.type = 'date'; date.value = p.date; date.setAttribute('aria-label', 'Date it was made');
     var star = el('button', 'star', p.starred ? '★ Show big' : '☆ Show big'); star.type = 'button'; star.setAttribute('aria-pressed', String(p.starred));
-    var rm = el('button', 'remove', 'Put away'); rm.type = 'button';
+    var rm = el('button', 'remove', 'Put away'); rm.type = 'button'; rm.hidden = devKid();
     var saved = el('span', 'saved-note');
     async function change(body) { try { var r = await apiJSON('/api/pieces/' + p.id + '/edit', body); Object.assign(p, r.piece); saved.textContent = '✓ Saved'; setTimeout(function () { saved.textContent = ''; }, 1500); } catch (e) { status(e.message, true); } }
     cap.addEventListener('change', function () { change({ caption: cap.value }); });
@@ -1118,7 +1246,7 @@
     return li;
   }
   $('#recent').addEventListener('click', openRecent);
-  $('#recent-back').addEventListener('click', function () { show('s-kid'); });
+  $('#recent-back').addEventListener('click', goHome);
 
   // ---------- pictures shared in from Google Photos (the service worker keeps them) ----------
   async function takeShared() {
@@ -1170,7 +1298,25 @@
 
   // ---------- start ----------
   show('s-kid');
-  startKidMode().then(function (kid) { if (!kid) showWaitingBar(); jumpTo(); });
+  startKidMode().then(async function (kid) {
+    if (kid) { jumpTo(); return; }
+    await loadStudio();
+    if (guest() && !STUDIO.named) { askName(); }
+    else { goHome(); showWaitingBar(); jumpTo(); }
+    hello();
+  });
+  // The home screen guide (build spec): once per phone, after an Invite. A picture of the phone with the spot to tap.
+  function hello() {
+    var g = $('#guide'), q = new URLSearchParams(location.search);
+    if (!g || !q.get('hello')) return;
+    try { history.replaceState(null, '', '/upload/'); } catch (e) {}
+    var installed = window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    try { if (installed || localStorage.getItem('tss-guide')) return; localStorage.setItem('tss-guide', '1'); } catch (e) {}
+    var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    g.querySelector('[data-os="ios"]').hidden = !ios; g.querySelector('[data-os="android"]').hidden = ios;
+    g.querySelector('.guide-skip').addEventListener('click', function () { g.close(); });
+    if (g.showModal) g.showModal(); else g.setAttribute('open', '');
+  }
   // The ＋ on a site page (Jesse, 2026-11-25) opens the app straight on that page's screen: ?add=art&kid=leora, day, episode, house.
   function jumpTo() {
     var q = new URLSearchParams(location.search), add = q.get('add'), k = q.get('kid');

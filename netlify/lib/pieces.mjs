@@ -48,7 +48,13 @@ export const sectionOf = (p) => (SECTIONS.includes(p.section) ? p.section : 'art
 // A special day: its key, and its Drive folder (the same one the day's videos use): Family Moments / 2026-06-14 Wedding /
 export const dayKey = (date, title) => `${date}-${slug(title, 6)}`;
 export const dayFolder = (date, title) => ['Family Moments', `${date} ${String(title).replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 60).trim()}`];
-export const folderParts = (p) => sectionOf(p) === 'house' ? ['Family', `${String(p.from || 'Family').replace(/[\\/:*?"<>|]+/g, ' ').trim()}'s photos`, p.schoolYear]
+// A piece's studio ('main' for Jesse's: pieces from before studios have none), and the studios whose Family Moment page shows it.
+export const studioOf = (p) => p.studio || 'main';
+export const tagsOf = (p) => (Array.isArray(p.studios) && p.studios.length ? p.studios : [studioOf(p)]);
+const kidLabel = (p) => p.kidName || KIDS[p.kid];
+export const folderParts = (p) => studioOf(p) !== 'main' ? (sectionOf(p) === 'moments' ? (p.event ? dayFolder(p.eventDate, p.eventTitle) : ['Family Moment', p.schoolYear])
+    : [kidLabel(p) || 'Kids', sectionOf(p) === 'photos' ? 'Snapshots' : p.schoolYear, ...(sectionOf(p) === 'photos' ? [p.schoolYear] : [SEASON_LABEL[p.season]])])
+  : sectionOf(p) === 'house' ? ['Family', `${String(p.from || 'Family').replace(/[\\/:*?"<>|]+/g, ' ').trim()}'s photos`, p.schoolYear]
   : sectionOf(p) === 'photos' ? [KIDS[p.kid], 'My photos', p.schoolYear]
   : sectionOf(p) === 'moments' && p.event ? dayFolder(p.eventDate, p.eventTitle)
   : sectionOf(p) === 'moments' ? ['Family Moments', 'From ' + (KIDS[p.kid] || 'the girls'), p.schoolYear]
@@ -59,7 +65,9 @@ export const webName = (id, n, small) => `${id}-${n}${small ? '-sm' : ''}`;
 export const printName = (id, n) => `${id}-${n}-print`;   // Family Moments: a 3000px JPEG for "Download all" and photo books
 export const extOf = (type) => (type === 'image/webp' ? 'webp' : type === 'image/png' ? 'png' : 'jpg');
 
-const dayOf = (p) => ({ ...(p.event ? { event: p.event, eventTitle: p.eventTitle, eventDate: p.eventDate } : {}), ...(p.house ? { house: p.house, from: p.from || '' } : {}) });
+const dayOf = (p) => ({ ...(p.event ? { event: p.event, eventTitle: p.eventTitle, eventDate: p.eventDate } : {}), ...(p.house ? { house: p.house, from: p.from || '' } : {}),
+  ...(p.studio ? { studio: p.studio } : {}), ...(p.studios ? { studios: p.studios } : {}), ...(p.byName ? { byName: p.byName } : {}), ...(p.dev ? { dev: p.dev } : {}),
+  ...(p.kidName ? { kidName: p.kidName } : {}), ...(p.noDrive ? { noDrive: true } : {}) });
 // The details file: everything needed to show the piece again, nothing about Netlify.
 export function details(p) {
   return {
@@ -72,9 +80,9 @@ export function details(p) {
   };
 }
 
-export function check(p) {
+export function check(p, kidKeys = KID_KEYS) {
   const bad = [];
-  if (!KID_KEYS.includes(p.kid)) bad.push('kid');
+  if (!kidKeys.includes(p.kid)) bad.push('kid');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(p.date || '')) bad.push('date');
   if (!Array.isArray(p.photos) || !p.photos.length) bad.push('photos');
   return bad;

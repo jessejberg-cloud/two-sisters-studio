@@ -94,7 +94,34 @@ const ICONS = {
   mic: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><rect x="14" y="4" width="12" height="20" rx="6"/><path d="M9,18 Q9,29 20,29 Q31,29 31,18"/><path d="M20,29 L20,36 M14,36 L26,36"/></g></svg>',
 };
 
-function page({ key, title, body, section, bodyClass, csp = CSP_STRICT, tabs = true, scripts = [] }) {
+
+// The home screen guide (build spec, 2026-11-25): a phone picture with the spot to tap circled, iPhone or Android, no words.
+// main.js and app.js show it once per device, when someone arrives from a View link or an Invite.
+const RING = '#e4572e';
+function guidePic(os) {
+  const phone = (x, inner) => `<g transform="translate(${x} 0)"><rect x="4" y="4" width="132" height="252" rx="20" fill="#fff" stroke="#2b2a33" stroke-width="5"/>`
+    + `<rect x="16" y="30" width="108" height="196" rx="6" fill="#fdf8ef" stroke="#2b2a33" stroke-width="2"/>${inner}</g>`;
+  const arrow = '<path d="M150 130 L182 130 M170 118 L184 130 L170 142" fill="none" stroke="#2b2a33" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>';
+  const rows = (y0) => [0, 1, 2, 3].map((i) => `<rect x="28" y="${y0 + i * 30}" width="84" height="20" rx="5" fill="#ece4f7"/>`).join('');
+  const ring = (cx, cy, r) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${RING}" stroke-width="6"/>`;
+  if (os === 'ios') {
+    const share = '<g transform="translate(58 202)" fill="none" stroke="#2b6fd6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10 L4 22 L20 22 L20 10"/><path d="M12 2 L12 16 M6 8 L12 2 L18 8"/></g>';
+    const add = '<g transform="translate(36 147)" fill="none" stroke="#2b2a33" stroke-width="3.5" stroke-linecap="round"><rect x="0" y="0" width="18" height="18" rx="4"/><path d="M9 4 L9 14 M4 9 L14 9"/></g>';
+    return `<svg viewBox="0 0 330 260" role="img" aria-label="On iPhone: tap Share, then Add to Home Screen">${phone(0, `<rect x="16" y="196" width="108" height="30" fill="#ddeefa"/>${share}${ring(70, 212, 20)}`)}${arrow}`
+      + `${phone(190, `${rows(54)}<rect x="28" y="144" width="84" height="24" rx="5" fill="#fff1c9"/>${add}${ring(45, 156, 20)}`)}</svg>`;
+  }
+  const dots = '<g fill="#2b2a33"><circle cx="112" cy="40" r="3.5"/><circle cx="112" cy="50" r="3.5"/><circle cx="112" cy="60" r="3.5"/></g>';
+  const add = '<g transform="translate(34 115)" fill="none" stroke="#2b2a33" stroke-width="3.5" stroke-linecap="round"><rect x="2" y="0" width="14" height="22" rx="3"/><path d="M9 6 L9 16 M4 11 L14 11"/></g>';
+  return `<svg viewBox="0 0 330 260" role="img" aria-label="On Android: tap the three dots, then Add to Home screen">${phone(0, `<rect x="16" y="30" width="108" height="40" fill="#ddeefa"/>${dots}${ring(112, 50, 18)}`)}${arrow}`
+    + `${phone(190, `<rect x="28" y="54" width="84" height="20" rx="5" fill="#ece4f7"/><rect x="28" y="84" width="84" height="20" rx="5" fill="#ece4f7"/><rect x="28" y="114" width="84" height="26" rx="5" fill="#fff1c9"/>${add}${ring(44, 127, 20)}<rect x="28" y="150" width="84" height="20" rx="5" fill="#ece4f7"/>`)}</svg>`;
+}
+const homeGuide = () => `<dialog class="guide" id="guide" aria-label="Add to Home Screen">
+  <div class="guide-pic" data-os="ios">${guidePic('ios')}</div>
+  <div class="guide-pic" data-os="android" hidden>${guidePic('android')}</div>
+  <p><button type="button" class="btn-big guide-skip">Skip</button></p>
+</dialog>`;
+
+function page({ key, title, body, section, bodyClass, csp = CSP_SELF, tabs = true, scripts = [] }) {
   const fullTitle = title ? `${title} · ${site.siteName}` : site.siteName;
   const current = section || key;
   // The small ＋ on every page (Jesse, 2026-11-25): opens the app on the right screen for this page. main.js shows it
@@ -137,12 +164,13 @@ ${scripts.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).joi
 <a class="skip" href="#main">Skip to the main part</a>
 <header class="site-header">
   <a class="brand" href="/">${logo(false)}</a>
-  ${tabs ? '' : '<!--'}<nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-houses-li" hidden><a class="tab c-sky tab-houses" href="/households/"${current === 'households' ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS.home}</span><span class="tab-label">More family</span></a></li><li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li></ul></nav>${tabs ? '' : '-->'}
+  ${tabs ? '' : '<!--'}<nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-houses-li" hidden><a class="tab c-sky tab-houses" href="/households/"${current === 'households' ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS.home}</span><span class="tab-label">More family</span></a></li><li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li><li class="tab-fam-li" hidden><button type="button" class="tab tab-fam c-sky" aria-haspopup="dialog"><span class="tab-icon">${ICONS.home}</span><span class="tab-label">Family</span></button></li></ul></nav>${tabs ? '' : '-->'}
 </header>
 <main id="main">
 ${body}
 </main>
 ${fab}
+${tabs ? homeGuide() : ''}
 <footer class="site-footer">
   <div class="paw-trail" aria-hidden="true">${ICONS.paw.repeat(5)}</div>
   <p>Made with love (and crayons) by the ${esc(site.siteName)} crew.</p>
@@ -515,21 +543,18 @@ pages['households/index.html'] = page({
 pages['login/index.html'] = page({
   key: 'login', title: 'Log in', csp: CSP_LOGIN, tabs: false,
   body: `<section class="login wobbly">
-  <h1>Welcome!</h1>
-  <p class="login-lead" data-family>Type the family password to come in.</p>
-  <p class="login-lead" data-friend hidden>Someone shared part of the site with you. Type the password they sent you.</p>
+  <!-- One box (build spec, 2026-11-25): paste the link you were sent. Old passwords (the girls' tablets) still work here too. -->
   <form class="login-form" method="post" action="/api/login">
-    <label for="pw">Password</label>
-    <input id="pw" name="password" type="password" autocomplete="current-password" required autofocus>
+    <label for="pw">Your link</label>
+    <input id="pw" name="password" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url" required autofocus>
     <input type="hidden" name="next" value="/">
     <input type="hidden" name="kind" value="family">
-    <button type="submit" class="btn-big">Come in</button>
-    <p class="login-error" data-e="pw" hidden>That password did not work. Try again?</p>
+    <button type="submit" class="btn-big">Open</button>
+    <p class="login-error" data-e="pw" hidden>That did not work. Paste the whole link?</p>
     <p class="login-error" data-e="wait" hidden>Too many tries. Please wait 15 minutes and try again.</p>
-    <p class="login-error" data-e="link" hidden>This link has ended or was turned off. Ask for a new one.</p>
-    <p class="login-error" data-e="invite" hidden>This invite link has ended or was turned off. Ask Jesse for a new one.</p>
+    <p class="login-error" data-e="link" hidden>This link was turned off. Ask for a new one.</p>
+    <p class="login-error" data-e="invite" hidden>This link was turned off. Ask for a new one.</p>
   </form>
-  <p class="login-invite">Got an invite link? Paste it in the box and tap Come in.</p>
 </section>`,
 });
 
@@ -543,6 +568,29 @@ pages['parent/index.html'] = page({
   <p class="login-error" id="pin-msg" hidden></p>
 </section>
 <div id="parent-tools" hidden>
+  <section class="parent-card wobbly" id="studio-links">
+    <h2>Links</h2>
+    <div class="slink" data-link="view">
+      <h3>👀 View</h3>
+      <p class="share-help">To look. Nobody can add with it.</p>
+      <p class="link-url" data-url></p>
+      <div class="send-row"><button type="button" class="btn-big" data-act="share">📤 Send</button><button type="button" class="chip" data-act="copy">📋 Copy</button><button type="button" class="linkish" data-act="reset">New link</button></div>
+      <p class="share-help" data-note role="status"></p>
+    </div>
+    <div class="slink" data-link="invite">
+      <h3>📷 Invite</h3>
+      <p class="share-help">For a phone that adds pictures. It opens the app.</p>
+      <p class="link-url" data-url></p>
+      <div class="send-row"><button type="button" class="btn-big" data-act="share">📤 Send</button><button type="button" class="chip" data-act="copy">📋 Copy</button><button type="button" class="linkish" data-act="reset">New link</button></div>
+      <p class="share-help" data-note role="status"></p>
+    </div>
+    <p class="share-help">Links never end. New link stops the old one; the other link keeps working.</p>
+  </section>
+  <section class="parent-card wobbly" id="phones-card">
+    <h2>Phones</h2>
+    <p class="share-help">Phones that add pictures with the Invite. A kid's name hides Put away and For parents on that phone.</p>
+    <ul class="link-list" id="phone-list"><li class="muted">None yet.</li></ul>
+  </section>
   <section class="parent-card wobbly" id="waiting-card">
     <h2>Photos waiting for your OK</h2>
     <p>Photos from the girls' tablets show on the site after you tap OK.</p>
@@ -568,8 +616,10 @@ pages['parent/index.html'] = page({
     <p id="g-status">Checking…</p>
     <p><a class="btn-big" id="g-connect" href="/api/google/start">Connect Google Drive</a></p>
   </section>
-  <section class="parent-card wobbly" id="houses-card">
-    <h2>Family who add photos</h2>
+  <section class="parent-card wobbly" id="houses-card" hidden>
+    <h2>Family who add photos (older invites)</h2>
+    <p class="share-help">These invites still work. New family members now get the Invite link above, or their own studio.</p>
+    <div class="old-make" hidden>
     <p>Give Grandma, an aunt or a cousin their own invite link. They tap it once on their phone and they are in, with no password, for as long as they keep visiting. They get their own page (for example "Grandma's photos") and can add photos and videos to the special days on Family Moments. Their photos show right away. You can put any of them away from Recent uploads in the app.</p>
     <label class="house-name">Who is it for? <input type="text" id="house-name" maxlength="40" autocomplete="off" placeholder="Grandma"></label>
     <fieldset class="ticks"><legend>What else they can see</legend>
@@ -578,13 +628,15 @@ pages['parent/index.html'] = page({
     </fieldset>
     <p><button type="button" class="btn-big" id="house-make">Make an invite link</button></p>
     <p class="login-error" id="house-msg" hidden></p>
+    </div>
     <h3>Invites</h3>
     <ul class="link-list house-list" id="house-list"><li class="muted">None yet.</li></ul>
     <p class="share-help">On an iPhone: after tapping the link, they can tap Share, then Add to Home Screen, to get an app button. If that app ever asks for a password, they paste the invite link into the box.</p>
   </section>
   <section class="parent-card wobbly" id="share-card">
-    <h2>Share with a friend</h2>
-    <p>Pick the pages and how long the link works. Anyone with the link can see those pages, nothing else, until it ends or you turn it off. Each page also has its own Share this page button.</p>
+    <h2>Share links</h2>
+    <p class="share-help">Links made with Share this page. Each opens one page. Turn any of them off here.</p>
+    <div class="old-make" hidden>
     <fieldset class="ticks"><legend>Pages</legend>
       ${TABS.map((n) => `<label class="tick"><input type="checkbox" name="pages" value="${n.key}"> ${esc(n.label)}</label>`).join('\n      ')}
       <label class="tick"><input type="checkbox" id="pages-all"> All of them</label>
@@ -602,14 +654,14 @@ pages['parent/index.html'] = page({
       <div class="send-row"><button type="button" class="btn-big" id="send-link">Send link</button></div>
       <p class="share-help" id="send-note"></p>
     </div>
-    <h3>Links you made</h3>
+    </div>
+    <h3>Links</h3>
     <ul class="link-list" id="link-list"><li class="muted">None yet.</li></ul>
   </section>
   <section class="parent-card wobbly">
-    <h2>Passwords and PIN</h2>
-    <p>Changing one logs out every other phone and computer that uses it. This one stays in.</p>
-    <div class="pw-row"><label>Family password <input type="text" id="pw-family" autocomplete="off" spellcheck="false"></label><button type="button" class="chip" data-change="family">Change</button></div>
+    <h2>Parent PIN</h2>
     <div class="pw-row"><label>Parent PIN (4 to 8 numbers) <input type="text" id="pw-pin" inputmode="numeric" autocomplete="off"></label><button type="button" class="chip" data-change="pin">Change</button></div>
+    <div class="pw-row"><label>Owner PIN: yours only, opens For parents in every family's studio (4 to 8 numbers) <input type="text" id="pw-owner" inputmode="numeric" autocomplete="off"></label><button type="button" class="chip" data-change="owner">Set</button></div>
     <p class="share-help" id="pw-msg" role="status"></p>
   </section>
   <section class="parent-card wobbly">
@@ -655,19 +707,32 @@ pages['upload/index.html'] = `<!doctype html>
 <main id="main" class="up-main">
   <section class="screen" id="s-kid">
     <h1 class="up-h">${logo(false)}</h1>
-    <p class="up-lead" id="kid-lead">What do you want to add?</p>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
     <div class="outbox wobbly waiting-bar" id="waiting-bar" hidden><p id="waiting-text"></p><button type="button" class="chip" id="waiting-ok">✓ OK all</button> <a class="linkish" href="/parent/">Look first</a></div>
-    <div class="up-kids up-what">
-      <button type="button" class="big-button wobbly c-coral" data-what="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Art<small>A drawing, painting or something they made</small></span></button>
-      <button type="button" class="big-button wobbly c-mint" data-what="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo one of the girls took</small></span></button>
-      <button type="button" class="big-button wobbly c-yellow" data-what="video"><span class="big-icon" aria-hidden="true">❤️</span><span class="big-label">A special day<small>Photos and videos for Family Moments</small></span></button>
-      <button type="button" class="big-button wobbly c-lav" data-what="episode"><span class="big-icon">${ICONS.mic}</span><span class="big-label">A podcast episode<small>Pet Parents audio</small></span></button>
+    <!-- Home (build spec, 2026-11-25): one big button per kid, then Family Moments. Drawn by app.js from the studio. -->
+    <div class="up-kids up-what" id="home-buttons">
+      ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-home="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
     </div>
-    <p class="up-more"><button type="button" class="chip" id="recent">Recent uploads</button> <a class="linkish" href="/parent/">For parents</a></p>
-    <nav class="up-look" aria-label="Look at the site"><p class="up-look-h">Look at the site</p>
-      <ul>${TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('')}</ul>
-    </nav>
+    <p class="up-extra" id="home-extra"><button type="button" class="chip" data-what="both">🤝 Both</button> <button type="button" class="chip" data-what="episode">🎙️ Podcast</button></p>
+    <p class="up-more"><a class="chip" id="home-site" href="/">🏠 Site</a> <button type="button" class="chip" id="recent">🕘 Recent</button> <a class="chip" id="home-parents" href="/parent/">🔒 Parents<span class="dot-heads" id="heads-dot" hidden></span></a></p>
+  </section>
+
+  <section class="screen" id="s-pick" hidden>
+    <p><button type="button" class="linkish" id="pick-back">← Back</button></p>
+    <h1 class="up-h2" id="pick-who"></h1>
+    <div class="up-kids up-what">
+      <button type="button" class="big-button wobbly c-coral" data-pick="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Artwork</span></button>
+      <button type="button" class="big-button wobbly c-mint" data-pick="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot</span></button>
+      <button type="button" class="big-button wobbly c-yellow" data-pick="moment"><span class="big-icon">${ICONS.heart}</span><span class="big-label">Family Moments</span></button>
+      <button type="button" class="big-button wobbly c-sky vid-only" data-pick="video"><span class="big-icon" aria-hidden="true">🎬</span><span class="big-label">A video</span></button>
+    </div>
+  </section>
+
+  <section class="screen" id="s-name" hidden>
+    <h1 class="up-h">${logo(false)}</h1>
+    <p class="up-lead">Who?</p>
+    <div class="up-kids name-faces" id="name-faces"></div>
+    <div class="name-own"><label>Name <input type="text" id="name-own" maxlength="30" autocomplete="given-name" enterkeyhint="done"></label><button type="button" class="btn-big" id="name-ok">OK</button></div>
   </section>
 
   <section class="screen" id="s-kidhome" hidden>
@@ -719,6 +784,7 @@ pages['upload/index.html'] = `<!doctype html>
       <button type="button" class="chip" data-where="photos" aria-pressed="true">📷 My snapshots</button>
       <button type="button" class="chip" data-where="moments" aria-pressed="false">❤️ Family Moments</button>
     </div>
+    <div class="tag-chips" id="tag-chips" hidden></div>
     <label class="up-date">Date it was made <input type="date" id="date"></label>
     <p class="count" id="count"></p>
     <ul class="up-list" id="list"></ul>
@@ -772,7 +838,7 @@ pages['upload/index.html'] = `<!doctype html>
     </div>
     <div class="up-add day-add">
       <label class="big-pick wobbly pick-choose"><input type="file" id="day-photos" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
-      <label class="big-pick wobbly pick-take"><input type="file" id="vid-file" accept="video/*"><span id="vid-label">🎬 Choose a video</span></label>
+      <label class="big-pick wobbly pick-take vid-only"><input type="file" id="vid-file" accept="video/*"><span id="vid-label">🎬 Choose a video</span></label>
     </div>
     <p class="status" id="day-status" role="status" aria-live="polite"></p>
     <div id="vid-more" hidden>
@@ -786,8 +852,8 @@ pages['upload/index.html'] = `<!doctype html>
     <div class="ep-bar" id="vid-bar" hidden><span id="vid-bar-fill"></span></div>
     <p class="status" id="vid-status" role="status" aria-live="polite"></p>
     <p class="ep-done" id="vid-done" hidden><a class="chip" href="/family-moments/">❤️ See it on Family Moments</a></p>
-    <h2 class="up-h3">Videos on the site</h2>
-    <ul class="up-list ep-list" id="vid-list"><li class="muted">Checking…</li></ul>
+    <h2 class="up-h3 vid-only">Videos on the site</h2>
+    <ul class="up-list ep-list vid-only" id="vid-list"><li class="muted">Checking…</li></ul>
   </section>
 
   <section class="screen" id="s-edit" hidden>
@@ -816,6 +882,7 @@ pages['upload/index.html'] = `<!doctype html>
     </div>
   </section>
 
+  ${homeGuide()}
   <section class="screen" id="s-recent" hidden>
     <p><button type="button" class="linkish" id="recent-back">← Back</button></p>
     <h1 class="up-h2">Recent uploads</h1>

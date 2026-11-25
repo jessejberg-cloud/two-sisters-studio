@@ -25,7 +25,7 @@
       $('#g-connect').textContent = 'Connect again';
     } else $('#g-status').textContent = 'Not connected yet. Uploads need this once.';
     if (q.get('connected')) $('#g-status').textContent = 'Connected! ' + $('#g-status').textContent;
-    showRebuild(); showLinks(); showWaiting(); showTablets(); showHouses();
+    showRebuild(); showLinks(); showWaiting(); showTablets(); showHouses(); showStudio();
   }
 
   // ---------- family who add photos: one invite link per household (Jesse, 2026-11-25) ----------
@@ -50,6 +50,7 @@
     var ul = $('#house-list');
     var j = {}; try { j = await (await fetch('/api/houses', { credentials: 'same-origin' })).json(); } catch (e) {}
     ul.textContent = '';
+    $('#houses-card').hidden = !(j.houses && j.houses.length);   // older household invites (build spec: new family gets the Invite or a studio)
     if (!j.houses || !j.houses.length) { var none = document.createElement('li'); none.className = 'muted'; none.textContent = 'None yet.'; ul.append(none); return; }
     j.houses.forEach(function (h) {
       var li = document.createElement('li'); li.className = 'house-row' + (h.off ? ' off' : '');
@@ -82,6 +83,53 @@
       ul.append(li);
     });
   }
+
+  // ---------- this studio's View link and Invite, and the phones added with it (build spec, 2026-11-25) ----------
+  var studioTurn = 0;
+  async function showStudio() {
+    var turn = ++studioTurn, j = {};
+    try { j = await (await fetch('/api/studio/main/parent', { credentials: 'same-origin' })).json(); } catch (e) { return; }
+    if (turn !== studioTurn || !j.ok) return;
+    [['view', j.view], ['invite', j.invite]].forEach(function (x) {
+      var box = document.querySelector('[data-link="' + x[0] + '"]');
+      box.querySelector('[data-url]').textContent = x[1] || '';
+      box.dataset.href = x[1] || '';
+    });
+    var ul = $('#phone-list'); ul.textContent = '';
+    if (!j.devices.length) { var none = document.createElement('li'); none.className = 'muted'; none.textContent = 'None yet.'; ul.append(none); }
+    j.devices.forEach(function (d) {
+      var li = document.createElement('li'); li.className = 'link-item' + (d.off ? ' is-off' : '');
+      var name = document.createElement('input'); name.type = 'text'; name.value = d.name || ''; name.placeholder = 'No name yet'; name.maxLength = 30; name.setAttribute('aria-label', 'Name');
+      var kid = document.createElement('select'); kid.setAttribute('aria-label', 'Kid mode');
+      [['', 'Grown-up']].concat(j.studio.kids.map(function (k) { return [k.key, k.name + ' (kid mode)']; })).forEach(function (o) {
+        var op = document.createElement('option'); op.value = o[0]; op.textContent = o[1]; if ((d.kid || '') === o[0]) op.selected = true; kid.append(op);
+      });
+      var off = document.createElement('button'); off.type = 'button'; off.className = 'linkish'; off.textContent = d.off ? 'Turn back on' : 'Turn off';
+      var t = document.createElement('p'); t.className = 'share-help'; t.textContent = 'Added ' + new Date(d.created).toLocaleDateString() + (d.off ? ' · turned off' : '');
+      async function change(body) { body.do = 'device'; body.id = d.id; var r = {}; try { r = await (await post('/api/studio/main/parent', body)).json(); } catch (e) {} if (r.error === 'pin') location.reload(); showStudio(); }
+      name.addEventListener('change', function () { if (name.value.trim()) change({ name: name.value.trim() }); });
+      kid.addEventListener('change', function () { change({ kid: kid.value || null }); });
+      off.addEventListener('click', function () { if (!d.off && !confirm('Turn this phone off? It stops adding and looking until you turn it back on.')) return; change({ off: !d.off }); });
+      var row = document.createElement('div'); row.className = 'send-row phone-row'; row.append(name, kid, off);
+      li.append(row, t); ul.append(li);
+    });
+  }
+  document.querySelectorAll('[data-link]').forEach(function (box) {
+    var kind = box.dataset.link, note = box.querySelector('[data-note]');
+    box.querySelector('[data-act="share"]').addEventListener('click', function () {
+      if (box.dataset.href) send({ title: document.title, url: box.dataset.href }, note);
+    });
+    box.querySelector('[data-act="copy"]').addEventListener('click', async function () {
+      try { await navigator.clipboard.writeText(box.dataset.href); note.textContent = '✓ Copied'; } catch (e) { note.textContent = box.dataset.href; }
+    });
+    box.querySelector('[data-act="reset"]').addEventListener('click', async function () {
+      if (!confirm(kind === 'view' ? 'Make a new View link? The old one stops working, and phones that only look need the new one.'
+        : 'Make a new Invite? The old link stops working. Phones already added keep working.')) return;
+      var r = {}; try { r = await (await post('/api/studio/main/parent', { do: kind + '-reset' })).json(); } catch (e) {}
+      if (r.error === 'pin') { location.reload(); return; }
+      note.textContent = '✓ New link made. Send it again to whoever needs it.'; showStudio();
+    });
+  });
 
   // ---------- share links ----------
   var pageBoxes = Array.prototype.slice.call(document.querySelectorAll('input[name="pages"]'));
@@ -199,13 +247,13 @@
     b.addEventListener('click', async function () {
       var level = b.dataset.change, input = $('#pw-' + level), kidKey = level.indexOf('kid-') === 0 ? level.slice(4) : null;
       var msg = kidKey ? $('#tablet-msg') : $('#pw-msg');
-      var name = kidKey ? KIDNAME[kidKey] + '’s tablet password' : { family: 'Family password', friends: 'Friends password', pin: 'Parent PIN' }[level];
+      var name = kidKey ? KIDNAME[kidKey] + '’s tablet password' : { family: 'Family password', friends: 'Friends password', pin: 'Parent PIN', owner: 'Owner PIN' }[level];
       var j = {}; try { j = await (await post('/api/admin/password', { level: level, password: input.value })).json(); } catch (e) {}
       if (j.ok) {
         msg.textContent = '✓ ' + name + (kidKey ? ' set. Type it on her tablet to log in. A tablet using an older one is logged out.' : ' changed. Every other device using it is logged out.');
         input.value = ''; showLinks(); if (kidKey) showTablets();
       }
-      else msg.textContent = j.error === 'short' ? (level === 'pin' ? 'A PIN is 4 to 8 numbers.' : kidKey ? 'Use at least 4 letters or numbers.' : 'Use at least 6 letters or numbers.')
+      else msg.textContent = j.error === 'short' ? (level === 'pin' || level === 'owner' ? 'A PIN is 4 to 8 numbers.' : kidKey ? 'Use at least 4 letters or numbers.' : 'Use at least 6 letters or numbers.')
         : j.error === 'same' ? 'That one is already used by another login. Pick a different one.'
         : j.error === 'pin' ? 'Please type the parent PIN again.' : 'That did not work. Try again?';
     });
@@ -220,7 +268,8 @@
   }
 
   $('#pin-go').addEventListener('click', async function () {
-    var j = {}; try { j = await (await post('/api/parent', { pin: $('#pin').value })).json(); } catch (e) {}
+    var j = {}; try { j = await (await post('/api/studio/main/pin', { pin: $('#pin').value })).json(); } catch (e) {}
+    $('#pin').value = '';
     var msg = $('#pin-msg');
     if (j.ok) { msg.hidden = true; openTools(); return; }
     msg.textContent = j.error === 'wait' ? 'Too many tries. Please wait 15 minutes.' : 'That PIN did not work.';
@@ -235,6 +284,6 @@
   $('#logout').addEventListener('click', async function () { await post('/api/logout'); location.href = '/login/'; });
 
   if (q.get('e')) { $('#pin-msg').textContent = MSG[q.get('e')] || 'Something went wrong.'; $('#pin-msg').hidden = false; }
-  // Already have the PIN cookie? Try the tools straight away.
+  // A phone that had the PIN typed on it is trusted for 30 days (Jesse, 2026-11-25): open the tools straight away.
   fetch('/api/google/status', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (g) { if (!g.error) openTools(); }, function () {});
 })();
