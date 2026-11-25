@@ -191,3 +191,32 @@ test('Jesse\'s old logins keep working on his studio', async () => {
   assert.ok(!p.studio, 'Jesse\'s pieces have no studio field');
   assert.ok(p.uploads.length > 0, 'his Drive gets the original');
 });
+
+test('changing a studio PIN keeps this phone in For parents; the old PIN stops working', async () => {
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '4321' }), {}));
+  const r = await studios(post('/api/studio/smith/parent', par, { do: 'pin', pin: '5678' }), {});
+  assert.equal((await r.json()).ok, true);
+  const after = jar(par, r);
+  assert.equal((await (await studios(req('/api/studio/smith/parent', after), {})).json()).ok, true, 'still in');
+  assert.equal((await (await studios(req('/api/studio/smith/parent', par), {})).json()).error, 'pin', 'the old cookie is out');
+  assert.equal((await (await studios(post('/api/studio/smith/pin', phone, { pin: '4321' }), {})).json()).error, 'pin');
+});
+
+test('a phone added with Jesse\'s own Invite can add a Family Moments video and watch videos and episodes', async () => {
+  const { default: videos } = await import('../netlify/functions/videos.mjs');
+  const { default: episodes } = await import('../netlify/functions/episodes.mjs');
+  const o = await ownerCookie();
+  const inv = (await (await studios(req('/api/studio/main/parent', o), {})).json()).invite;
+  let gp = jar('', await studios(req(new URL(inv).pathname, ''), {}));
+  gp = jar(gp, await studios(post('/api/studio/main/device', gp, { name: 'Aunt Sara' }), {}));
+  assert.equal((await videos(req('/api/videos', gp), {})).status, 200);
+  assert.equal((await episodes(req('/api/episodes', gp), {})).status, 200);
+  const s = await (await videos(post('/api/videos/start', gp, { eventTitle: 'Thanksgiving', eventDate: '2026-11-26', size: 5, type: 'video/mp4' }), {})).json();
+  assert.ok(s.id, JSON.stringify(s));
+  assert.equal((await videos(req('/api/videos/' + s.id + '/part/0', gp, { method: 'POST', body: new Uint8Array(5) }), {})).status, 200);
+  const fin = await (await videos(post('/api/videos/' + s.id + '/finish', gp, {}), {})).json();
+  assert.equal(fin.video.from, 'Aunt Sara');
+  const view = (await (await studios(req('/api/studio/main/parent', o), {})).json()).view;
+  const vp = jar('', await studios(req(new URL(view).pathname, ''), {}));
+  assert.equal((await videos(post('/api/videos/start', vp, { eventTitle: 'X', eventDate: '2026-11-26', size: 5 }), {})).status, 401, 'a View link only looks');
+});

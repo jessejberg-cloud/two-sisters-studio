@@ -1,0 +1,87 @@
+// Onboarding (build spec, 2026-11-25): a family makes its own studio from the invite Jesse sent.
+// 1 Studio + Kids · 2 PIN + Color (makes the studio) · 3 Google Drive (needed, Jesse 2026-11-25) · 4 Invite + View links
+// · 5 Add to Home Screen picture · 6 Camera. One word per label. What was left empty shows on For parents.
+// The answers live in this browser (localStorage) so the trip to Google and back picks up where it left off.
+(function () {
+  'use strict';
+  var $ = function (s) { return document.querySelector(s); };
+  var KEY = 'tss-start';
+  var saved = null; try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  function keep() { try { localStorage.setItem(KEY, JSON.stringify(saved)); } catch (e) {} }
+  function go(n) { document.querySelectorAll('.step').forEach(function (s) { s.hidden = s.dataset.step !== String(n); }); window.scrollTo(0, 0); var f = document.querySelector('.step:not([hidden]) input'); if (f && n !== 2) f.focus(); }
+  var step = 1;
+  document.querySelectorAll('[data-next]').forEach(function (b) { b.addEventListener('click', function () { go(++step); }); });
+  document.querySelectorAll('[data-back]').forEach(function (b) { b.addEventListener('click', function () { go(--step); }); });
+
+  // 1: studio name and kids
+  function kidRow() { var li = $('#st-kid').content.firstElementChild.cloneNode(true); $('#st-kids').append(li); return li; }
+  kidRow();
+  $('#st-more').addEventListener('click', function () { kidRow().querySelector('input').focus(); });
+
+  // 2: PIN dots and color
+  var pin = $('#st-pin'), dots = document.querySelectorAll('#pin-dots span');
+  pin.addEventListener('input', function () {
+    pin.value = pin.value.replace(/\D/g, '').slice(0, 4);
+    dots.forEach(function (d, i) { d.classList.toggle('on', i < pin.value.length); });
+  });
+  $('#pin-dots').addEventListener('click', function () { pin.focus(); });
+  $('#st-make').addEventListener('click', async function () {
+    var msg = $('#st-msg'); msg.hidden = true;
+    if (!/^\d{4}$/.test(pin.value)) { msg.textContent = '4 numbers.'; msg.hidden = false; pin.focus(); return; }
+    var name = $('#st-name').value.trim();
+    var kids = Array.prototype.map.call(document.querySelectorAll('#st-kids .st-kid'), function (li) {
+      return { name: li.querySelector('input').value.trim(), grade: li.querySelector('select').value };
+    }).filter(function (k) { return k.name; });
+    var color = (document.querySelector('input[name="st-color"]:checked') || {}).value || 'sky';
+    var skipped = []; if (!name) skipped.push('name'); if (!kids.length) skipped.push('kids');
+    this.disabled = true;
+    var j = {};
+    try {
+      var r = await fetch('/api/studios/create', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: name, kids: kids, pin: pin.value, color: color, skipped: skipped }) });
+      j = await r.json();
+    } catch (e) {}
+    this.disabled = false;
+    if (!j.ok) { msg.textContent = j.error === 'invite' ? 'This link was turned off. Ask for a new one.' : 'That did not work. Try again?'; msg.hidden = false; return; }
+    saved = { slug: j.studio.slug, invite: j.invite, view: j.view, step: 3 }; keep();
+    driveLink(); step = 3; go(3);
+  });
+
+  // 3: Google Drive (the family's own; the originals are kept there)
+  function driveLink() { $('#st-drive').href = '/api/google/start?from=start&s=' + encodeURIComponent(saved.slug); }
+
+  // 4: the two links
+  document.querySelectorAll('[data-copy]').forEach(function (b) {
+    b.addEventListener('click', async function () {
+      var url = saved && saved[b.dataset.copy]; if (!url) return;
+      if (navigator.share && /Android|iPhone|iPad/.test(navigator.userAgent)) { try { await navigator.share({ url: url }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+      try { await navigator.clipboard.writeText(url); $('#st-copied').textContent = '✓ ' + b.textContent.trim(); } catch (e) { $('#st-copied').textContent = url; }
+    });
+  });
+
+  // 5: the right phone picture
+  var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  document.querySelector('.step [data-os="ios"]').hidden = !ios; document.querySelector('.step [data-os="android"]').hidden = ios;
+
+  // 6: the camera: the app, on this studio (this phone was added when the studio was made)
+  function camera() { $('#st-camera').href = '/upload/?s=' + encodeURIComponent(saved.slug); }
+  $('#st-camera').addEventListener('click', function () { try { localStorage.removeItem(KEY); } catch (e) {} });
+
+  // ---------- where to start ----------
+  var q = new URLSearchParams(location.search);
+  if (saved && saved.slug) {
+    driveLink(); camera();
+    if (q.get('connected')) { saved.step = 4; keep(); }
+    if (q.get('e')) { $('#st-drive-msg').textContent = 'Google did not connect. Try again?'; $('#st-drive-msg').hidden = false; }
+    step = saved.step || 3;
+    try { history.replaceState(null, '', '/start/'); } catch (e) {}
+    go(step);
+    document.querySelectorAll('[data-next]').forEach(function (b) { b.addEventListener('click', function () { saved.step = step; keep(); camera(); }); });
+    return;
+  }
+  fetch('/api/studios/create', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+    if (!j.ok) { go(0); return; }
+    if (j.name) $('#st-name').value = j.name;
+    go(1);
+  }).catch(function () { go(1); });
+})();

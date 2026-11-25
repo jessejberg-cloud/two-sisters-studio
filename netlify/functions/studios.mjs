@@ -265,7 +265,13 @@ async function handle(req, context) {
         if (Array.isArray(b.pages)) s.pages = b.pages.filter((p) => typeof p === 'string').slice(0, 20);
         s.skipped = (s.skipped || []).filter((x) => x !== 'look'); await putStudio(s, context);
       } else if (b.do === 'name' && !s.main) { const n = clean(b.name, 40); if (n) { s.name = n; s.skipped = (s.skipped || []).filter((x) => x !== 'name'); await putStudio(s, context); } }
-      else if (b.do === 'pin' && !s.main) { if (!/^\d{4}$/.test(String(b.pin || ''))) return json({ ok: false, error: 'pin' }); await setPin(s, b.pin, context); }
+      else if (b.do === 'pin' && !s.main) {
+        if (!/^\d{4}$/.test(String(b.pin || ''))) return json({ ok: false, error: 'pin' });
+        await setPin(s, b.pin, context);
+        // This phone stays in For parents on the new PIN (unless it came in with Jesse's owner PIN, which still works).
+        if (!(await isOwner(req, context))) return json({ ok: true }, 200, { 'set-cookie': setCookie(COOKIE.parent, await makeParentFor(s.slug, context, PARENT_MINUTES), { maxAge: PARENT_MINUTES * 60 }) });
+        return json({ ok: true });
+      }
       else if (b.do === 'device') {
         const d = await getDevice(b.id, context);
         if (!d || d.studio !== s.slug) return json({ ok: false, error: 'device' });
