@@ -39,6 +39,15 @@ function jar(cookie, res) {
   }
   return [...m.values()].join('; ');
 }
+// A kid's tablet (Jesse, 2026-11-25): the phone names itself; a parent (PIN) makes it that kid's on For parents.
+async function kidTablet(slug, parent, tablet, name, kid) {
+  tablet = jar(tablet, await studios(post('/api/studio/' + slug + '/device', tablet, { name }), {}));
+  const j = await (await studios(req('/api/studio/' + slug + '/parent', parent), {})).json();
+  const d = j.devices.find((x) => x.name === name);
+  assert.ok(d, 'the tablet is on For parents');
+  assert.equal((await (await studios(post('/api/studio/' + slug + '/parent', parent, { do: 'device', id: d.id, kid }), {})).json()).ok, true);
+  return tablet;
+}
 async function ownerCookie() {
   const r = await studios(post('/api/studio/main/pin', family, { pin: '1234' }), {});
   return jar(family, r);
@@ -174,7 +183,8 @@ test('kid mode: a phone named after a kid cannot put things away', async () => {
   const r = await studios(req(createUrl, ''), {});   // the studio's Invite on a second phone
   let tablet = jar('', r);
   assert.match(r.headers.get('location'), /^\/upload\//);
-  tablet = jar(tablet, await studios(post('/api/studio/smith/device', tablet, { kid: 'ben' }), {}));
+  assert.deepEqual((await (await studios(post('/api/studio/smith/device', tablet, { kid: 'ben' }), {})).json()).device, { name: '', kid: null }, 'a phone cannot make itself a kid\'s');
+  tablet = await kidTablet('smith', phone, tablet, 'Ben', 'ben');
   const p = await save(tablet, { studio: 'smith', kid: 'ben', section: 'art' });
   assert.equal(p.byName, 'Ben');
   assert.equal((await api(post(`/api/pieces/${p.id}/delete`, tablet, {}), {})).status, 401);
@@ -233,7 +243,7 @@ test('artists: a kid, a grown-up or a pet; a grown-up\'s name is not kid mode; a
   assert.deepEqual(made.studio.kids.map((k) => [k.key, k.kind, k.grade]), [['mia', 'kid', 'K5'], ['grandpa-joe', 'adult', ''], ['biscuit', 'pet', '']], 'only kids have a grade');
   assert.deepEqual(made.studio.cats.map((c) => [c.key, c.scan]), [['school-papers', true], ['lego', false], ['art2', false]], 'never a built-in key');
   // Grandpa's phone: his artist name, not kid mode.
-  p = jar(p, await studios(post('/api/studio/lee/device', p, { kid: 'grandpa-joe' }), {}));
+  p = jar(p, await studios(post('/api/studio/lee/device', p, { name: 'Grandpa Joe' }), {}));
   const s = await (await studios(req('/api/studio/lee', p), {})).json();
   assert.deepEqual(s.me.device, { name: 'Grandpa Joe', kid: null });
   // His Lego, in its own category, on his page.
@@ -261,7 +271,7 @@ test('a grown-up phone adds a category from the app; a kid-mode phone cannot', a
   const again = await (await studios(post('/api/studio/kim/cats', p, { name: 'awards', scan: false }), {})).json();
   assert.equal(again.studio.cats.length, 1, 'the same name twice is one category');
   let t = jar('', await studios(req(inv, ''), {}));
-  t = jar(t, await studios(post('/api/studio/kim/device', t, { kid: 'jo' }), {}));
+  t = await kidTablet('kim', p, t, 'Jo tablet', 'jo');
   assert.equal((await studios(post('/api/studio/kim/cats', t, { name: 'Lego' }), {})).status, 401);
   const bad = await (await studios(post('/api/studio/kim/cats', p, { name: 'Sports', icon: '<b>' }), {})).json();
   assert.equal(bad.cat.icon, '');

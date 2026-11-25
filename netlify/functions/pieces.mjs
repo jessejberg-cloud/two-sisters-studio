@@ -28,7 +28,7 @@ import { store } from '../lib/store.mjs';
 import { folder, putSmall, uploadAddress, hasDrive } from '../lib/drive.mjs';
 import { getStudio, getDevice, MAIN } from '../lib/studios.mjs';
 import { heads } from './studios.mjs';
-import { KID_KEYS, slug, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, pdfName, extOf, details, getPiece, savePiece, readIndex, check, short, sectionOf, dayKey, printName, studioOf, tagsOf } from '../lib/pieces.mjs';
+import { KID_KEYS, slug, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, pdfName, extOf, details, getPiece, savePiece, readIndex, check, short, sectionOf, dayKey, printName, studioOf, tagsOf, madeBy, allOf, KIDS } from '../lib/pieces.mjs';
 
 const json = (o, status = 200) => Response.json(o, { status, headers: { 'cache-control': 'no-store' } });
 const now = () => new Date().toISOString();
@@ -87,8 +87,8 @@ async function handle(req, context) {
     const section = url.searchParams.get('section') || 'art', kid = url.searchParams.get('kid');
     const idx = (await readIndex(context)).filter((p) => !p.deleted && !p.waiting);
     const list = section === 'moments' ? idx.filter((p) => sectionOf(p) === 'moments' && tagsOf(p).includes(askStudio))
-      : section === 'cat' ? idx.filter((p) => studioOf(p) === askStudio && sectionOf(p) === 'cat' && p.cat === url.searchParams.get('cat') && p.kid === kid)
-      : idx.filter((p) => studioOf(p) === askStudio && sectionOf(p) === (section === 'photos' ? 'photos' : 'art') && p.kid === kid);
+      : section === 'cat' ? idx.filter((p) => studioOf(p) === askStudio && sectionOf(p) === 'cat' && p.cat === url.searchParams.get('cat') && madeBy(p, kid))
+      : idx.filter((p) => studioOf(p) === askStudio && sectionOf(p) === (section === 'photos' ? 'photos' : 'art') && madeBy(p, kid));
     return json({ pieces: list.map(({ photos, ...p }) => ({ ...p, photos: photos.map(({ fp, ...ph }) => ph) })) });
   }
 
@@ -98,6 +98,8 @@ async function handle(req, context) {
     const kid = url.searchParams.get('kid');
     const guest = me.role === 'guest';
     if (guest && !mayView(me, MAIN)) return json({ error: 'page' }, 401);
+    // Waiting for a grown-up's OK (Jesse, 2026-11-25): shown at once, marked, to the family and the girls; hidden from links.
+    const seen = (p) => !p.deleted && (!p.waiting || family || (me.role === 'kid' && p.kid === me.kid));   // her own waiting ones, not her sister's
     let list;
     if (section === 'house') {
       if (guest) return json({ pieces: [] });
@@ -106,12 +108,12 @@ async function handle(req, context) {
       list = (await readIndex(context)).filter((p) => !p.deleted && !p.waiting && sectionOf(p) === 'house' && (!h || p.house === h));
     } else if (section === 'moments') {
       if (!family && !guest && !me.pages.includes('family-moments')) return json({ error: 'page' }, 401);
-      list = (await readIndex(context)).filter((p) => !p.deleted && !p.waiting && sectionOf(p) === 'moments' && tagsOf(p).includes(MAIN));
+      list = (await readIndex(context)).filter((p) => seen(p) && sectionOf(p) === 'moments' && tagsOf(p).includes(MAIN));
     } else {
       if (!KID_KEYS.includes(kid) || kid === 'both' || !['art', 'photos'].includes(section)) return json({ error: 'kid' }, 400);
       if (!family && !guest && !me.pages.includes(kid)) return json({ error: 'page' }, 401);
-      list = (await readIndex(context)).filter((p) => !p.deleted && !p.waiting && studioOf(p) === MAIN && sectionOf(p) === section
-        && (p.kid === kid || (section === 'art' && p.kid === 'both')));
+      list = (await readIndex(context)).filter((p) => seen(p) && studioOf(p) === MAIN && sectionOf(p) === section
+        && (p.kid === kid || (section === 'art' && madeBy(p, kid))));
     }
     return json({ pieces: list.map(({ photos, ...p }) => ({ ...p, photos: photos.map(({ fp, ...ph }) => ph) })) });
   }
@@ -188,14 +190,19 @@ async function handle(req, context) {
     const section = kidMe ? (b.section === 'moments' && me.moments ? 'moments' : b.section === 'art' ? 'art' : 'photos')
       : houseMe ? (b.section === 'moments' && b.event ? 'moments' : 'house')
       : (['art', 'photos', 'moments'].includes(b.section) ? b.section : 'art');
-    const p = { kid: kidMe ? me.kid : houseMe ? 'both' : b.kid, date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
+    const p = { ...(kidMe ? { kid: me.kid } : houseMe ? { kid: 'both' } : allOf(b.kid, b.kids, Object.keys(KIDS))), date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
     // A special day from a family phone: the whole family's, so kid 'both'; the day's own date.
     let day = null;
     if (!kidMe && section === 'moments' && b.event) {
       const title = String(b.event.title || '').trim().slice(0, 80), date = String(b.event.date || '');
       if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: 'bad', fields: ['event'] }, 400);
       day = { event: /^[a-z0-9-]{10,90}$/.test(b.event.key || '') ? b.event.key : dayKey(date, title), eventTitle: title, eventDate: date };
-      p.kid = 'both'; if (!p.date) p.date = date;
+      p.kid = 'both'; delete p.kids; if (!p.date) p.date = date;
+    }
+    // A girl may put her photo in a special day that is already on the page (never a new one); it still waits for the OK.
+    if (kidMe && section === 'moments' && b.event && typeof b.event.key === 'string') {
+      const known = (await readIndex(context)).find((x) => !x.deleted && x.event === b.event.key && sectionOf(x) === 'moments' && tagsOf(x).includes(MAIN));
+      if (known) day = { event: known.event, eventTitle: known.eventTitle, eventDate: known.eventDate };
     }
     if (section !== 'art' && section !== 'house' && p.kid === 'both' && !day) return json({ error: 'bad', fields: ['kid'] }, 400);
     const bad = check(p);
@@ -206,7 +213,7 @@ async function handle(req, context) {
     if (n > 1) id += '-' + n;
     const piece = { id, kid: p.kid, date: p.date, season: seasonOf(p.date), schoolYear: schoolYearOf(p.date), caption: String(b.caption || '').slice(0, 200),
       starred: !!b.starred, created: now(), updated: now(), deleted: null, photos: p.photos.map((ph) => ({ n: ph.n })),
-      section, waiting: kidMe, by: saver, ...(day || {}), ...who_ };
+      section, waiting: kidMe, by: saver, ...(day || {}), ...who_, ...(p.kids ? { kids: p.kids } : {}) };
     // Family Moment from Jesse's household: it can show in other studios too (the studio chips). His own by default.
     if (section === 'moments' && family && Array.isArray(b.studios)) {
       const tags = [];
@@ -332,10 +339,18 @@ async function handle(req, context) {
     const b = await req.json();
     if (typeof b.caption === 'string') p.caption = b.caption.slice(0, 200);
     if (typeof b.starred === 'boolean') p.starred = b.starred;
-    if (typeof b.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date)) {
-      p.date = b.date; p.season = seasonOf(b.date); p.schoolYear = schoolYearOf(b.date);
-      const st = sid === MAIN ? null : await getStudio(sid, context);
-      p.grade = p.kid === 'both' || sectionOf(p) === 'moments' ? '' : st ? gradeFor(p.kid, b.date, bases(st)) : gradeFor(p.kid, b.date);
+    const st = sid === MAIN ? null : await getStudio(sid, context);
+    // Whose and where (Recent, Jesse 2026-11-25): another artist, All, or Artwork <-> Snapshot. Family Moments and households stay put.
+    const keys = st ? (st.kids || []).map((k) => k.key) : Object.keys(KIDS);
+    if (typeof b.kid === 'string' && ['art', 'photos', 'cat'].includes(sectionOf(p)) && [...keys, 'both'].includes(b.kid)) {
+      if (b.kid === 'both' && sectionOf(p) === 'photos') return json({ error: 'bad', fields: ['kid'] }, 400);
+      const w = allOf(b.kid, b.kids, keys); p.kid = w.kid; if (w.kids) p.kids = w.kids; else delete p.kids;
+      if (st) { const k = (st.kids || []).find((x) => x.key === p.kid); if (k) p.kidName = k.name; else if (p.kid === 'both') p.kidName = 'All'; }
+    }
+    if (['art', 'photos'].includes(b.section) && ['art', 'photos'].includes(sectionOf(p)) && !(b.section === 'photos' && p.kid === 'both')) p.section = b.section;
+    if (typeof b.kid === 'string' || b.section || typeof b.date === 'string') {
+      if (typeof b.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date)) { p.date = b.date; p.season = seasonOf(b.date); p.schoolYear = schoolYearOf(b.date); }
+      p.grade = p.kid === 'both' || sectionOf(p) === 'moments' ? '' : st ? gradeFor(p.kid, p.date, bases(st)) : gradeFor(p.kid, p.date);
     }
   } else if (parts[1] === 'ok') {
     p.waiting = false;
@@ -358,9 +373,9 @@ async function startStudio(req, context, url, me, sid, dev, b, pend) {
   if (b.section === 'cat' && !cat) return json({ error: 'bad', fields: ['cat'] }, 400);
   const section = cat ? 'cat' : b.section === 'moments' ? 'moments' : b.section === 'photos' ? 'photos' : 'art';
   const kids = st.kids || [];
-  const p = { kid: section === 'moments' ? 'both' : b.kid, date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
+  const p = { ...(section === 'moments' ? { kid: 'both' } : allOf(b.kid, b.kids, kids.map((k) => k.key))), date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
   const bad = check(p, [...kids.map((k) => k.key), 'both']);
-  if (section !== 'moments' && p.kid === 'both' && !st.main) bad.push('kid');
+  if (section === 'photos' && p.kid === 'both') bad.push('kid');   // a snapshot is one artist's
   if (bad.length) return json({ error: 'bad', fields: bad }, 400);
   // Family Moment: the studios it shows in. Own studio first; any other real studio may be ticked. Never another studio's kid pages.
   let tags = null, day = null;
@@ -384,7 +399,7 @@ async function startStudio(req, context, url, me, sid, dev, b, pend) {
   const piece = { id, kid: p.kid, date: p.date, season: seasonOf(p.date), schoolYear: schoolYearOf(p.date), caption: String(b.caption || '').slice(0, 200),
     starred: !!b.starred && section === 'art', created: now(), updated: now(), deleted: null, photos: p.photos.map((ph) => ({ n: ph.n })),
     section, waiting: false, by: dev, dev: dev.slice(2), byName: device?.name || '', ...(day || {}),
-    ...(st.main ? {} : { studio: sid }), ...(tags ? { studios: tags } : {}), ...(kid && !st.main ? { kidName: kid.name } : {}), ...(cat ? { cat: cat.key, catName: cat.name } : {}), ...(drive ? {} : { noDrive: true }) };
+    ...(st.main ? {} : { studio: sid }), ...(tags ? { studios: tags } : {}), ...(kid && !st.main ? { kidName: kid.name } : p.kid === 'both' && !st.main && section !== 'moments' ? { kidName: 'All' } : {}), ...(p.kids ? { kids: p.kids } : {}), ...(cat ? { cat: cat.key, catName: cat.name } : {}), ...(drive ? {} : { noDrive: true }) };
   piece.grade = section === 'moments' || p.kid === 'both' ? '' : st.main ? gradeFor(p.kid, p.date) : gradeFor(p.kid, p.date, bases(st));
   const uploads = [];
   if (drive) {

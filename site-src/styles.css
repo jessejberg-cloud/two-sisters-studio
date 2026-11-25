@@ -849,3 +849,85 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .share-choice { min-height: 56px; padding: 10px 18px; text-align: left; font: 800 1.15rem var(--body); color: var(--ink); background: #fff;
   border: 3px solid var(--ink); border-radius: var(--wobble); box-shadow: 4px 4px 0 var(--ink); cursor: pointer; }
 .share-choice:hover, .share-choice:focus-visible { background: var(--yellow-soft); }
+
+/* ---------- Ease of use (Jesse, 2026-11-25) ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* Brush marks instead of pills: the word, with an imperfect stroke of color behind it when picked. */
+.mark, .filters .chip, .filter-toggle, .tag-chips .chip {
+  position: relative; isolation: isolate; min-height: 48px; padding: 8px 12px; font: 700 1.15rem var(--hand); color: var(--ink);
+  background: none; border: 0; box-shadow: none; border-radius: 0; cursor: pointer; transform: none;
+}
+.mark::before, .filters .chip::before, .filter-toggle::before, .tag-chips .chip::before {
+  content: ''; position: absolute; z-index: -1; left: 2px; right: 0; top: 24%; bottom: 16%; background: var(--brush, #ffe08a);
+  border-radius: 46% 12% 38% 18% / 60% 30% 70% 40%; transform: rotate(-1.5deg) skewX(-6deg); opacity: 0; transition: opacity .2s;
+}
+.mark { text-decoration: underline 2px; text-underline-offset: 6px; text-decoration-color: rgba(0, 0, 0, .25); }
+.mark[aria-pressed="true"], .filters .chip[aria-pressed="true"], .tag-chips .chip[aria-pressed="true"] { background: none; transform: none; text-decoration: none; }
+.mark[aria-pressed="true"]::before, .filters .chip[aria-pressed="true"]::before, .tag-chips .chip[aria-pressed="true"]::before,
+.filter-toggle::before, #waiting-ok::before, .wait-item .mark::before { opacity: .9; }
+.filters .chip:nth-child(3n+2)::before, .mark:nth-child(3n+2)::before { --brush: #bfe3d0; transform: rotate(1.2deg) skewX(5deg); border-radius: 18% 44% 14% 40% / 40% 70% 30% 60%; }
+.filters .chip:nth-child(3n+3)::before, .mark:nth-child(3n+3)::before { --brush: #f9c6c0; transform: rotate(-.6deg) skewX(-3deg); }
+.filters .chips { gap: 4px 10px; }
+@media (prefers-reduced-motion: reduce) { .mark::before, .filters .chip::before { transition: none; } }
+
+/* App first screen: one block per artist, All under them (same width), then a row of hand-drawn icons (no circles). */
+.all-button .big-icon svg { width: 56px; }
+.up-icons { display: flex; justify-content: space-around; gap: 8px; margin: 26px 0 0; flex-wrap: wrap; }
+.icon-link { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 72px; min-height: 72px; padding: 6px 4px;
+  background: none; border: 0; font: 700 1.05rem var(--hand); color: var(--ink); text-decoration: none; cursor: pointer; }
+.icon-link svg { width: 44px; height: 44px; }
+.icon-link[hidden] { display: none; }
+.icon-link .dot-heads { position: absolute; top: 4px; right: 12px; }
+.shared-note { font: 700 1.3rem var(--hand); text-align: center; margin: 0 0 10px; }
+#s-kid .waiting-bar { display: block; }
+.wait-list { list-style: none; display: flex; flex-wrap: wrap; gap: 12px; padding: 0; margin: 8px 0; }
+.wait-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.wait-item img { width: 88px; height: 88px; object-fit: cover; border: 3px solid var(--ink); border-radius: var(--wobble); background: #fff; }
+.all-ticks { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: -6px 0 16px; }
+.all-ticks .mark { font-size: 1.35rem; }
+
+/* Take a photo stays big; Choose photos is smaller, outlined, under it (still 48px+). */
+.up-add { grid-template-columns: 1fr; }
+.small-pick { position: relative; display: grid; place-items: center; min-height: 56px; padding: 6px 12px; font: 700 1.15rem var(--hand); cursor: pointer;
+  background: transparent; border: 3px solid var(--ink); border-radius: var(--wobble-lg); justify-self: center; width: min(100%, 320px); }
+.small-pick input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.small-pick:focus-within { outline: 4px dashed var(--plum); outline-offset: 4px; }
+body.kid-mode:not(.in-app) .small-pick.pick-choose { min-height: 140px; font-size: 1.6rem; width: 100%; background: var(--c-soft, #fff); }
+
+/* Her tablet: one camera + one gallery, only Turn and Send (Jesse, 2026-11-25). */
+body.kid-mode #cam-open, body.kid-mode .more-photo, body.kid-mode .item-text input[type="text"] { display: none !important; }
+.sent-list { list-style: none; display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; padding: 0; margin: 14px 0; }
+.sent { position: relative; display: flex; flex-direction: column; align-items: center; }
+.sent img { width: 120px; height: 120px; object-fit: cover; border: 3px solid var(--ink); border-radius: var(--wobble); background: #fff; }
+.wait-mark { position: relative; isolation: isolate; font: 700 1.05rem var(--hand); padding: 2px 8px; margin-top: 4px; }
+.wait-mark::before { content: ''; position: absolute; z-index: -1; inset: 18% -2px 10% 0; background: #ffe08a; border-radius: 46% 12% 38% 18% / 60% 30% 70% 40%; transform: rotate(-2deg) skewX(-6deg); }
+body.kid-mode .vid-only { display: none !important; }
+.wait-mark.wait-on { position: absolute; left: 8px; bottom: 8px; z-index: 1; }
+.art-look { display: flex; justify-content: center; margin-top: 18px; }
+.whose-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; }
+.whose-row select { min-height: 48px; font: 600 1.05rem var(--body); border: 3px solid var(--ink); border-radius: 12px; background: #fff; padding: 4px 8px; }
+.ww-label { font-weight: 800; }
+
+/* Artist icons: a small button showing the icon; a tap opens the eight. */
+.icon-pick { position: relative; }
+.icon-now { display: grid; place-items: center; width: 52px; height: 52px; background: none; border: 0; cursor: pointer; padding: 0; }
+.icon-now svg, .icon-row svg { width: 40px; height: 40px; }
+.icon-row { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 0; }
+.icon-row[hidden] { display: none; }
+.icon-row button { display: grid; place-items: center; width: 52px; height: 52px; background: none; border: 0; cursor: pointer; position: relative; isolation: isolate; }
+.icon-row button[aria-pressed="true"]::before { content: ''; position: absolute; z-index: -1; inset: 6px; background: #ffe08a; border-radius: 46% 22% 38% 28% / 60% 30% 70% 40%; transform: rotate(-4deg); }
+.st-kid:not(.st-cat):has(.icon-pick) { grid-template-columns: 52px minmax(0, 1fr) minmax(0, 1fr); align-items: center; }
+.st-kid:not(.st-cat):has(.icon-pick) > .icon-pick { grid-column: 1; grid-row: 1 / span 2; align-self: start; width: 52px; }
+.st-kid:not(.st-cat):has(.icon-pick) > input { grid-column: 2 / -1; }
+.st-kid:not(.st-cat):has(.icon-pick) > .st-kind { grid-column: 2; }
+.st-kid:not(.st-cat):has(.icon-pick) > .st-grade { grid-column: 3; }
+.st-kid.no-grade:not(.st-cat):has(.icon-pick) > .st-kind { grid-column: 2 / -1; }
+.start .st-kid:not(.st-cat):has(.icon-pick) { grid-template-columns: 52px minmax(0, 1fr) 8em; }
+.start .st-kid:not(.st-cat):has(.icon-pick) > input { grid-column: 2; }
+.start .st-kid:not(.st-cat):has(.icon-pick) > .st-kind { grid-column: 3; }
+.start .st-kid:not(.st-cat):has(.icon-pick) > .st-grade { grid-column: 2 / -1; }
+.start .st-kid.no-grade:has(.icon-pick) > .st-kind { grid-column: 3; }
+.icon-row { position: absolute; z-index: 5; top: 54px; left: 0; width: 232px; background: var(--paper, #fdf8ef); border: 3px solid var(--ink); border-radius: var(--wobble); padding: 6px; }
+.big-button .big-icon svg, .tab .tab-icon svg { max-width: 100%; }
+/* Setup: the back arrow and links big enough to tap. */
+.st-nav .linkish, .start [data-back] { min-width: 48px; min-height: 48px; font-size: 1.4rem; }

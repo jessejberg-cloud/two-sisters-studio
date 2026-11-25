@@ -18,11 +18,12 @@ export default async (req, context) => {
   if (viaKeys) { if (p.deleted || p.waiting) return new Response('Not found', { status: 404 }); }
   else if (sid !== 'main' && me.role !== 'family') return new Response('Not found', { status: 404 });
   else if (me.role !== 'family') {
-    const kids = p.kid === 'both' ? ['leora', 'amaya'] : [p.kid];
+    const kids = p.kid === 'both' ? (Array.isArray(p.kids) ? p.kids : ['leora', 'amaya']) : [p.kid];
     const allowed = p.section === 'moments' ? me.pages.includes('family-moments')
       : p.section === 'house' ? me.role === 'house' && p.house === me.house      // a household's own page: theirs and the family's only
       : kids.some((k) => me.pages.includes(k));
-    if (p.deleted || p.waiting || !allowed) return new Response('Not found', { status: 404 });
+    // Waiting for an OK: the girls' tablets see it, marked (Jesse, 2026-11-25); links and households do not.
+    if (p.deleted || (p.waiting && !(me.role === 'kid' && p.kid === me.kid)) || !allowed) return new Response('Not found', { status: 404 });
   }
   if (size === 'pdf') {
     const pdf = await store('images', context).getWithMetadata(pdfName(id, +n), { type: 'arrayBuffer' });

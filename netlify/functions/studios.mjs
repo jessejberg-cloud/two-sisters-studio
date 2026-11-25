@@ -230,8 +230,8 @@ async function handle(req, context) {
     const d = dk && (await getDevice(dk.d, context));
     if (!d) return json({ ok: false, error: 'device' }, 401);
     const b = await req.json().catch(() => ({}));
-    const kid = (s.kids || []).find((k) => k.key === b.kid && kindOf(k) !== 'pet');
-    d.name = clean(kid ? kid.name : b.name, 30) || d.name; d.kid = kid && kindOf(kid) === 'kid' ? kid.key : null;   // a grown-up artist: just the name d.named = new Date().toISOString();
+    // A phone names itself; every grown-up is just an adult (Jesse, 2026-11-25). A kid's tablet is set on For parents (PIN).
+    d.name = clean(b.name, 30) || d.name; d.named = new Date().toISOString();
     await putDevice(d, context);
     const { token, keys } = await keysAfter(req, { t: 'd', s: s.slug, d: d.id }, context);
     const h = new Headers(); keyCookies(h, token, keys);

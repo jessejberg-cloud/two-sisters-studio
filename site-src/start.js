@@ -17,6 +17,7 @@
   function kidRow() {
     var li = $('#st-kid').content.firstElementChild.cloneNode(true), kind = li.querySelector('.st-kind'), grade = li.querySelector('.st-grade');
     kind.addEventListener('change', function () { grade.hidden = kind.value !== 'kid'; li.classList.toggle('no-grade', grade.hidden); });
+    if (window.TSS_ICONS) li.insertBefore(TSS_ICONS.picker(li, {}, $('#st-kids').children.length), li.firstChild);   // optional; by order when not picked
     $('#st-kids').append(li); return li;
   }
   kidRow();
@@ -56,7 +57,7 @@
     var name = $('#st-name').value.trim();
     var kids = Array.prototype.map.call(document.querySelectorAll('#st-kids .st-kid'), function (li) {
       var kind = li.querySelector('.st-kind').value;
-      return { name: li.querySelector('input').value.trim(), kind: kind, grade: kind === 'kid' ? li.querySelector('.st-grade').value : '' };
+      return { name: li.querySelector('input').value.trim(), kind: kind, grade: kind === 'kid' ? li.querySelector('.st-grade').value : '', icon: li.dataset.icon || undefined };
     }).filter(function (k) { return k.name; });
     var color = (document.querySelector('input[name="st-color"]:checked') || {}).value || 'sky';
     var skipped = []; if (!name) skipped.push('name'); if (!kids.length) skipped.push('kids');

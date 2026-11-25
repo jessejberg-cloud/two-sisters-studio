@@ -25,7 +25,7 @@ export const GRADES = ['Pre-K', 'K4', 'K5', '1st grade', '2nd grade', '3rd grade
 // Addresses a studio can never take: every page and function of the site, and the root studio's own pages.
 export const RESERVED = new Set(['', MAIN, 'api', 's', 'i', 'v', 'img', 'assets', 'upload', 'login', 'logout', 'parent', 'for-parents',
   'studio', 'start', 'moments', 'family-moments', 'family-moment', 'households', 'pet-parents', 'robots', 'robots.txt',
-  'favicon.ico', 'styles.css', 'main.js', 'parent.js', 'studio.js', '404', 'new', 'admin', 'www', 'app', 'help', 'site', 'share', 'shared', 'shared.js', 'start.js',
+  'favicon.ico', 'styles.css', 'main.js', 'parent.js', 'studio.js', '404', 'new', 'admin', 'www', 'app', 'help', 'site', 'share', 'shared', 'shared.js', 'start.js', 'icons.js',
   ...site.kids.map((k) => k.key)]);
 // Pages inside a studio, after /<slug>/: its kids, its Family Moment page, its For parents page.
 export const STUDIO_PAGES = ['family-moment', 'for-parents'];
@@ -68,6 +68,8 @@ export async function listStudios(context) {
 // Who may do what comes from the phone (kid mode) and the PIN, never from the artist.
 export const KINDS = ['kid', 'adult', 'pet'];
 export const kindOf = (k) => (KINDS.includes(k?.kind) ? k.kind : 'kid');
+// The hand-drawn icons an artist may pick (Jesse, 2026-11-25; drawn by tools/build.cjs ARTIST_ICONS). None: one by order.
+export const ARTIST_ICONS = ['palette', 'crayon', 'star', 'rocket', 'flower', 'dino', 'ball', 'paw'];
 export function cleanKids(list, old = []) {
   const out = [], used = new Set();
   for (const k of Array.isArray(list) ? list.slice(0, 16) : []) {
@@ -79,8 +81,9 @@ export function cleanKids(list, old = []) {
     used.add(key);
     const kind = KINDS.includes(k.kind) ? k.kind : 'kid';
     const grade = kind === 'kid' && GRADES.includes(k.grade) ? k.grade : '';
+    const icon = ARTIST_ICONS.includes(k.icon) ? k.icon : (prev && ARTIST_ICONS.includes(prev.icon) && !('icon' in k) ? prev.icon : '');
     out.push({ key, name, kind, color: COLORS.includes(k.color) ? k.color : COLORS[out.length % COLORS.length], grade,
-      schoolYear: grade ? (prev && prev.grade === grade ? prev.schoolYear : schoolYearNow()) : '' });
+      schoolYear: grade ? (prev && prev.grade === grade ? prev.schoolYear : schoolYearNow()) : '', ...(icon ? { icon } : {}) });
   }
   return out;
 }
@@ -184,6 +187,6 @@ export async function checkPin(s, pin) { return !!s?.pin && checkPassword(String
 
 // What every page may know about a studio (never its secrets).
 export const pubStudio = (s) => ({ slug: s.slug, name: s.name, color: s.color, main: !!s.main, href: s.main ? '/' : '/' + s.slug + '/',
-  kids: (s.kids || []).map((k) => ({ key: k.key, name: k.name, kind: kindOf(k), color: k.color, grade: k.grade, schoolYear: k.schoolYear })),
+  kids: (s.kids || []).map((k) => ({ key: k.key, name: k.name, kind: kindOf(k), color: k.color, grade: k.grade, schoolYear: k.schoolYear, icon: k.icon || '' })),
   cats: s.main ? [] : (s.cats || []).map((c) => ({ key: c.key, name: c.name, scan: !!c.scan, icon: c.icon || '' })),
   drive: !!s.drive, pages: s.pages || null });

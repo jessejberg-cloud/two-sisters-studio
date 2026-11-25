@@ -31,6 +31,18 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const niceDate = (iso) => { const [y, m, d] = iso.split('-').map(Number); return `${MONTHS[m - 1]} ${d}, ${y}`; };
 const listWords = (xs) => xs.length < 2 ? (xs[0] || '') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1];
 const KIDS = site.kids;
+// An artist's own icon (Jesse, 2026-11-25): picked in setup or on For parents from these, all hand-drawn. Same list as
+// ARTIST_ICONS in netlify/lib/studios.mjs. Pages that draw artists get them as JSON (#artist-icons).
+const ARTIST_SVG = {
+  palette: null, crayon: null,   // filled in from ICONS below
+  star: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20.2,4.6 L24.6,14.6 L35.2,15.4 L27.2,22.6 L29.8,33.4 L20,27.6 L10.4,33.6 L12.8,22.8 L4.8,15.6 L15.6,14.4 Z" fill="#ffd166" stroke="currentColor" stroke-width="2.8" stroke-linejoin="round"/></svg>',
+  rocket: '<svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"><path d="M20.4,4.4 C27.4,9.6 28.4,18.4 25.4,27.2 L15.2,27.4 C12.2,18.6 13.4,9.8 20.4,4.4 Z" fill="#5fa8d3"/><path d="M15.2,22.4 L9.6,28.6 L15.4,28.2 M25.4,22.2 L30.8,28.4 L25.2,28" fill="#f4978e"/><path d="M17.6,31 L20.2,36.4 L22.8,31" fill="#ffd166"/><path d="M20.3,12.6 C22.4,12.7 22.5,16.2 20.2,16.2 C18,16.1 18.2,12.6 20.3,12.6 Z" fill="#fff"/></g></svg>',
+  flower: '<svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"><path d="M20,24 L20.4,37.2 M20.2,31.6 C16.4,28.6 13,29.6 12.2,30.6 C15.6,33.4 18.2,32.8 20.2,31.6" fill="#8fd3b6"/><path d="M20.2,5 C24.4,5.2 24.6,10.4 21.6,12.6 C26,10 30.6,12.6 28.6,16.4 C27.2,18.8 23.8,18.6 22.4,17.4 C25.4,20.2 23.6,24.6 20,24.2 C16.2,24 15.2,20.2 17.6,17.6 C15,19.8 10.8,18.4 11.2,15 C11.6,11.6 16,10.8 18.6,12.6 C15.8,10 16.4,4.8 20.2,5 Z" fill="#f4978e"/><path d="M20.1,13.4 C22,13.5 22.1,16.6 20,16.6 C18,16.5 18.2,13.3 20.1,13.4 Z" fill="#ffd166"/></g></svg>',
+  dino: '<svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"><path d="M4.6,30.4 C9.6,30.8 11.6,27 12.4,22.6 C13.4,16.4 18,14.2 23.4,15.6 L24.6,9.8 C25.4,6 31.8,5.4 33.6,8.8 C35,11.6 33,14.4 29.8,14.6 L28.8,20.8 C29.6,26 27.6,30.6 23.2,31.8 L23.4,35.4 L19.4,35.6 L19.2,32.4 L15.4,32.6 L15.6,35.6 L11.6,35.8 L11.4,32.8 C9,33.4 6.6,32.8 4.6,30.4 Z" fill="#8fd3b6"/><path d="M29.4,9.4 L29.6,9.6"/></g></svg>',
+  ball: '<svg viewBox="0 0 40 40" aria-hidden="true"><g stroke="currentColor" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round" fill="none"><path d="M20.4,5 C29,5.2 35.2,11.8 34.8,20.6 C34.4,29 27.6,35.2 19.6,35 C11,34.6 4.8,27.8 5.2,19.6 C5.6,11 12.2,4.8 20.4,5 Z" fill="#ffd166"/><path d="M6.6,14.6 C14,17.4 26,17.2 33.6,13.6 M6.2,25.6 C14.6,22.6 26.2,22.8 34,26.2 M20.2,5.2 C14.8,13 14.8,27 20,34.8"/></g></svg>',
+  paw: null,
+};
+
 const kidByKey = Object.fromEntries(KIDS.map((k) => [k.key, k]));
 const cohost = kidByKey[site.podcastCohost] || KIDS[0];
 // Every tab: one per kid, then the extra sections. Add a tab by adding a line to content/site.json.
@@ -91,6 +103,11 @@ const ICONS = {
   crayon: '<svg viewBox="0 0 40 40" aria-hidden="true"><g transform="rotate(-45 20 20)" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><path d="M2,15 L28,15 L28,25 L2,25 Z" fill="#c3b1e1"/><path d="M28,15 L38,20 L28,25 Z" fill="#7d4e9e"/><path d="M8,15 L8,25 M12,15 L12,25 M20,15 L20,25 M24,15 L24,25" fill="none" stroke-width="2"/></g></svg>',
   stars: '<svg viewBox="0 0 48 40" aria-hidden="true"><g stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"><path d="M15,4 L18.6,12.4 L27.6,13.2 L20.8,19.2 L22.9,28 L15,23.3 L7.1,28 L9.2,19.2 L2.4,13.2 L11.4,12.4 Z" fill="#ffd166"/><path d="M35,14 L37.6,20 L44,20.6 L39.2,24.9 L40.6,31.2 L35,27.9 L29.4,31.2 L30.8,24.9 L26,20.6 L32.4,20 Z" fill="#f4978e"/></g></svg>',
   heart: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M20,34 C12,28 4,22 4,14 C4,8.5 8.2,5 12.6,5 C16,5 18.6,7 20,9.6 C21.4,7 24,5 27.4,5 C31.8,5 36,8.5 36,14 C36,22 28,28 20,34 Z" fill="#f4978e" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/></svg>',
+  // The app's first screen (Jesse, 2026-11-25): hand-drawn line icons, no circles.
+  clock: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5,5 C29.5,5.4 35.6,12 35,20.8 C34.4,29.4 27.6,35.4 19.4,35 C10.8,34.5 4.6,27.6 5.1,19.6 C5.6,11.2 12,4.6 20.5,5 Z"/><path d="M20,11.5 L20.4,21 L26.8,24.6"/></g></svg>',
+  lock: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M13,18 L12.6,12.4 C12.8,7.6 16.2,4.8 20.2,4.9 C24.4,5 27.4,8 27.3,12.6 L27.2,18"/><path d="M8.4,18.3 L31.8,17.8 L31.2,35 L9,35.4 Z" fill="#8fd3b6"/><path d="M20.2,24.4 L20,29"/></g></svg>',
+  mic2: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M15,9.5 C15,3.8 25.4,3.6 25.2,9.6 L25.4,19.6 C25.2,25 15.2,25.4 15.1,19.4 Z" fill="#c3b1e1"/><path d="M9.4,18.6 C9.8,26.4 14,30 20.2,29.8 C26.4,29.6 30.4,26 30.8,18.4"/><path d="M20.2,30 L20,35.6 M14.2,35.8 L26,35.4"/></g></svg>',
+  house: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M10.4,17.4 L10.2,34.4 L30.2,34.8 L29.8,17"/><path d="M5.4,20.2 L20.2,6.8 L34.8,20.6"/><path d="M16.8,34.6 L17,25.4 L23.4,25.2 L23.2,34.4" fill="#ffd166"/></g></svg>',
   mic: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><rect x="14" y="4" width="12" height="20" rx="6"/><path d="M9,18 Q9,29 20,29 Q31,29 31,18"/><path d="M20,29 L20,36 M14,36 L26,36"/></g></svg>',
 };
 
@@ -121,7 +138,7 @@ const homeGuide = () => `<dialog class="guide" id="guide" aria-label="Add to Hom
   <p><button type="button" class="btn-big guide-skip">Skip</button></p>
 </dialog>`;
 
-function page({ key, title, body, section, bodyClass, csp = CSP_SELF, tabs = true, scripts = [], pre = [] }) {
+function page({ key, title, body, section, bodyClass, csp = CSP_SELF, tabs = true, scripts = [], pre = [], head = '', footer = true }) {
   const fullTitle = title ? `${title} · ${site.siteName}` : site.siteName;
   const current = section || key;
   // The small ＋ on every page (Jesse, 2026-11-25): opens the app on the right screen for this page. main.js shows it
@@ -157,6 +174,7 @@ function page({ key, title, body, section, bodyClass, csp = CSP_SELF, tabs = tru
 <link rel="preload" href="${asset('fonts/kalam-latin-700-normal.woff2')}" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="${asset('fonts/nunito-latin-600-normal.woff2')}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/styles.css?v=${cssHash()}">
+${head}
 ${pre.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).join('\n')}
 <script src="/main.js?v=${jsHash()}" defer></script>
 ${scripts.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).join('\n')}
@@ -172,11 +190,11 @@ ${body}
 </main>
 ${fab}
 ${tabs ? homeGuide() : ''}
-<footer class="site-footer">
+${footer ? `<footer class="site-footer">
   <div class="paw-trail" aria-hidden="true">${ICONS.paw.repeat(5)}</div>
   <p>Made with love (and crayons) by the ${esc(site.siteName)} crew.</p>
   <p class="foot-parent"><a class="linkish" href="/parent/">For parents</a></p>
-</footer>
+</footer>` : ''}
 </body>
 </html>
 `;
@@ -549,10 +567,12 @@ const lightboxTpl = `<dialog class="lightbox" aria-label="Photo">
 // Category ideas (Jesse, 2026-11-25): each comes with its template: 📄 paper gets the scan fix, the rest are plain photos.
 const CAT_IDEAS = [{ name: 'School papers', icon: '📄', scan: true }, { name: 'Awards', icon: '🏅', scan: true }, { name: 'Stories', icon: '📝', scan: true },
   { name: 'Lego and builds', icon: '🧱', scan: false }, { name: 'Crafts', icon: '✂️', scan: false }, { name: 'Sports', icon: '⚽', scan: false }];
+ARTIST_SVG.palette = ICONS.palette; ARTIST_SVG.crayon = ICONS.crayon; ARTIST_SVG.paw = ICONS.paw.replace('fill="currentColor"', 'fill="#b07d56"');
+const artistIconsJson = `<script type="application/json" id="artist-icons">${JSON.stringify(ARTIST_SVG).replace(/</g, '\\u003c')}</script>`;
 const ideasJson = `<script type="application/json" id="cat-ideas">${JSON.stringify(CAT_IDEAS)}</script>`;
 const swatches = (name) => ['coral', 'lav', 'mint', 'yellow', 'sky'].map((c, i) => `<label class="swatch c-${c}"><input type="radio" name="${name}" value="${c}"${i === 4 ? ' checked' : ''}><span class="sr">${c}</span></label>`).join('');
 pages['studio/index.html'] = page({
-  key: 'studio', title: '', tabs: false, pre: ['studio.js'],
+  key: 'studio', title: '', tabs: false, pre: ['icons.js', 'studio.js'], head: artistIconsJson,
   body: `<div id="studio-root"><p class="loading">…</p></div>
 <template id="tpl-home"><section class="welcome"><h1 class="hero-logo studio-name"></h1><ul class="big-buttons" id="studio-buttons"></ul></section></template>
 <template id="tpl-kid"><div class="page-head"><h1 class="studio-kid-h"></h1></div>
@@ -580,10 +600,10 @@ ${lightboxTpl}</template>
     <p class="share-help">Links never end. New link stops the old one; the other link keeps working.</p>
   </section>
   <section class="parent-card wobbly" id="shared-card"><h2>Shared pictures</h2><p class="share-help">Links to one picture or one day. Anyone with the link sees just that.</p><ul class="link-list" id="shared-list"><li class="muted">None yet.</li></ul></section>
-  <section class="parent-card wobbly"><h2>Phones</h2><p class="share-help">A kid's name hides Put away and For parents on that phone.</p><ul class="link-list" id="phone-list"></ul></section>
-  <section class="parent-card wobbly" id="kids-card"><h2>Artists</h2><p class="share-help">Kids, grown-ups or pets. Only kids have a grade.</p><ul class="kid-edit" id="kid-list"></ul>
+  <section class="parent-card wobbly"><h2>Phones</h2><ul class="link-list" id="phone-list"></ul></section>
+  <section class="parent-card wobbly" id="kids-card"><h2>Artists</h2><ul class="kid-edit" id="kid-list"></ul>
     <p><button type="button" class="chip" id="kid-add">＋ Add</button> <button type="button" class="btn-big" id="kids-save">Save</button></p><p class="share-help" id="kids-msg" role="status"></p></section>
-  <section class="parent-card wobbly" id="cats-card"><h2>Categories</h2><p class="share-help">Beside Artwork, Snapshots and Family Moments. 📄 Paper gets the scan fix. 📷 Photo stays a plain picture.</p><ul class="kid-edit" id="cat-list"></ul>
+  <section class="parent-card wobbly" id="cats-card"><h2>Categories</h2><ul class="kid-edit" id="cat-list"></ul>
     <p><button type="button" class="chip" id="cat-add">＋ Add</button> <button type="button" class="btn-big" id="cats-save">Save</button></p><p class="share-help" id="cats-msg" role="status"></p></section>
   <section class="parent-card wobbly"><h2>Name</h2><div class="pw-row"><label>Studio <input type="text" id="studio-name" maxlength="40"></label><button type="button" class="chip" id="name-save">Save</button></div>
     <h2>Color</h2><div class="swatches" id="look">${swatches('look')}</div><p class="share-help" id="look-msg" role="status"></p></section>
@@ -598,18 +618,16 @@ ${lightboxTpl}</template>
 const gradeOptions = ['', 'Pre-K', 'K4', 'K5', '1st grade', '2nd grade', '3rd grade', '4th grade', '5th grade', '6th grade', '7th grade', '8th grade', '9th grade', '10th grade', '11th grade', '12th grade']
   .map((g) => `<option value="${esc(g)}">${g ? esc(g) : 'Grade'}</option>`).join('');
 pages['start/index.html'] = page({
-  key: 'start', title: '', tabs: false, scripts: ['start.js'],
+  key: 'start', title: '', tabs: false, scripts: ['icons.js', 'start.js'], head: artistIconsJson, footer: false,
   body: `<div class="start">
   <section class="step" data-step="1">
     <label class="st-label">Studio <input type="text" id="st-name" maxlength="40" autocomplete="off" enterkeyhint="next"></label>
     <p class="st-label">Artists</p>
-    <p class="share-help st-help">Kids, grown-ups or pets.</p>
     <ul class="st-kids" id="st-kids"></ul>
-    <template id="st-kid"><li class="st-kid"><input type="text" maxlength="30" autocomplete="off" aria-label="Name"><select aria-label="Who" class="st-kind"><option value="kid">Kid</option><option value="adult">Grown-up</option><option value="pet">Pet</option></select><select aria-label="Grade" class="st-grade">${gradeOptions}</select></li></template>
+    <template id="st-kid"><li class="st-kid"><input type="text" maxlength="30" autocomplete="off" aria-label="Name" placeholder="Name"><select aria-label="Who" class="st-kind"><option value="kid">Kid</option><option value="adult">Grown-up</option><option value="pet">Pet</option></select><select aria-label="Grade" class="st-grade">${gradeOptions}</select></li></template>
     <p><button type="button" class="linkish st-more" id="st-more">＋ Add someone</button></p>
     <p><button type="button" class="linkish st-more" id="st-cats-open" aria-expanded="false">＋ Categories (optional)</button></p>
     <div class="st-cats-box" id="st-cats-box" hidden>
-      <p class="share-help">Artwork, Snapshots and Family Moments are there already. Tap to add more.</p>
       <div class="idea-chips" id="st-ideas"></div>
       <div class="own-row"><input type="text" id="st-own" maxlength="30" autocomplete="off" placeholder="Your own" aria-label="Your own category"><label class="paper-q"><input type="checkbox" id="st-own-paper"> On paper</label><button type="button" class="linkish" id="st-own-add">Add</button></div>
     </div>
@@ -838,6 +856,8 @@ pages['upload/index.html'] = `<!doctype html>
 <link rel="apple-touch-icon" href="${asset('brand/app-192.png')}">
 <link rel="stylesheet" href="/styles.css?v=${cssHash()}">
 <script type="application/json" id="cfg">${JSON.stringify(uploadCfg).replace(/</g, '\\u003c')}</script>
+${artistIconsJson}
+<script src="/icons.js?v=${fileHash('icons.js')}" defer></script>
 <script src="/upload/app.js?v=${upJs()}" defer></script>
 </head>
 <body class="up">
@@ -845,23 +865,31 @@ pages['upload/index.html'] = `<!doctype html>
   <section class="screen" id="s-kid">
     <h1 class="up-h">${logo(false)}</h1>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
-    <div class="outbox wobbly waiting-bar" id="waiting-bar" hidden><p id="waiting-text"></p><button type="button" class="chip" id="waiting-ok">✓ OK all</button> <a class="linkish" href="/parent/">Look first</a></div>
+    <div class="outbox wobbly waiting-bar" id="waiting-bar" hidden><p id="waiting-text"></p><ul class="wait-list" id="wait-list"></ul><button type="button" class="mark" id="waiting-ok">✓ OK all</button></div>
+    <p class="shared-note" id="shared-note" hidden></p>
     <!-- Home (build spec, 2026-11-25): one big button per kid, then Family Moments. Drawn by app.js from the studio. -->
     <div class="up-kids up-what" id="home-buttons">
       ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-home="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
+      <button type="button" class="big-button wobbly c-yellow all-button" data-home="both"><span class="big-icon">${ICONS.stars}</span><span class="big-label">All</span></button>
     </div>
-    <p class="up-extra" id="home-extra"><button type="button" class="chip" data-what="both">🤝 Both</button> <button type="button" class="chip" data-what="episode">🎙️ Podcast</button></p>
-    <p class="up-more"><a class="chip" id="home-site" href="/">🏠 Site</a> <button type="button" class="chip" id="recent">🕘 Recent</button> <button type="button" class="chip" id="quick-toggle" aria-pressed="false" title="Open on the camera">⚡ Quick</button> <a class="chip" id="home-parents" href="/parent/">🔒 Parents<span class="dot-heads" id="heads-dot" hidden></span></a></p>
+    <!-- Jesse, 2026-11-25: actions as hand-drawn icons, no circles; Quick is gone (the Android hold-icon shortcut stays). -->
+    <nav class="up-icons" aria-label="More">
+      <button type="button" class="icon-link" id="recent">${ICONS.clock}<span>Recent</span></button>
+      <button type="button" class="icon-link" data-what="episode">${ICONS.mic2}<span>Podcast</span></button>
+      <a class="icon-link" id="home-site" href="/">${ICONS.house}<span>Site</span></a>
+      <a class="icon-link" id="home-parents" href="/parent/">${ICONS.lock}<span>Parents</span><span class="dot-heads" id="heads-dot" hidden></span></a>
+    </nav>
   </section>
 
   <section class="screen" id="s-pick" hidden>
     <p><button type="button" class="linkish" id="pick-back">← Back</button></p>
     <h1 class="up-h2" id="pick-who"></h1>
+    <div class="all-ticks" id="all-ticks" hidden></div>
     <div class="up-kids up-what">
       <button type="button" class="big-button wobbly c-coral" data-pick="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Artwork</span></button>
-      <button type="button" class="big-button wobbly c-mint" data-pick="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot</span></button>
+      <button type="button" class="big-button wobbly c-mint" data-pick="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">Snapshot</span></button>
       <button type="button" class="big-button wobbly c-yellow" data-pick="moment"><span class="big-icon">${ICONS.heart}</span><span class="big-label">Family Moments</span></button>
-      <button type="button" class="big-button wobbly c-sky vid-only" data-pick="video"><span class="big-icon" aria-hidden="true">🎬</span><span class="big-label">A video</span></button>
+      <button type="button" class="big-button wobbly c-sky vid-only" data-pick="video"><span class="big-icon" aria-hidden="true">🎬</span><span class="big-label">Video</span></button>
     </div>
     <p class="pick-more"><button type="button" class="linkish" id="pick-more" hidden>More…</button> <button type="button" class="linkish" id="pick-new" hidden>＋ Something else</button></p>
   </section>
@@ -879,17 +907,16 @@ pages['upload/index.html'] = `<!doctype html>
 
   <section class="screen" id="s-name" hidden>
     <h1 class="up-h">${logo(false)}</h1>
-    <p class="up-lead">Who?</p>
-    <div class="up-kids name-faces" id="name-faces"></div>
-    <div class="name-own"><label>Name <input type="text" id="name-own" maxlength="30" autocomplete="given-name" enterkeyhint="done"></label><button type="button" class="btn-big" id="name-ok">OK</button></div>
+    <p class="up-lead">Your name</p>
+    <div class="name-own"><label class="sr-only" for="name-own">Your name</label><input type="text" id="name-own" maxlength="30" autocomplete="given-name" enterkeyhint="done"><button type="button" class="btn-big" id="name-ok">OK</button></div>
   </section>
 
   <section class="screen" id="s-kidhome" hidden>
     <h1 class="up-h">${logo(false)}</h1>
-    <p class="up-lead">What do you want to add?</p>
     <div class="up-kids up-what">
-      <button type="button" class="big-button wobbly c-coral" data-kidwhat="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">My art<small>Something I drew, painted or made</small></span></button>
-      <button type="button" class="big-button wobbly c-mint" data-kidwhat="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo I took</small></span></button>
+      <button type="button" class="big-button wobbly c-coral" data-kidwhat="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">My art</span></button>
+      <button type="button" class="big-button wobbly c-mint" data-kidwhat="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">Snapshot</span></button>
+      <button type="button" class="big-button wobbly c-yellow" data-kidwhat="moments" hidden><span class="big-icon">${ICONS.heart}</span><span class="big-label">Family Moments</span></button>
     </div>
     <p class="kid-look kid-look-home"><a class="chip kid-page" href="/">🎨 See my page</a> <a class="chip" href="/">🏠 Look at the site</a></p>
   </section>
@@ -916,32 +943,30 @@ pages['upload/index.html'] = `<!doctype html>
     <p class="up-lead" id="who-lead">Whose art is it?</p>
     <div class="up-kids">
       ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-kid="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
-      <button type="button" class="big-button wobbly c-yellow both-button" data-kid="both"><span class="big-label">Both, made together</span></button>
+      <button type="button" class="big-button wobbly c-yellow both-button" data-kid="both"><span class="big-icon">${ICONS.stars}</span><span class="big-label">All</span></button>
     </div>
   </section>
 
   <section class="screen" id="s-photos" hidden>
     <p><button type="button" class="linkish" id="back">← Back</button></p>
     <h1 class="up-h2" id="who"></h1>
-    <p class="kid-help" id="kid-help"></p>
     <div class="up-add">
       <label class="big-pick wobbly pick-take"><input type="file" id="take" accept="image/*" capture="environment"><span>📷 Take a photo</span></label>
-      <label class="big-pick wobbly pick-choose"><input type="file" id="pick" accept="image/*,application/pdf,.pdf" multiple><span>🖼️ Choose photos</span></label>
       <button type="button" class="big-pick wobbly cam-open" id="cam-open" hidden><span>💡 Camera with light</span></button>
+      <label class="small-pick wobbly pick-choose"><input type="file" id="pick" accept="image/*,application/pdf,.pdf" multiple><span>🖼️ Choose photos</span></label>
     </div>
-    <div class="up-where" id="where" hidden><p>Where should it go?</p>
-      <button type="button" class="chip" data-where="photos" aria-pressed="true">📷 My snapshots</button>
-      <button type="button" class="chip" data-where="moments" aria-pressed="false">❤️ Family Moments</button>
-    </div>
+    <div class="up-where" id="where" hidden></div>
     <div class="tag-chips" id="tag-chips" hidden></div>
     <label class="up-date">Date it was made <input type="date" id="date"></label>
     <p class="count" id="count"></p>
     <ul class="up-list" id="list"></ul>
     <div class="up-actions">
       <button type="button" class="save wobbly" id="save" disabled>Save</button>
-      <button type="button" class="linkish" id="share" disabled>If Save will not work: share to the Drive app</button>
+      <button type="button" class="linkish" id="share" disabled hidden>If Save will not work: share to the Drive app</button>
     </div>
     <p class="status" id="status" role="status" aria-live="polite"></p>
+    <ul class="sent-list" id="sent-list" hidden></ul>
+    <p class="art-look" id="art-look" hidden><a class="chip" id="art-look-a" href="/">See it on the page</a></p>
     <p class="day-look"><a class="chip" href="/family-moments/">❤️ See it on Family Moments</a></p>
     <p class="house-look"><a class="chip" href="/households/">🏡 See my page</a></p>
     <p class="kid-look"><a class="chip" id="kid-page" href="/">🎨 See my page</a> <a class="chip" href="/">🏠 Look at the site</a></p>
@@ -950,7 +975,6 @@ pages['upload/index.html'] = `<!doctype html>
   <section class="screen c-lav" id="s-episode" hidden>
     <p><button type="button" class="linkish" id="ep-back">← Back</button></p>
     <h1 class="up-h2">Add a podcast episode</h1>
-    <p class="share-help">It goes on the Pet Parents page as soon as it is sent. The audio file is also kept in Google Drive.</p>
     <label class="big-pick wobbly ep-pick"><input type="file" id="ep-audio" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg"><span id="ep-audio-label">🎙️ Choose the audio file</span></label>
     <div class="ep-form">
       <label>Title <input type="text" id="ep-title" maxlength="120"></label>
@@ -976,17 +1000,16 @@ pages['upload/index.html'] = `<!doctype html>
   <section class="screen c-yellow" id="s-video" hidden>
     <p><button type="button" class="linkish" id="vid-back">← Back</button></p>
     <h1 class="up-h2">A special day</h1>
-    <p class="share-help">Photos and videos go on the Family Moments page as soon as they are sent. The originals are kept in Google Drive.</p>
     <div class="ep-form">
       <label id="vid-event-pick">Which special day? <select id="vid-event"></select></label>
       <div class="vid-new" id="vid-new">
         <label>Name of the special day <input type="text" id="vid-event-title" maxlength="80" autocomplete="off" enterkeyhint="done"></label>
-        <p class="muted vid-eg">For example: Leora's 9th birthday, or Trip to Grandma's</p>
         <label>Date <input type="date" id="vid-event-date"></label>
       </div>
     </div>
     <div class="up-add day-add">
-      <label class="big-pick wobbly pick-choose"><input type="file" id="day-photos" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
+      <label class="big-pick wobbly pick-choose" id="day-photos-pick"><input type="file" id="day-photos" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
+      <button type="button" class="big-pick wobbly pick-choose" id="day-shared" hidden><span>❤️ Add the shared photos</span></button>
       <label class="big-pick wobbly pick-take vid-only"><input type="file" id="vid-file" accept="video/*"><span id="vid-label">🎬 Choose a video</span></label>
     </div>
     <p class="status" id="day-status" role="status" aria-live="polite"></p>
@@ -1007,7 +1030,6 @@ pages['upload/index.html'] = `<!doctype html>
 
   <section class="screen" id="s-edit" hidden>
     <h1 class="up-h2">Fix the corners</h1>
-    <p class="share-help">Drag the four dots onto the corners of the paper. The picture is straightened when you tap Done.</p>
     <div class="ed-wrap" id="ed-wrap">
       <canvas id="ed-canvas" class="ed-canvas" aria-label="The picture"></canvas>
       <svg class="ed-lines" id="ed-lines" aria-hidden="true"><polygon points=""></polygon></svg>
@@ -1018,7 +1040,6 @@ pages['upload/index.html'] = `<!doctype html>
       <button type="button" class="save wobbly" id="ed-done">Done</button>
       <button type="button" class="linkish" id="ed-cancel">Cancel</button>
     </div>
-    <p class="share-help">The untouched original is always saved too.</p>
   </section>
 
   <section class="screen cam" id="s-cam" hidden>
@@ -1035,10 +1056,8 @@ pages['upload/index.html'] = `<!doctype html>
   <section class="screen" id="s-recent" hidden>
     <p><button type="button" class="linkish" id="recent-back">← Back</button></p>
     <h1 class="up-h2">Recent uploads</h1>
-    <p class="share-help">Change a caption or date, star one to show it big, or put one away.</p>
     <ul class="up-list" id="recent-list"></ul>
     <h2 class="up-h3" id="deleted-h" hidden>Recently put away</h2>
-    <p class="share-help" id="deleted-help">Kept for 30 days, then cleared from the site. The originals in Google Drive are never touched.</p>
     <ul class="up-list" id="deleted-list"></ul>
   </section>
 </main>
@@ -1059,7 +1078,7 @@ const manifest = {
 };
 // The service worker: keeps the app working with no signal, and receives pictures shared from other apps.
 const swFonts = ['kalam-latin-700-normal', 'kalam-latin-400-normal', 'nunito-latin-600-normal', 'nunito-latin-800-normal'];
-const swShell = ['/upload/', `/upload/app.js?v=${upJs()}`, `/styles.css?v=${cssHash()}`, '/upload/manifest.webmanifest',
+const swShell = ['/upload/', `/upload/app.js?v=${upJs()}`, `/icons.js?v=${fileHash('icons.js')}`, `/styles.css?v=${cssHash()}`, '/upload/manifest.webmanifest',
   ...swFonts.map((f) => `/assets/fonts/${f}.woff2`),   // as the stylesheet asks for them
   asset('brand/favicon.svg'), asset('brand/app-192.png'), '/assets/brand/app-192.png', '/assets/brand/app-512.png'];
 const swCode = fs.readFileSync(path.join(SRC, 'upload/sw.js'), 'utf8')
@@ -1077,7 +1096,7 @@ fs.cpSync(path.join(SRC, 'assets'), path.join(DIST, 'assets'), { recursive: true
 fs.copyFileSync(path.join(SRC, 'styles.css'), path.join(DIST, 'styles.css'));
 fs.copyFileSync(path.join(SRC, 'main.js'), path.join(DIST, 'main.js'));
 fs.copyFileSync(path.join(SRC, 'parent.js'), path.join(DIST, 'parent.js'));
-for (const f of ['studio.js', 'start.js', 'shared.js']) fs.copyFileSync(path.join(SRC, f), path.join(DIST, f));
+for (const f of ['studio.js', 'start.js', 'shared.js', 'icons.js']) fs.copyFileSync(path.join(SRC, f), path.join(DIST, f));
 fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'));
 fs.writeFileSync(path.join(DIST, 'upload/sw.js'), swCode);
 // pdf.js (Mozilla, Apache-2.0): turns page 1 of a PDF into a picture on the phone or computer. Loaded only when a PDF is picked.

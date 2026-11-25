@@ -386,7 +386,7 @@ function initGallery() {
 
   function fromSite(p) {
     return { id: p.id, date: p.date, schoolYear: p.schoolYear, season: p.season, grade: p.grade || '', caption: p.caption || '', starred: !!p.starred,
-      kid: p.kid, created: p.created || '',
+      kid: p.kid, created: p.created || '', waiting: !!p.waiting,
       photos: p.photos.map(function (ph) { return { full: '/img/' + p.id + '/' + ph.n, thumb: '/img/' + p.id + '/' + ph.n + '/sm', w: ph.w || 800, h: ph.h || 800, pdf: ph.pdf ? '/img/' + p.id + '/' + ph.n + '/pdf' : '' }; }) };
   }
   function label(it) {
@@ -405,12 +405,14 @@ function initGallery() {
       (it.photos.some(function (x) { return x.pdf; }) ? '<span class="pdf-tag">PDF</span>' : '') +
       (it.photos.length > 1 ? '<span class="photos-tag">' + it.photos.length + ' photos</span>' : '') +
       (it.kid === 'both' ? '<span class="together-tag">Made together</span>' : '') +
+      (it.waiting ? '<span class="wait-mark wait-on">waiting for OK</span>' : '') +
       '</a><figcaption>' + (it.caption ? '<span class="art-cap">“' + esc(it.caption) + '”</span>' : '') + '<span class="art-label">' + esc(lab) + '</span></figcaption></figure>';
   }
   function season(name, list) {
     if (!list.length) return '';
-    var big = list.filter(function (x) { return x.starred; }).slice(0, 2);
-    if (!big.length) big = [list[0]];   // list is newest first
+    var big = list.filter(function (x) { return x.starred && !x.waiting; }).slice(0, 2);
+    if (!big.length) big = list.filter(function (x) { return !x.waiting; }).slice(0, 1);   // list is newest first; a waiting one never shows big
+    if (!big.length) big = [list[0]];
     var rest = list.filter(function (x) { return big.indexOf(x) === -1; });
     return '<section class="season" data-season="' + name + '"><h4 class="season-h"><span aria-hidden="true">' + ICON[name] + '</span> ' + SEASON[name] + '</h4>' +
       '<div class="featured featured--' + big.length + '">' + big.map(function (x) { return piece(x, true); }).join('') + '</div>' +

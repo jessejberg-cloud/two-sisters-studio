@@ -84,7 +84,7 @@
     // Tabs: the kids, then Family Moments, then the family menu (main.js shows it when there are other studios).
     var header = $('.site-header'), nav = make('nav'), ul = make('ul', 'tabs');
     nav.setAttribute('aria-label', 'Main');
-    st.kids.forEach(function (k) { ul.append(tab('/' + slug + '/' + k.key + '/', k.name, k.color, ICON[k.kind] || '🎨', kind === 'kid' && sub === k.key)); });
+    st.kids.forEach(function (k, i) { ul.append(tab('/' + slug + '/' + k.key + '/', k.name, k.color, TSS_ICONS.icon(k, i, 'tab-icon'), kind === 'kid' && sub === k.key)); });
     ul.append(tab('/' + slug + '/family-moments/', 'Family Moments', 'yellow', '❤️', kind === 'moments'));
     var fam = make('li', 'tab-fam-li'); fam.hidden = true;
     var fb = make('button', 'tab tab-fam c-sky'); fb.type = 'button'; fb.append(make('span', 'tab-icon', '🏠'), make('span', 'tab-label', 'Family'));
@@ -95,7 +95,7 @@
     if (kind === 'home') {
       $('.studio-name').textContent = st.name;
       var bb = $('#studio-buttons'); bb.textContent = '';
-      st.kids.forEach(function (k) { bb.append(big('/' + slug + '/' + k.key + '/', k.name, k.color, ICON[k.kind] || '🎨')); });
+      st.kids.forEach(function (k, i) { bb.append(big('/' + slug + '/' + k.key + '/', k.name, k.color, TSS_ICONS.icon(k, i))); });
       bb.append(big('/' + slug + '/family-moments/', 'Family Moments', 'yellow', '❤️'));
     }
     if (kind === 'kid') {
@@ -117,11 +117,11 @@
   }
   function tab(href, label, color, icon, here) {
     var li = make('li'), a = make('a', 'tab c-' + (color || 'sky')); a.href = href; if (here) a.setAttribute('aria-current', 'page');
-    a.append(make('span', 'tab-icon', icon), make('span', 'tab-label', label)); li.append(a); return li;
+    a.append(typeof icon === 'string' ? make('span', 'tab-icon', icon) : icon, make('span', 'tab-label', label)); li.append(a); return li;
   }
   function big(href, label, color, icon) {
     var li = make('li'), a = make('a', 'big-button wobbly c-' + (color || 'sky')); a.href = href;
-    a.append(make('span', 'big-icon', icon), make('span', 'big-label', label)); li.append(a); return li;
+    a.append(typeof icon === 'string' ? make('span', 'big-icon', icon) : icon, make('span', 'big-label', label)); li.append(a); return li;
   }
   if (cached) draw(cached, null);
   fetch(api, { credentials: 'same-origin' }).then(function (r) {
@@ -223,7 +223,7 @@
       var g = sel('Grade', 'st-grade', GRADES.map(function (x) { return [x, x || 'Grade']; }), k.grade || '');
       function hideGrade() { g.hidden = w.value !== 'kid'; li.classList.toggle('no-grade', g.hidden); }
       w.addEventListener('change', hideGrade); hideGrade();
-      li.append(n, w, g); return li;
+      li.append(TSS_ICONS.picker(li, k, $('#kid-list').children.length), n, w, g); return li;
     }
     function catRow(c) {
       var li = make('li', 'st-kid st-cat'); li.dataset.key = c.key || '';
@@ -244,7 +244,7 @@
       var kids = Array.prototype.map.call(document.querySelectorAll('#kid-list .st-kid'), function (li, i) {
         var keep = (st.kids.filter(function (k) { return k.key === li.dataset.key; })[0]) || {};
         var kind = li.querySelector('.st-kind').value;
-        return { key: li.dataset.key || undefined, name: li.querySelector('input').value.trim(), kind: kind, grade: kind === 'kid' ? li.querySelector('.st-grade').value : '', color: keep.color };
+        return { key: li.dataset.key || undefined, name: li.querySelector('input').value.trim(), kind: kind, grade: kind === 'kid' ? li.querySelector('.st-grade').value : '', color: keep.color, icon: li.dataset.icon || '' };
       }).filter(function (k) { return k.name; });
       var j = await load({ do: 'kids', kids: kids });
       $('#kids-msg').textContent = j ? '✓ Saved' : 'That did not work.';
