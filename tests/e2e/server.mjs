@@ -1,8 +1,10 @@
 // A pretend Netlify for the robot-phone tests (tests/e2e). Nothing here reaches the real site, real storage or real Google.
 //   - The real front door (netlify/edge-functions/gate.js) and the real functions (netlify/functions/*.mjs) run here.
 //   - Netlify Blobs is swapped for in-memory stores (useTestStores), so every run starts empty.
-//   - Google sign-in and Google Drive are fakes: the server's calls go to fakeGoogle() below; the phone's own uploads to
-//     www.googleapis.com are caught in the browser (tests/e2e/helpers.mjs) and answered the same way.
+//   - Google sign-in and Google Drive are fakes: the server's calls go to fakeGoogle() below. The phone's own uploads
+//     go to the one-time addresses the site hands out, which here point back to this server (/__fake-google/upload),
+//     and Google's sign-in page is skipped (straight back to the site's callback). Nothing in the browser is rerouted,
+//     so every browser engine (Safari's too) behaves as it would on the real site.
 //   - Pages and files come from dist/ (run `node tools/build.cjs` first), with netlify.toml's headers and studio fallback.
 // Start: node tests/e2e/server.mjs [port]   (Playwright starts it by itself, see playwright.config.mjs)
 // Test-only addresses: GET /__test/drive (what the fake Drive holds), POST /__test/reset (empty everything).
@@ -44,7 +46,7 @@ async function fakeGoogle(u, opts) {
   if (u.includes('uploadType=resumable')) {
     const id = 'R' + (++drive.n);
     drive.files.push({ id, kind: 'resumable', meta: safeJson(opts.body) });
-    return new Response(null, { headers: { location: `https://www.googleapis.com/upload/drive/v3/files?upload_id=${id}` } });
+    return new Response(null, { headers: { location: `http://localhost:${PORT}/__fake-google/upload?upload_id=${id}` } });
   }
   if (u.includes('uploadType=multipart')) {
     const id = u.match(/files\/([A-Za-z0-9_-]+)\?/)?.[1] || 'M' + (++drive.n);
@@ -143,7 +145,22 @@ async function handle(req) {
     await connectDrive();
     return Response.json({ ok: true });
   }
+  if (url.pathname === '/__fake-google/upload') {   // the phone sending an original to "Drive"
+    const id = url.searchParams.get('upload_id');
+    const bytes = req.body ? (await req.arrayBuffer()).byteLength : 0;
+    const f = drive.files.find((x) => x.id === id);
+    if (f) f.bytes = (f.bytes || 0) + bytes;
+    return Response.json({ id }, { headers: { 'access-control-allow-origin': '*' } });
+  }
   let res = gateSkip.some((re) => re.test(url.pathname)) ? await origin(req) : await gate(req, ctx(req));
+  // Google's sign-in page, skipped: the site sent the phone to accounts.google.com; send it straight back with a code.
+  const to = res.headers.get('location') || '';
+  if (to.startsWith('https://accounts.google.com/')) {
+    const g = new URL(to), back = new URL(g.searchParams.get('redirect_uri'));
+    back.search = new URLSearchParams({ code: 'fake-code', state: g.searchParams.get('state') }).toString();
+    const h = new Headers(res.headers); h.set('location', back.toString());
+    res = new Response(null, { status: res.status, headers: h });
+  }
   res = new Response(res.body, res);
   for (const rule of headerRules) if (rule.re.test(url.pathname)) for (const [k, v] of rule.values) if (!res.headers.has(k)) res.headers.set(k, v);
   return res;

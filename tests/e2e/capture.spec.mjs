@@ -13,6 +13,8 @@ test('family phone: pick Leora, Art, a photo, Save; it is in her gallery and the
 
   const files = await driveFiles(request);
   expect(files.some((f) => /^Two Sisters Studio\/.*leora.*-original\.jpg$/i.test(f)), files.join('\n')).toBeTruthy();
+  const sent = (await (await request.get('/__test/drive')).json()).files.filter((f) => f.kind === 'resumable' && f.bytes > 0);
+  expect(sent.length, 'the phone really sent the original to (fake) Drive').toBeGreaterThan(0);
 
   await page.goto('/leora/');
   const art = page.locator('img[src*="/img/"]').first();
