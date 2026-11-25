@@ -23,7 +23,7 @@ export const COLORS = ['coral', 'lav', 'mint', 'yellow', 'sky'];
 export const GRADES = ['Pre-K', 'K4', 'K5', '1st grade', '2nd grade', '3rd grade', '4th grade', '5th grade', '6th grade',
   '7th grade', '8th grade', '9th grade', '10th grade', '11th grade', '12th grade'];
 // Addresses a studio can never take: every page and function of the site, and the root studio's own pages.
-export const RESERVED = new Set(['', MAIN, 'api', 's', 'i', 'v', 'img', 'assets', 'upload', 'login', 'logout', 'parent', 'for-parents',
+export const RESERVED = new Set(['', MAIN, 'api', 's', 'i', 'v', 'img', 'assets', 'upload', 'login', 'logout', 'privacy', 'parent', 'for-parents',
   'studio', 'start', 'moments', 'family-moments', 'family-moment', 'households', 'pet-parents', 'robots', 'robots.txt',
   'favicon.ico', 'styles.css', 'main.js', 'parent.js', 'studio.js', '404', 'new', 'admin', 'www', 'app', 'help', 'site', 'share', 'shared', 'shared.js', 'start.js',
   ...site.kids.map((k) => k.key)]);
