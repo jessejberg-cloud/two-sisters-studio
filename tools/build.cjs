@@ -299,7 +299,7 @@ function artGallery(kid, items) {
 <dialog class="lightbox" aria-label="Picture">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous picture">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><a class="lb-pdf" href="#" target="_blank" rel="noopener" hidden>📄 Open the PDF</a><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><a class="lb-pdf" href="#" target="_blank" rel="noopener" hidden>📄 Open the PDF</a><button type="button" class="lb-save">⬇ Save this picture</button><button type="button" class="lb-share" hidden>📤 Share</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next picture">›</button>
 </dialog>
 ${livePhotos(`/api/pieces?kid=${kid.key}&section=photos`, `${kid.name}'s snapshots`, 'Photos she took.', 'snapshots')}`;
@@ -314,7 +314,7 @@ function livePhotos(src, title, note, id = '') {
     <button type="button" class="pb-close" aria-label="Close">✕</button>
     <button type="button" class="pb-prev" aria-label="Previous photo">‹</button>
     <figure class="pb-fig"><img class="pb-img" alt=""><figcaption class="pb-cap"></figcaption>
-      <p class="pb-tools"><button type="button" class="pb-full">⛶ Full screen</button><button type="button" class="pb-save">⬇ Save this picture</button></p></figure>
+      <p class="pb-tools"><button type="button" class="pb-full">⛶ Full screen</button><button type="button" class="pb-save">⬇ Save this picture</button><button type="button" class="pb-share" hidden>📤 Share</button></p></figure>
     <button type="button" class="pb-next" aria-label="Next photo">›</button>
   </dialog>
 </section>`;
@@ -515,14 +515,14 @@ ${blocks}
 <dialog class="lightbox" aria-label="Photo">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button><button type="button" class="lb-share" hidden>📤 Share</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next photo">›</button>
 </dialog>` : `<div class="gallery-area" data-videos="/api/videos" hidden></div>
 ${gallery([], 'Family photos will show up here soon!')}
 <dialog class="lightbox" aria-label="Photo">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button><button type="button" class="lb-share" hidden>📤 Share</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next photo">›</button>
 </dialog>`}`,
   });
@@ -546,7 +546,7 @@ pages['households/index.html'] = page({
 const lightboxTpl = `<dialog class="lightbox" aria-label="Photo">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button><button type="button" class="lb-share" hidden>📤 Share</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next photo">›</button>
 </dialog>`;
 // Category ideas (Jesse, 2026-11-25): each comes with its template: 📄 paper gets the scan fix, the rest are plain photos.
@@ -582,6 +582,7 @@ ${lightboxTpl}</template>
       <div class="send-row"><button type="button" class="btn-big" data-act="share">📤 Send</button><button type="button" class="chip" data-act="copy">📋 Copy</button><button type="button" class="linkish" data-act="reset">New link</button></div><p class="share-help" data-note role="status"></p></div>
     <p class="share-help">Links never end. New link stops the old one; the other link keeps working.</p>
   </section>
+  <section class="parent-card wobbly" id="shared-card"><h2>Shared pictures</h2><p class="share-help">Links to one picture or one day. Anyone with the link sees just that.</p><ul class="link-list" id="shared-list"><li class="muted">None yet.</li></ul></section>
   <section class="parent-card wobbly"><h2>Phones</h2><p class="share-help">A kid's name hides Put away and For parents on that phone.</p><ul class="link-list" id="phone-list"></ul></section>
   <section class="parent-card wobbly" id="kids-card"><h2>Artists</h2><p class="share-help">Kids, grown-ups or pets. Only kids have a grade.</p><ul class="kid-edit" id="kid-list"></ul>
     <p><button type="button" class="chip" id="kid-add">＋ Add</button> <button type="button" class="btn-big" id="kids-save">Save</button></p><p class="share-help" id="kids-msg" role="status"></p></section>
@@ -589,6 +590,7 @@ ${lightboxTpl}</template>
     <p><button type="button" class="chip" id="cat-add">＋ Add</button> <button type="button" class="btn-big" id="cats-save">Save</button></p><p class="share-help" id="cats-msg" role="status"></p></section>
   <section class="parent-card wobbly"><h2>Name</h2><div class="pw-row"><label>Studio <input type="text" id="studio-name" maxlength="40"></label><button type="button" class="chip" id="name-save">Save</button></div>
     <h2>Color</h2><div class="swatches" id="look">${swatches('look')}</div><p class="share-help" id="look-msg" role="status"></p></section>
+  <section class="parent-card wobbly" id="export-card"><h2>Download everything</h2><p class="share-help" id="export-size">Every picture as one zip, in a folder per artist. Videos and full-size originals are in Google Drive.</p><p><button type="button" class="btn-big" id="export-go">⬇ Download everything</button></p><p class="share-help" id="export-msg" role="status"></p></section>
   <section class="parent-card wobbly"><h2>Google Drive</h2><p id="g-status">…</p><p><a class="btn-big" id="g-connect" href="#">Connect Google Drive</a></p></section>
   <section class="parent-card wobbly"><h2>PIN</h2><div class="pw-row"><label>New PIN (4 numbers) <input type="text" id="new-pin" inputmode="numeric" maxlength="4" autocomplete="off"></label><button type="button" class="chip" id="pin-save">Change</button></div><p class="share-help" id="pin-save-msg" role="status"></p></section>
 </div></template>
@@ -648,6 +650,24 @@ pages['start/index.html'] = page({
   </section>
   <section class="step" data-step="0" hidden><p class="empty wobbly">This link was turned off. Ask for a new one.</p></section>
 </div>`,
+});
+
+// ---------- a shared link (studios batch 3): one picture, a few, or one day. No login: the link is the key ----------
+pages['shared/index.html'] = page({
+  key: 'shared', title: '', tabs: false, scripts: ['shared.js'],
+  body: `<section class="shared-page">
+  <h1 class="shared-h" id="shared-h"></h1>
+  <p class="moment-date" id="shared-date"></p>
+  <p class="shared-wait" id="shared-wait">Getting the pictures…</p>
+  <div class="video-row" id="shared-videos"></div>
+  <div class="masonry shared-grid" id="shared-grid"></div>
+  <p class="empty" id="shared-off" hidden>This link was turned off. Ask for a new one.</p>
+</section>
+<dialog class="lightbox shared-box" aria-label="Picture">
+  <button type="button" class="lb-close" aria-label="Close">✕</button>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
+  <button type="button" class="lb-prev" aria-label="The picture before">‹</button><button type="button" class="lb-next" aria-label="The next picture">›</button>
+</dialog>`,
 });
 
 // ---------- login (the gate sends everyone without a login here) ----------
@@ -777,6 +797,7 @@ pages['parent/index.html'] = page({
     <h3>Links</h3>
     <ul class="link-list" id="link-list"><li class="muted">None yet.</li></ul>
   </section>
+  <section class="parent-card wobbly" id="shared-card"><h2>Shared pictures</h2><p class="share-help">Links to one picture or one day. Anyone with the link sees just that.</p><ul class="link-list" id="shared-list"><li class="muted">None yet.</li></ul></section>
   <section class="parent-card wobbly">
     <h2>Parent PIN</h2>
     <div class="pw-row"><label>Parent PIN (4 to 8 numbers) <input type="text" id="pw-pin" inputmode="numeric" autocomplete="off"></label><button type="button" class="chip" data-change="pin">Change</button></div>
@@ -1059,7 +1080,7 @@ fs.cpSync(path.join(SRC, 'assets'), path.join(DIST, 'assets'), { recursive: true
 fs.copyFileSync(path.join(SRC, 'styles.css'), path.join(DIST, 'styles.css'));
 fs.copyFileSync(path.join(SRC, 'main.js'), path.join(DIST, 'main.js'));
 fs.copyFileSync(path.join(SRC, 'parent.js'), path.join(DIST, 'parent.js'));
-for (const f of ['studio.js', 'start.js']) fs.copyFileSync(path.join(SRC, f), path.join(DIST, f));
+for (const f of ['studio.js', 'start.js', 'shared.js']) fs.copyFileSync(path.join(SRC, f), path.join(DIST, f));
 fs.copyFileSync(path.join(SRC, 'upload/app.js'), path.join(DIST, 'upload/app.js'));
 fs.writeFileSync(path.join(DIST, 'upload/sw.js'), swCode);
 // pdf.js (Mozilla, Apache-2.0): turns page 1 of a PDF into a picture on the phone or computer. Loaded only when a PDF is picked.

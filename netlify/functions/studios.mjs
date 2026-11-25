@@ -21,6 +21,7 @@ import { MAIN, COLORS, GRADES, getStudio, putStudio, listStudios, makeStudio, ne
   getDevice, putDevice, newDevice, devicesOf, setPin, pubStudio, cleanKids, cleanCats, kindOf, forget } from '../lib/studios.mjs';
 import { houseInvite } from './houses.mjs';
 import { googleInfo } from '../lib/drive.mjs';
+import { readIndex, tagsOf, sectionOf, slug, KIDS } from '../lib/pieces.mjs';
 
 const json = (o, status = 200, headers) => {
   const h = new Headers(headers || {}); h.set('cache-control', 'no-store');
@@ -266,6 +267,29 @@ async function handle(req, context) {
     if (!as) return json({ ok: false, error: 'pin' });
     if (as !== '*' && s.main && !(fam || deviceKey(me, MAIN))) return json({ ok: false, error: 'login' });
     return json({ ok: true, owner: as === '*' }, 200, { 'set-cookie': setCookie(COOKIE.parent, await makeParentFor(as, context, PARENT_MINUTES), { maxAge: PARENT_MINUTES * 60 }) });
+  }
+
+  // Download everything (For parents): every picture of the studio, as a list the page turns into one zip.
+  // Pictures only: videos and the full-size originals are in the studio's Google Drive.
+  if (parts[3] === 'export' && req.method === 'GET') {
+    if (!(await isParent(req, context, s.slug))) return json({ error: 'pin' });
+    const names = Object.fromEntries((s.main ? [] : s.kids || []).map((k) => [k.key, k.name]));
+    const nameOf = (k) => names[k] || KIDS[k] || (k === 'both' ? 'Together' : k);
+    const safe = (x) => String(x || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+    const files = [], details = [];
+    for (const p of await readIndex(context)) {
+      if (p.deleted || p.waiting || p.purged || !tagsOf(p).includes(s.slug)) continue;
+      const sec = sectionOf(p);
+      const folder = sec === 'moments' ? (p.event ? `Family Moments/${p.eventDate} ${safe(p.eventTitle)}` : 'Family Moments')
+        : sec === 'house' ? `Family/${safe(p.from || 'Family')}`
+        : `${safe(nameOf(p.kid))}/${sec === 'photos' ? 'Snapshots' : sec === 'cat' ? safe(p.catName || 'Other') : 'Artwork'}`;
+      const base = `${p.date}_${slug(p.caption, 6) === 'untitled' ? p.id : slug(p.caption, 6)}`;
+      p.photos.forEach((ph) => files.push({ id: p.id, n: ph.n, path: `${folder}/${base}${p.photos.length > 1 ? '-' + ph.n : ''}`, url: `/img/${p.id}/${ph.n}${ph.print ? '/print' : ''}` }));
+      details.push({ id: p.id, artist: sec === 'moments' || sec === 'house' ? null : nameOf(p.kid), section: sec, category: p.catName || null, date: p.date,
+        caption: p.caption || '', grade: p.grade || null, day: p.event ? { title: p.eventTitle, date: p.eventDate } : null, by: p.byName || p.from || null });
+    }
+    const usage = ((await store('studios', context).get('usage', { type: 'json' })) || {})[s.slug] || {};
+    return json({ ok: true, name: s.name, files, details, bytes: usage.bytes || 0, pieces: files.length });
   }
 
   if (parts[3] === 'parent') {

@@ -301,3 +301,94 @@ test('a family studio adds a video: its own Family Moments, its own Drive, never
   assert.equal((await videos(post('/api/videos/' + s.id + '/delete', p, {}), {})).status, 200);
   assert.equal((await videos(post('/api/videos/' + s.id + '/restore', p, {}), {})).status, 200);
 });
+
+test('share one picture, a few, or a whole day: the link opens with no login, counts opens and phones, and can be turned off', async () => {
+  const { default: shared } = await import('../netlify/functions/shared.mjs');
+  const { default: share } = await import('../netlify/functions/share.mjs');
+  const day = await save(phone, { studio: 'smith', section: 'moments', event: { title: 'Snow day', date: '2026-11-21' } });
+  // Only grown-up phones of the studio; never a View link, never a stranger.
+  assert.equal((await shared(post('/api/shared', viewer, { studio: 'smith', ids: [art.id] }), {})).status, 401);
+  assert.equal((await shared(post('/api/shared', '', { studio: 'smith', ids: [art.id] }), {})).status, 401);
+  const one = await (await shared(post('/api/shared', phone, { studio: 'smith', ids: [art.id, 'not-a-piece'] }), {})).json();
+  assert.ok(one.ok, JSON.stringify(one));
+  assert.deepEqual(one.link.ids, [art.id], 'only real pieces of this studio');
+  assert.match(one.link.url, /\/s\/[A-Za-z0-9_-]{16}$/);
+  const dayLink = await (await shared(post('/api/shared', phone, { studio: 'smith', day: day.event }), {})).json();
+  assert.equal(dayLink.link.title, 'Snow day');
+  // Opening: no login needed, the gate lets the page and its pictures through.
+  const path = new URL(one.link.url).pathname;
+  assert.equal((await gate(req(path, ''), ctx)).status, 200);
+  let r = await share(req(path, ''), {});
+  assert.equal(r.status, 303);
+  assert.equal(r.headers.get('location'), '/shared/?l=' + one.link.id);
+  const phoneA = jar('', r);
+  await share(req(path, phoneA), {});                 // the same phone again
+  await share(req(path, ''), {});                     // a second phone
+  assert.equal((await gate(req('/shared/?l=' + one.link.id, ''), ctx)).status, 200);
+  assert.equal((await gate(req(`/api/shared/${one.link.id}/img/${art.id}/1`, ''), ctx)).status, 200);
+  const got = await (await shared(req('/api/shared/' + one.link.id, ''), {})).json();
+  assert.deepEqual(got.items.map((x) => x.id), [art.id]);
+  assert.equal((await shared(req(`/api/shared/${one.link.id}/img/${art.id}/1`, ''), {})).status, 200);
+  assert.equal((await shared(req(`/api/shared/${one.link.id}/img/${day.id}/1`, ''), {})).status, 404, 'not on this link');
+  // A day link shows the day, including photos added after it was made.
+  const later = await save(phone, { studio: 'smith', section: 'moments', event: { key: day.event, title: 'Snow day', date: '2026-11-21' } });
+  const d = await (await shared(req('/api/shared/' + dayLink.link.id, ''), {})).json();
+  assert.deepEqual(d.items.map((x) => x.id).sort(), [day.id, later.id].sort());
+  assert.equal((await shared(req(`/api/shared/${dayLink.link.id}/img/${later.id}/1/sm`, ''), {})).status, 200);
+  // The list (the studio's For parents): opens, about how many phones, last opened.
+  assert.equal((await (await shared(req('/api/shared?studio=smith', phone), {})).json()).error, 'pin');
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '5678' }), {}));
+  const list = await (await shared(req('/api/shared?studio=smith', par), {})).json();
+  const mine = list.links.find((l) => l.id === one.link.id);
+  assert.equal(mine.opens, 3); assert.equal(mine.phones, 2); assert.ok(mine.last); assert.equal(mine.open, true);
+  assert.equal(mine.by, 'Mom'); assert.equal(mine.count, 1);
+  assert.ok(!list.links.some((l) => l.studio !== 'smith'));
+  // Off: the page and the pictures stop; on again works.
+  assert.ok((await (await shared(post(`/api/shared/${one.link.id}/off`, par, {}), {})).json()).ok);
+  assert.equal((await shared(req('/api/shared/' + one.link.id, ''), {})).status, 404);
+  assert.equal((await shared(req(`/api/shared/${one.link.id}/img/${art.id}/1`, ''), {})).status, 404);
+  assert.match((await share(req(path, ''), {})).headers.get('location'), /e=link/);
+  assert.ok((await (await shared(post(`/api/shared/${one.link.id}/on`, par, {}), {})).json()).ok);
+  assert.equal((await shared(req('/api/shared/' + one.link.id, ''), {})).status, 200);
+  // Put away: a piece put away later drops off the link.
+  await api(post(`/api/pieces/${art.id}/delete`, phone, {}), {});
+  assert.equal((await (await shared(req('/api/shared/' + one.link.id, ''), {})).json()).items.length, 0);
+  await api(post(`/api/pieces/${art.id}/restore`, phone, {}), {});
+});
+
+test('Jesse\'s household shares from his studio too; a girl\'s tablet cannot', async () => {
+  const { default: shared } = await import('../netlify/functions/shared.mjs');
+  const mine = await save(family, { kid: 'leora', section: 'art', caption: 'Cat' });
+  const j = await (await shared(post('/api/shared', family, { ids: [mine.id] }), {})).json();
+  assert.ok(j.ok, JSON.stringify(j)); assert.equal(j.link.studio, 'main');
+  assert.deepEqual((await (await shared(req('/api/shared/' + j.link.id, ''), {})).json()).items.map((x) => x.id), [mine.id]);
+  const kid = `tss=${encodeURIComponent(await auth.makeLogin('kid', {}, { k: 'leora' }))}`;
+  assert.equal((await shared(post('/api/shared', kid, { ids: [mine.id] }), {})).status, 401);
+});
+
+test('a shared link opened on many phones gives the studio a heads-up', async () => {
+  const { default: shared, MANY } = await import('../netlify/functions/shared.mjs');
+  const { default: share } = await import('../netlify/functions/share.mjs');
+  const one = await (await shared(post('/api/shared', phone, { studio: 'smith', ids: [art.id] }), {})).json();
+  const path = new URL(one.link.url).pathname;
+  for (let i = 0; i < MANY; i++) await share(req(path, ''), {});
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '5678' }), {}));
+  const p = await (await studios(req('/api/studio/smith/parent', par), {})).json();
+  assert.ok(p.heads.some((h) => h.kind === 'shared' && h.ref === one.link.id), JSON.stringify(p.heads));
+});
+
+test('For parents: Download everything lists every picture of the studio with a tidy folder name, and its details', async () => {
+  assert.equal((await (await studios(req('/api/studio/smith/export', phone), {})).json()).error, 'pin');
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '5678' }), {}));
+  const j = await (await studios(req('/api/studio/smith/export', par), {})).json();
+  assert.equal(j.ok, true, JSON.stringify(j));
+  assert.equal(j.name, 'Smith');
+  const a = j.files.find((f) => f.id === art.id);
+  assert.ok(a, 'the art piece is in it');
+  assert.equal(a.path, 'Ava/Artwork/2026-11-20_a-dog');
+  assert.equal(a.url, `/img/${art.id}/1`);
+  assert.ok(j.files.some((f) => f.path.startsWith('Family Moments/2026-11-21 Snow day/')), 'a day keeps its own folder');
+  assert.ok(!j.files.some((f) => f.path.includes('Cat')), 'nothing from another studio');
+  assert.ok(Array.isArray(j.details) && j.details.some((d) => d.id === art.id && d.caption === 'A dog'));
+  assert.equal(typeof j.bytes, 'number');
+});

@@ -8,6 +8,7 @@
   var root = $('#studio-root');
   if (!root) return;
   var parts = location.pathname.split('/').filter(Boolean), slug = parts[0] || '', sub = parts[1] || '';
+  window.TSS_STUDIO = slug;   // main.js: which studio a Share link is for
   var kind = !sub ? 'home' : sub === 'family-moments' ? 'moments' : sub === 'for-parents' ? 'parents' : 'kid';
   var cached = null;
   try { cached = (JSON.parse(localStorage.getItem('tss-studio-' + slug) || 'null') || {}).studio || null; } catch (e) {}
@@ -158,7 +159,8 @@
 
     var LABEL = { kids: 'Artists', name: 'Name', look: 'Color', drive: 'Google Drive' };
     var HEADS = { pin: ['5 wrong PINs in a row.', 'Change the PIN below.'], delete: ['Many pictures put away in one hour.', 'Bring them back from Recent in the app.'],
-      upload: ['Many pictures from one phone in one hour.', 'Look at Recent in the app.'], link: ['A link was opened on many phones.', 'Make a new link above.'], storage: ['Storage is nearly full.', 'Connect Google Drive.'] };
+      upload: ['Many pictures from one phone in one hour.', 'Look at Recent in the app.'], link: ['A link was opened on many phones.', 'Make a new link above.'], storage: ['Storage is nearly full.', 'Connect Google Drive.'],
+      shared: ['A shared link was opened on 20 phones.', 'Turn it off under Shared pictures if that is too many.'] };
     function send(url, note) {
       if (navigator.share) { navigator.share({ title: st.name, url: url }).catch(function () {}); return; }
       navigator.clipboard.writeText(url).then(function () { note.textContent = '✓ Copied'; }, function () { note.textContent = url; });
@@ -175,6 +177,8 @@
         li.append(ok); hl.append(li);
       });
       $('#heads-card').hidden = !(j.heads || []).length;
+      if (window.TSS && TSS.sharedList) TSS.sharedList($('#shared-list'), slug);
+      if (window.TSS && TSS.exportStudio) TSS.exportStudio(slug);
       var sl = $('#skipped-list'); sl.textContent = '';
       (j.skipped || []).forEach(function (x) { sl.append(make('li', '', LABEL[x] || x)); });
       $('#skipped-card').hidden = !(j.skipped || []).length;

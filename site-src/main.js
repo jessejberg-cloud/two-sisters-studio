@@ -671,6 +671,8 @@ function livePhotos(sec) {
         var save = make('button', 'vid-btn', '⬇ Save this video'); save.type = 'button';
         save.addEventListener('click', function () { saveVideo(v, base, save); });
         tools.append(big, save);
+        if (TSS.videoShare) TSS.videoShare(tools, v.id);
+        if (v.event && TSS.dayShare) TSS.dayShare(sec, v.event, v.eventTitle);
         var shut = make('button', 'vid-shut', '✕'); shut.type = 'button'; shut.setAttribute('aria-label', 'Close the big video');
         shut.addEventListener('click', function () { TSS.exit(); });
         fig.append(shut, el, cap, tools, oops); row.append(fig);
@@ -727,6 +729,7 @@ function addToDays(pieces) {
       all.disabled = false;
     });
     row.append(phone, all); head.append(row);
+    if (TSS.dayShare) TSS.dayShare(sec, k, sec.querySelector('.moment-h').textContent);
     if (TSS.bindSaveAll) TSS.bindSaveAll(phone);
   });
 }
@@ -825,3 +828,148 @@ TSS.famMenu = function () {
   }).catch(function () {});
 };
 TSS.famMenu();
+
+// ---------- Share one picture, a video or a whole day (studios batch 3, 2026-11-25) ----------
+// A grown-up who adds to this studio makes a link to just that thing and sends it in one go. Whoever taps it sees only
+// that, with no login. The studio's For parents lists each link with its opens, about how many phones, and an off switch.
+(function () {
+  'use strict';
+  var studio = window.TSS_STUDIO || 'main', root = document.documentElement;
+  function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
+  // May this phone share here? The server checks again; this only hides buttons that would not work.
+  TSS.mayShare = new Promise(function (ok) {
+    if (root.classList.contains('is-kid') || (root.classList.contains('is-friend') && !root.classList.contains('is-house'))) return ok(false);
+    var m = /(?:^|;\s*)tssw=([^;]*)/.exec(document.cookie);
+    var keys = m ? decodeURIComponent(m[1]).split(',').filter(Boolean).map(function (x) { var p = x.split(':'); return { s: p[0], t: p[1], kid: p[2] === 'kid' }; }) : [];
+    if (keys.some(function (k) { return k.s === studio && k.t === 'd' && !k.kid; })) return ok(true);
+    if (studio !== 'main') return ok(false);
+    if (!keys.length) return ok(!!document.querySelector('.site-header nav'));   // an old login on Jesse's studio (family or a household)
+    fetch('/api/whoami', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (me) { ok(me.role === 'family'); }, function () { ok(false); });
+  });
+  var box = make('dialog', 'share-box'); box.setAttribute('aria-label', 'Share');
+  var h = make('h2', 'share-h'), note = make('p', 'share-note');
+  var go = make('button', 'btn-big share-go', '📤 Share the link'); go.type = 'button';
+  var msg = make('p', 'share-msg'); msg.setAttribute('role', 'status');
+  var shut = make('button', 'linkish share-close', 'Close'); shut.type = 'button';
+  box.append(h, note, go, msg, shut);
+  shut.addEventListener('click', function () { box.close(); });
+  box.addEventListener('click', function (e) { if (e.target === box) box.close(); });
+  var what = null, made = null;
+  // what: { ids: [...] } or { day: key }, plus label ('this picture', 'Snow day').
+  TSS.shareItems = function (w) {
+    what = w; made = null;
+    if (!box.isConnected) document.body.append(box);
+    h.textContent = 'Share ' + w.label;
+    note.textContent = 'Anyone with the link sees ' + (w.day ? 'the pictures of this day' : w.label) + ', nothing else. It works until it is turned off on For parents.';
+    msg.textContent = ''; go.textContent = '📤 Share the link'; go.disabled = false;
+    var open = document.querySelector('dialog[open]');
+    if (open && open !== box) open.close();
+    if (typeof box.showModal === 'function') box.showModal(); else box.setAttribute('open', '');
+  };
+  async function send() {
+    try {
+      if (navigator.share) { await navigator.share({ title: what.label, url: made }); msg.textContent = '✓ Sent.'; return; }
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      if (e.name === 'NotAllowedError') { go.textContent = '📤 Send the link'; msg.textContent = 'The link is ready. Tap Send the link.'; return; }
+    }
+    try { await navigator.clipboard.writeText(made); msg.textContent = '✓ Link copied. Paste it into a text or an email.'; }
+    catch (e) { msg.textContent = 'Copy this link: ' + made; }
+  }
+  go.addEventListener('click', async function () {
+    if (made) return send();
+    go.disabled = true; msg.textContent = 'Making the link…';
+    try {
+      var body = { studio: studio, title: what.day ? what.label : '' };
+      if (what.day) body.day = what.day; else body.ids = what.ids;
+      var r = await fetch('/api/shared', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      var j = await r.json();
+      if (!j.ok) throw new Error(j.error || 'no');
+      made = j.link.url; go.disabled = false;
+      await send();
+    } catch (e) { msg.textContent = 'That did not work. Try again?'; go.disabled = false; }
+  });
+  // The picture viewers: 📤 Share beside Save. The piece is the one the viewer shows now (/img/<piece>/<n>).
+  var pieceOf = function (dlg) { var im = dlg.querySelector('.lb-img, .pb-img'), m = im && /\/img\/([^/]+)\//.exec(im.getAttribute('src') || ''); return m ? decodeURIComponent(m[1]) : null; };
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('.lb-share, .pb-share'); if (!b) return;
+    var id = pieceOf(b.closest('dialog')); if (id) TSS.shareItems({ ids: [id], label: 'this picture' });
+  });
+  // A special day: 📤 Share this day, beside Download all. A video: 📤 Share beside Save.
+  TSS.dayShare = function (sec, key, title) {
+    TSS.mayShare.then(function (yes) {
+      var head = sec.querySelector('.moment-head');
+      if (!yes || !head || head.querySelector('.day-share')) return;
+      var b = make('button', 'btn-download day-share', '📤 Share this day'); b.type = 'button';
+      b.addEventListener('click', function () { TSS.shareItems({ day: key, label: title }); });
+      head.append(b);
+    });
+  };
+  TSS.videoShare = function (tools, id) {
+    TSS.mayShare.then(function (yes) {
+      if (!yes) return;
+      var b = make('button', 'vid-btn', '📤 Share'); b.type = 'button';
+      b.addEventListener('click', function () { TSS.shareItems({ ids: ['v:' + id], label: 'this video' }); });
+      tools.append(b);
+    });
+  };
+  TSS.mayShare.then(function (yes) { if (yes) document.querySelectorAll('.lb-share, .pb-share').forEach(function (b) { b.hidden = false; }); });
+
+  // For parents: the list of shared links, with opens, phones and the off switch.
+  TSS.sharedList = async function (ul, sid) {
+    var j = {};
+    try { j = await (await fetch('/api/shared?studio=' + encodeURIComponent(sid || 'main'), { credentials: 'same-origin' })).json(); } catch (e) { return; }
+    if (!j.links) return;
+    ul.textContent = '';
+    if (!j.links.length) { ul.append(make('li', 'muted', 'None yet.')); return; }
+    function when(iso) { return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''; }
+    j.links.forEach(function (l) {
+      var li = make('li', 'link-item' + (l.open ? '' : ' is-off'));
+      var name = l.day ? (l.title || 'A day') : l.count === 1 ? '1 thing' : l.count + ' things';
+      li.append(make('p', 'shared-what', name + (l.by ? ' · from ' + l.by : '') + ' · ' + when(l.created)));
+      var seen = l.opens ? 'Opened ' + l.opens + (l.opens === 1 ? ' time' : ' times') + ' on about ' + l.phones + (l.phones === 1 ? ' phone' : ' phones') + ' · last ' + when(l.last) : 'Not opened yet';
+      li.append(make('p', 'share-help', seen + (l.open ? '' : ' · turned off')));
+      var row = make('div', 'send-row'), sw = make('button', 'linkish', l.open ? 'Turn off' : 'Turn back on'); sw.type = 'button';
+      sw.addEventListener('click', async function () {
+        sw.disabled = true;
+        await fetch('/api/shared/' + l.id + '/' + (l.open ? 'off' : 'on'), { method: 'POST', credentials: 'same-origin' }).catch(function () {});
+        TSS.sharedList(ul, sid);
+      });
+      row.append(sw); li.append(row); ul.append(li);
+    });
+  };
+})();
+
+// ---------- Download everything (For parents, studios batch 3): every picture of a studio as one zip, made in the browser ----------
+TSS.exportStudio = function (sid) {
+  'use strict';
+  var go = document.getElementById('export-go'), msg = document.getElementById('export-msg'), size = document.getElementById('export-size');
+  if (!go || go.dataset.bound) return;
+  go.dataset.bound = '1';
+  var api = '/api/studio/' + encodeURIComponent(sid || 'main') + '/export';
+  function mb(b) { return b > 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.max(1, Math.round(b / 1e6)) + ' MB'; }
+  fetch(api, { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+    if (j.ok) size.textContent = j.pieces + (j.pieces === 1 ? ' picture' : ' pictures') + ' · ' + mb(j.bytes) + ' on the site. One zip, a folder per artist. Videos and full-size originals are in Google Drive.';
+  }).catch(function () {});
+  go.addEventListener('click', async function () {
+    if (go.disabled) return;
+    go.disabled = true; msg.textContent = 'Getting the list…';
+    try {
+      var j = await (await fetch(api, { credentials: 'same-origin' })).json();
+      if (!j.ok) throw new Error(j.error || 'no');
+      var files = [], top = (j.name || 'Studio').replace(/[^A-Za-z0-9 _-]+/g, '').trim() || 'Studio';
+      for (var i = 0; i < j.files.length; i++) {
+        msg.textContent = 'Getting ' + (i + 1) + ' of ' + j.files.length + '…';
+        var f = j.files[i], r = await fetch(f.url, { credentials: 'same-origin' });
+        if (!r.ok) continue;   // a picture the site no longer has: the rest still come
+        var type = r.headers.get('content-type') || '', ext = /webp/.test(type) ? 'webp' : /png/.test(type) ? 'png' : 'jpg';
+        files.push({ name: top + '/' + f.path + '.' + ext, data: new Uint8Array(await r.arrayBuffer()) });
+      }
+      files.push({ name: top + '/details.json', data: new TextEncoder().encode(JSON.stringify({ studio: j.name, made: new Date().toISOString(), pictures: j.details }, null, 2)) });
+      msg.textContent = 'Making the zip…';
+      var how = await TSS.save(new File([TSS.zip(files)], top + '.zip', { type: 'application/zip' }));
+      msg.textContent = how === 'downloaded' ? '✓ Saved to Downloads' : '✓ Done';
+    } catch (e) { msg.textContent = e && e.name === 'AbortError' ? '' : 'That did not work. Try again?'; }
+    go.disabled = false;
+  });
+};

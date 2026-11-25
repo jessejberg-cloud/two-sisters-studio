@@ -8,14 +8,16 @@
 //   POST /api/admin/password          { level: family|friends|pin|kid-leora|kid-amaya, password } -> change it; logs out every other device on it
 //   GET|POST /api/admin/kids          { kid, moments } -> the girls' tablets: password set?, Family Moments switch
 import { isOwner, makeParentFor, checkLevel, kidLevel, GIRLS, setKidMoments, config as authConfig, generation, who, isParent, getLink, forgetLink, linkOpen, makeLogin, makeParent, changeLevel, isSetUp, friendsPasswordText, secret } from '../lib/auth.mjs';
-import { sign, randomId, setCookie, COOKIE, DAY, PAGES, LOGIN_DAYS, PARENT_MINUTES } from '../lib/core.mjs';
+import { sign, randomId, setCookie, cookies, COOKIE, DAY, PAGES, LOGIN_DAYS, PARENT_MINUTES } from '../lib/core.mjs';
 import { store } from '../lib/store.mjs';
+import { getShare, shareOpen, countOpen } from './shared.mjs';
 
 const json = (o, init = {}) => {
   const headers = new Headers(init.headers || {});
   headers.set('cache-control', 'no-store');
   return Response.json(o, { status: init.status || 200, headers });
 };
+const PHONE = 'tssx';   // a random number per phone, so a shared link can say about how many phones opened it
 const EXPIRY = { week: 7, month: 31, year: 366, never: 0 };
 const LABEL = { leora: 'Leora', amaya: 'Amaya', 'pet-parents': 'Pet Parents', 'family-moments': 'Family Moments' };
 
@@ -25,6 +27,16 @@ export default async (req, context) => {
 
   // ----- a friend opens a link -----
   if (parts[0] === 's') {
+    // A link to a few pictures or one day (shared.mjs): count the open, then the page that shows them. No login.
+    const items = await getShare(parts[1], context);
+    if (items) {
+      if (!shareOpen(items)) return Response.redirect(new URL('/login/?e=link', url), 303);
+      let phone = cookies(req)[PHONE];
+      const h = new Headers({ location: '/shared/?l=' + items.id, 'cache-control': 'no-store' });
+      if (!/^[A-Za-z0-9_-]{16,30}$/.test(phone || '')) { phone = randomId(16); h.append('set-cookie', setCookie(PHONE, phone, { maxAge: 2 * 366 * 86400 })); }
+      await countOpen(items, phone, context);
+      return new Response(null, { status: 303, headers: h });
+    }
     const link = await getLink(parts[1], context);
     if (!linkOpen(link)) return Response.redirect(new URL('/login/?e=link', url), 303);
     const me = await who(req, context);

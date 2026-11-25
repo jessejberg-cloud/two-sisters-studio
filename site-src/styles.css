@@ -818,3 +818,12 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .start .idea { border: 0; background: rgba(0, 0, 0, 0.05); }
 .start .idea[aria-pressed="true"] { background: var(--yellow); }
 .start .st-pin { border: 0; border-bottom: 2px solid #8a8178; border-radius: 0; background: transparent; }
+
+/* Share one picture or a day (studios batch 3) */
+.moment-head .day-share { margin-top: 12px; }
+.shared-page { padding-top: 8px; }
+.shared-h { margin: 8px 0 2px; }
+.shared-wait { color: #5d554d; }
+.shared-what { margin: 0; font-weight: 800; }
+.lightbox .lb-share, .pb-tools .pb-share { min-height: 52px; padding: 10px 20px; margin-top: 8px; border-radius: 999px; border: 3px solid var(--ink); background: #fff; color: var(--ink); font: 800 1.05rem var(--body); cursor: pointer; }
+.lightbox .lb-share[hidden], .pb-tools .pb-share[hidden] { display: none; }

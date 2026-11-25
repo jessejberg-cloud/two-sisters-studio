@@ -25,7 +25,7 @@
       $('#g-connect').textContent = 'Connect again';
     } else $('#g-status').textContent = 'Not connected yet. Uploads need this once.';
     if (q.get('connected')) $('#g-status').textContent = 'Connected! ' + $('#g-status').textContent;
-    showRebuild(); showLinks(); showWaiting(); showTablets(); showHouses(); showStudio(); showOwner();
+    showRebuild(); showLinks(); if (window.TSS && TSS.sharedList) TSS.sharedList(document.getElementById('shared-list'), 'main'); showWaiting(); showTablets(); showHouses(); showStudio(); showOwner();
   }
 
   // ---------- family who add photos: one invite link per household (Jesse, 2026-11-25) ----------
