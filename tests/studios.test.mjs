@@ -22,6 +22,7 @@ globalThis.fetch = async (url, opts = {}) => {
   if (url.includes('/drive/v3/files?fields=id')) return Response.json({ id: 'F' + (++fileN) });
   if (url.includes('uploadType=resumable')) return new Response(null, { headers: { location: 'https://www.googleapis.com/upload/session/' + (++fileN) } });
   if (url.includes('uploadType=multipart')) return Response.json({ id: 'M' + (++fileN) });
+  if (url.includes('/upload/session/') && opts.method === 'PUT') return Response.json({ id: 'V' + (++fileN) });   // a video piece (the last one)
   return new Response('?', { status: 404 });
 };
 await saveGoogle({}, 'rt', {});   // Jesse's studio has Drive
@@ -264,4 +265,39 @@ test('a grown-up phone adds a category from the app; a kid-mode phone cannot', a
   assert.equal((await studios(post('/api/studio/kim/cats', t, { name: 'Lego' }), {})).status, 401);
   const bad = await (await studios(post('/api/studio/kim/cats', p, { name: 'Sports', icon: '<b>' }), {})).json();
   assert.equal(bad.cat.icon, '');
+});
+
+test('a family studio adds a video: its own Family Moments, its own Drive, never Jesse\'s', async () => {
+  const { default: videos } = await import('../netlify/functions/videos.mjs');
+  const { copyToDrive } = await import('../netlify/functions/video-drive-background.mjs');
+  const j = await (await studios(post('/api/owner', owner, { do: 'invite', name: 'Ray' }), {})).json();
+  const inv = new URL(j.creates[0].url).pathname;
+  let p = jar('', await studios(req(inv, ''), {}));
+  const made = await (await studios(post('/api/studios/create', p, { name: 'Ray', pin: '4444', kids: [{ name: 'Zed' }] }), {}));
+  p = jar(p, made); const view = (await made.json()).view;
+  p = jar(p, await studios(post('/api/studio/ray/device', p, { name: 'Dad' }), {}));
+  await saveGoogle({}, 'rt-ray', {}, 'ray');
+  const s = await (await videos(post('/api/videos/start', p, { studio: 'ray', eventTitle: 'Beach day', eventDate: '2026-11-20', size: 5, type: 'video/mp4' }), {})).json();
+  assert.ok(s.id, JSON.stringify(s));
+  assert.equal((await videos(req('/api/videos/' + s.id + '/part/0', p, { method: 'POST', body: new Uint8Array(5) }), {})).status, 200);
+  const fin = await (await videos(post('/api/videos/' + s.id + '/finish', p, {}), {})).json();
+  assert.equal(fin.video.from, 'Dad'); assert.equal(fin.video.studio, 'ray');
+  // On Ray's Family Moments, not on Jesse's.
+  const mine = await (await videos(req('/api/videos?studio=ray', p), {})).json();
+  assert.deepEqual(mine.videos.map((v) => v.id), [s.id]);
+  assert.ok(!(await (await videos(req('/api/videos', family), {})).json()).videos.some((v) => v.id === s.id), 'not on Jesse\'s page');
+  // A View link of Ray's watches it; a stranger's phone cannot.
+  const vp = jar('', await studios(req(new URL(view).pathname, ''), {}));
+  assert.equal((await videos(req('/api/videos/' + s.id + '/play', vp, { headers: { range: 'bytes=0-1' } }), {})).status, 206);
+  assert.equal((await videos(post('/api/videos/start', vp, { studio: 'ray', eventTitle: 'X', eventDate: '2026-11-26', size: 5 }), {})).status, 401, 'a View link only looks');
+  assert.equal((await videos(req('/api/videos?studio=ray', ''), {})).status, 401);
+  // Ray's Drive gets it.
+  const before = fileN;
+  await copyToDrive({}, s.id, 'https://twosistersstudio.com');
+  const after = await (await videos(req('/api/videos?studio=ray', p), {})).json();
+  assert.equal(after.videos[0].drive, 'done', JSON.stringify(after.videos[0]));
+  assert.ok(fileN > before);
+  // Dad can put his own video away and bring it back.
+  assert.equal((await videos(post('/api/videos/' + s.id + '/delete', p, {}), {})).status, 200);
+  assert.equal((await videos(post('/api/videos/' + s.id + '/restore', p, {}), {})).status, 200);
 });

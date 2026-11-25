@@ -81,7 +81,10 @@ Priorities, in order (spec):
 - Snapshots and special-day photos: Turn only.
 - Save: kept on the phone, then the original goes to Drive and a web copy to the site. It shows on the site right away.
 - Kids' uploads from tablets wait for a parent's OK (OK all on For parents and on a parent's app home).
-- PDFs can be art (page 1 is the picture). Episodes and videos: Jesse's studio only, for now.
+- PDFs can be art (page 1 is the picture). Episodes: Jesse's studio only, for now.
+- Videos (A video, or a special day): every studio. The video plays from the site and is copied into that studio's own
+  Google Drive (`Family Moments/<date title>/`). It shows on that studio's Family Moments page. The phone that sent it can
+  put it away (not a kid-mode phone); so can the studio's parents.
 - Quick capture: hold the app icon (Android) for Take a picture (last artist and category) or A special day; ⚡ on the
   app home opens straight on the camera every time (useful on iPhone).
 
@@ -174,5 +177,6 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 
 | Date | What changed | PR |
 |---|---|---|
+| 2026-11-25 | Studios batch 3b: videos for every family studio, kept in that studio's own Google Drive and shown on its Family Moments page; a View link can watch, never add. Test first (`tests/studios.test.mjs`). | (this PR) |
 | 2026-11-25 | First GitHub run (Safari's engine) found: photos could not be read where createImageBitmap is missing or refuses a file (older iPhones). App now falls back to a plain picture; a test covers it. Also: where a phone's storage will not keep photo files (Safari private browsing, WebKit), Save keeps the bytes instead; a test covers it. Look check waits for its first approved pictures instead of failing. | (this PR) |
 | 2026-11-25 | Guide started. Robot-phone tests (iPhone, Pixel, Fire tablet, computer) on a pretend site with fake Drive; intent and look checks; GitHub checks on every PR; guide check; reviewer agent; preview test with real Drive (needs Jesse's setup). Fixed: a new family's phone stuck on "Who?" after naming itself. | (this PR) |

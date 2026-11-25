@@ -14,8 +14,8 @@
 // The pieces live in Netlify Blobs (store "video") and play from there, so videos keep playing even if
 // Google Drive is ever disconnected. Right after, the site copies the whole file into Google Drive by itself
 // (functions/video-drive-background.mjs): Two Sisters Studio / Family Moments / <2026-06-14 Wedding> /.
-import { who, byOf, mayView, deviceKey } from '../lib/auth.mjs';
-import { MAIN } from '../lib/studios.mjs';
+import { who, byOf, mayView, deviceKey, isOwner, isParent } from '../lib/auth.mjs';
+import { MAIN, getStudio, getDevice } from '../lib/studios.mjs';
 import { store } from '../lib/store.mjs';
 import { slug } from '../lib/pieces.mjs';
 
@@ -32,7 +32,10 @@ const TYPES = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'web
 export const pub = (v) => ({ id: v.id, event: v.event, eventTitle: v.eventTitle, eventDate: v.eventDate, caption: v.caption,
   date: v.date, type: v.type, size: v.size, seconds: v.seconds, w: v.w, h: v.h, hevc: !!v.hevc,
   poster: v.poster ? { w: v.poster.w, h: v.poster.h } : null, ready: !!v.ready, deleted: v.deleted || null, created: v.created,
-  drive: v.drive ? v.drive.state : null, from: v.from || null });
+  drive: v.drive ? v.drive.state : null, from: v.from || null, ...(v.studio ? { studio: v.studio } : {}), ...(v.studios ? { studios: v.studios } : {}) });
+// A video's studio ('main' for Jesse's: older videos have none), and the studios whose Family Moments page shows it.
+export const studioOfV = (v) => v.studio || MAIN;
+export const tagsOfV = (v) => (Array.isArray(v.studios) && v.studios.length ? v.studios : [studioOfV(v)]);
 
 export const eventKey = (date, title) => `${date}-${slug(title, 6)}`;
 export const driveFolder = (v) => ['Family Moments', `${v.eventDate} ${v.eventTitle.replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 60).trim()}`];
@@ -64,20 +67,27 @@ async function handle(req, context) {
   const me = await who(req, context);
   if (!me) return json({ error: 'login' }, 401);
   const family = me.role === 'family';
-  // A phone holding Jesse's studio's View link or Invite (build spec, 2026-11-25) may watch too.
-  const mayWatch = family || (me.pages || []).includes('family-moments') || (me.role === 'guest' && mayView(me, MAIN));
-  if (!mayWatch) return json({ error: 'page' }, 401);
+  // Who may watch a studio's videos: on Jesse's, the family, a share link with Family Moments, and his studio's View link or
+  // Invite; on a family's studio (studios batch 3), its View link or Invite, and Jesse's owner PIN.
+  const owner = await isOwner(req, context);
+  const watches = (sid) => sid === MAIN ? family || (me.pages || []).includes('family-moments') || (me.role === 'guest' && mayView(me, MAIN))
+    : owner || (me.role === 'guest' && mayView(me, sid)) || family;
+  const askStudio = url.searchParams.get('studio') || MAIN;
 
   // ----- watching -----
   if (req.method === 'GET') {
     if (parts.length === 0) {
-      const all = family && url.searchParams.get('all');
-      const list = (await readIndex(context)).filter((v) => all || (v.ready && !v.deleted))
+      if (!watches(askStudio)) return json({ error: 'page' }, 401);
+      const mineKey = askStudio !== MAIN ? deviceKey(me, askStudio) : null;
+      const all = url.searchParams.get('all') && (family || mineKey);
+      const list = (await readIndex(context)).filter((v) => tagsOfV(v).includes(askStudio))
+        .filter((v) => (v.ready && !v.deleted) || (all && (family || v.by === 'd:' + mineKey.d)))
         .sort((a, b) => (b.eventDate + b.date + b.created).localeCompare(a.eventDate + a.date + a.created));
       return json({ videos: list });
     }
     const v = await getVideo(context, parts[0]);
-    if (!v || (!family && (!v.ready || v.deleted))) return new Response('Not found', { status: 404 });
+    if (!v || !tagsOfV(v).some(watches)) return new Response('Not found', { status: 404 });
+    if (!family && (!v.ready || v.deleted)) return new Response('Not found', { status: 404 });
     if (parts[1] === 'play') return play(req, context, v);
     if (parts[1] === 'poster' && v.poster) {
       const got = await store('images', context).getWithMetadata('vid-' + v.id, { type: 'arrayBuffer' });
@@ -89,14 +99,25 @@ async function handle(req, context) {
 
   // A household's phone may add a video to a special day (start, its pieces, poster, finish), as itself, nothing else.
   // A phone added with the studio's Invite does the same, as that phone ('d:<device id>').
-  const dk = me.role === 'guest' ? deviceKey(me, MAIN) : null;
-  const saver = me.role === 'house' ? byOf(me) : dk ? 'd:' + dk.d : null;
-  if (!family && !(saver && req.method === 'POST' && (parts[0] === 'start' || ['part', 'poster', 'finish'].includes(parts[1])))) return json({ error: 'family' }, 401);
+  // A family's studio (studios batch 3): a phone added with its Invite adds to it, and may put its own videos away.
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
+  let body = null;
+  if (parts[0] === 'start') body = await req.json();
+  const known = parts[0] !== 'start' ? await getVideo(context, parts[0]) : null;
+  const sid = parts[0] === 'start' ? (typeof body.studio === 'string' && body.studio ? body.studio : MAIN) : known ? studioOfV(known) : MAIN;
+  const dk = me.role === 'guest' ? deviceKey(me, sid) : null;
+  const saver = me.role === 'house' && sid === MAIN ? byOf(me) : dk ? 'd:' + dk.d : null;
+  let own = ['edit', 'delete', 'restore'].includes(parts[1]) && sid !== MAIN && known && saver === known.by;
+  if (own && (await getDevice(dk.d, context))?.kid) own = false;   // a kid-mode phone never puts things away
+  const studioParent = sid !== MAIN && ['edit', 'delete', 'restore'].includes(parts[1]) && (await isParent(req, context, sid));
+  const familyHere = family && sid === MAIN;
+  if (!familyHere && !own && !studioParent && !(saver && (parts[0] === 'start' || ['part', 'poster', 'finish'].includes(parts[1])))) return json({ error: 'family' }, 401);
 
   // ----- adding a video -----
   if (parts[0] === 'start') {
-    const b = await req.json();
+    const b = body;
+    const st = sid === MAIN ? null : await getStudio(sid, context);
+    if (sid !== MAIN && (!st || st.off || st.removed)) return json({ error: 'studio' }, 404);
     const size = Math.floor(+b.size || 0);
     const type = TYPES[String(b.type || '').toLowerCase()] ? String(b.type).toLowerCase() : 'video/mp4';
     const eventTitle = clean(b.eventTitle, 80);
@@ -115,13 +136,23 @@ async function handle(req, context) {
       seconds: Math.max(0, Math.round(+b.seconds || 0)) || null, w: Math.round(+b.w || 0) || null, h: Math.round(+b.h || 0) || null,
       hevc: !!b.hevc, chunkSize: CHUNK, chunks: Math.ceil(size / CHUNK), received: [], poster: null,
       ready: false, deleted: null, created: now(), drive: null, by: saver, from: saver ? (dk ? dk.name || null : me.name) : null };
+    if (st) {
+      v.studio = sid;
+      const dev = await getDevice(dk.d, context);
+      if (dev?.name) v.from = dev.name;
+      // Family Moments: the studios it shows in (own studio first; others the phone ticked).
+      const want = Array.isArray(b.studios) ? b.studios.filter((x) => typeof x === 'string').slice(0, 30) : [sid];
+      const tags = [];
+      for (const x of [...new Set([sid, ...want])]) { const o = x === sid ? st : await getStudio(x, context); if (o && !o.off && !o.removed) tags.push(o.slug); }
+      v.studios = tags;
+    }
     await saveVideo(context, v);
     return json({ id, chunkSize: CHUNK, chunks: v.chunks });
   }
 
-  const v = await getVideo(context, parts[0]);
+  const v = known;
   if (!v) return json({ error: 'unknown' }, 404);
-  if (!family && v.by !== saver) return json({ error: 'family' }, 401);
+  if (!familyHere && !studioParent && v.by !== saver) return json({ error: 'family' }, 401);
 
   if (parts[1] === 'part') {
     const i = Math.floor(+parts[2]);

@@ -64,6 +64,7 @@
   var ICON = { kid: '🎨', adult: '🎨', pet: '🐾' };
   if (kind === 'moments') {
     use('tpl-moments');
+    var va = $('.gallery-area[data-videos]'); if (va) { va.dataset.videos = '/api/videos?studio=' + encodeURIComponent(slug); va.hidden = false; }   // its own videos (batch 3)
     var sec = $('.live-photos'); sec.dataset.src = q('&section=moments'); sec.querySelector('.live-h').textContent = ''; sec.querySelector('.live-note').textContent = '';
   }
   if (kind === 'parents') use('tpl-parents');
