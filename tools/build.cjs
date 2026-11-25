@@ -97,6 +97,11 @@ const ICONS = {
 function page({ key, title, body, section, bodyClass, csp = CSP_STRICT, tabs = true, scripts = [] }) {
   const fullTitle = title ? `${title} · ${site.siteName}` : site.siteName;
   const current = section || key;
+  // The small ＋ on every page (Jesse, 2026-11-25): opens the app on the right screen for this page. main.js shows it
+  // for family phones, households and the girls' tablets, never for friends on a share link.
+  const addFor = kidByKey[current] ? `?add=art&kid=${current}` : current === 'family-moments' ? '?add=day'
+    : current === 'pet-parents' ? '?add=episode' : current === 'households' ? '?add=house' : '';
+  const fab = tabs && key !== 'parent' ? `<a class="add-fab" href="/upload/${addFor}" data-add="${addFor}" hidden><span aria-hidden="true">＋</span><span class="add-fab-label">Add</span></a>` : '';
   const nav = TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"${n.key === current ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('');
   return `<!doctype html>
 <html lang="en">
@@ -137,6 +142,7 @@ ${scripts.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).joi
 <main id="main">
 ${body}
 </main>
+${fab}
 <footer class="site-footer">
   <div class="paw-trail" aria-hidden="true">${ICONS.paw.repeat(5)}</div>
   <p>Made with love (and crayons) by the ${esc(site.siteName)} crew.</p>
