@@ -81,8 +81,8 @@ test('changing the family password logs out other devices but keeps this one', a
   assert.equal(pin.error, 'short', 'a PIN is 4 to 8 numbers');
 });
 
-test('the parent PIN is remembered for 30 days on that phone', async () => {
+test('the parent PIN lasts only for one visit (build spec: asked every time For parents opens)', async () => {
   const now = { tss: encodeURIComponent(await auth.makeLogin('family', {})) };   // the family password changed above
   const res = await login(post('/api/parent', now, { pin: '2468' }), { ip: '9.9.9.9' });
-  assert.match(res.headers.get('set-cookie') || '', /tssp=[^;]+;.*Max-Age=2592000/i);
+  assert.match(res.headers.get('set-cookie') || '', /tssp=[^;]+;.*Max-Age=1200/i);
 });

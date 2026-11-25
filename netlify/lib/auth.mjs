@@ -4,10 +4,11 @@
 // gives it a new one, and every cookie carrying the old one stops working (that logs out every device using it).
 import { sign, verify, sha256, sameText, hashPassword, checkPassword, randomId, cookies, encrypt, decrypt, COOKIE, DAY, PAGES } from './core.mjs';
 import { store } from './store.mjs';
+import { getStudio, getDevice, checkPin, MAIN } from './studios.mjs';
 import site from '../../content/site.json' with { type: 'json' };
 
 export const env = (k) => globalThis.Netlify?.env?.get?.(k) ?? globalThis.process?.env?.[k];
-export const LEVELS = { family: 'FAMILY_PASSWORD', friends: 'FRIENDS_PASSWORD', pin: 'PARENT_PIN' };
+export const LEVELS = { family: 'FAMILY_PASSWORD', friends: 'FRIENDS_PASSWORD', pin: 'PARENT_PIN', owner: 'OWNER_PIN' };
 // Each girl's tablet has its own password (set by a parent; none until then). Level names: kid-leora, kid-amaya.
 export const GIRLS = site.kids.map((k) => k.key);
 export const KID_PAGES = [...GIRLS, 'pet-parents'];
@@ -72,8 +73,15 @@ export async function makeParent(context, minutes) {
   return sign({ r: 'parent', g: await generation('pin', context), exp: Date.now() + minutes * 60000 }, secret());
 }
 
-// Reads the login cookie and checks it is still good. Returns { role, link?, pages?, iat } or null.
+// Reads the login cookies and checks they are still good. Returns { role, link?, pages?, iat, keys } or null.
+// role is the old login (family, friend, house, kid) or 'guest' when the phone only holds studio keys (View link, Invite).
 export async function who(req, context) {
+  const keys = await validKeys(await readKeys(req), context);
+  const me = await legacy(req, context);
+  if (me) return Object.assign(me, { keys });
+  return keys.length ? { role: 'guest', keys, pages: [] } : null;
+}
+async function legacy(req, context) {
   const c = cookies(req);
   const p = await verify(c[COOKIE.login], secret());
   if (!p) return null;
@@ -150,12 +158,87 @@ export function houseMayOpen(me, pathname) {
 // Who saved a piece or video: a girl's key, or h:<household id>. Family pieces have none.
 export const byOf = (me) => (me?.role === 'kid' ? me.kid : me?.role === 'house' ? 'h:' + me.house : null);
 
-export async function isParent(req, context) {
-  const fam = await who(req, context);
-  if (fam?.role !== 'family') return false;
-  const p = await verify(cookies(req)[COOKIE.parent], secret());
-  return !!p && p.r === 'parent' && p.g === (await generation('pin', context));
+// ---------- studio keys (build spec, 2026-11-25): what a phone holds after tapping a studio's View link or Invite ----------
+// One signed cookie with a short list: { t: 'v', s: studio, g: view link generation } to look, { t: 'd', s, d: device id }
+// to add (a capture device). A phone can hold keys for several studios (Grandma in two studios).
+export async function readKeys(req) {
+  const p = await verify(cookies(req)[COOKIE.keys], secret());
+  return Array.isArray(p?.k) ? p.k.slice(0, 20) : [];
 }
+export async function validKeys(raw, context) {
+  const out = [];
+  for (const k of raw) {
+    const s = await getStudio(k.s, context);
+    if (!s || s.off || s.removed) continue;
+    if (k.t === 'v' && s.view?.gen && k.g === s.view.gen) out.push({ t: 'v', s: s.slug });
+    if (k.t === 'd') {
+      const d = await getDevice(k.d, context);
+      if (d && !d.off && d.studio === s.slug) out.push({ t: 'd', s: s.slug, d: d.id, kid: d.kid || null, name: d.name || '' });
+    }
+  }
+  return out;
+}
+// Adds or replaces a key and returns the new cookie value (keys for other studios stay).
+export async function addKey(req, key) {
+  const list = (await readKeys(req)).filter((k) => !(k.s === key.s && (k.t === key.t || key.t === 'd')));
+  list.unshift(key);
+  return sign({ k: list.slice(0, 20), iat: Date.now() }, secret());
+}
+// May this login look at / add to a studio? (Old logins belong to the root studio.)
+export function mayView(me, studio) {
+  if (!me) return false;
+  if (me.role === 'family') return true;   // Jesse's household looks at every studio (the family menu has every View link anyway)
+  if (studio === MAIN && ['kid', 'house', 'friend'].includes(me.role)) return true;   // their own page rules apply too
+  return (me.keys || []).some((k) => k.s === studio);
+}
+export function deviceKey(me, studio) { return (me?.keys || []).find((k) => k.t === 'd' && k.s === studio) || null; }
+export function mayAdd(me, studio) {
+  if (!me) return false;
+  if (studio === MAIN && ['family', 'kid', 'house'].includes(me.role)) return true;
+  return !!deviceKey(me, studio);
+}
+export const addsAnywhere = (me) => !!me && (['family', 'kid', 'house'].includes(me.role) || (me.keys || []).some((k) => k.t === 'd'));
+
+// ---------- PINs: each studio has its own; Jesse's owner PIN opens For parents in every studio ----------
+// The owner PIN is OWNER_PIN in Netlify (or changed in the app); until it is set, the root studio's parent PIN is the owner PIN.
+export async function checkOwner(pin, context) {
+  const cfg = await config(context, true);
+  if (cfg.owner?.hash || env(LEVELS.owner)) return checkLevel('owner', pin, context);
+  return checkLevel('pin', pin, context);
+}
+export async function ownerGen(context) {
+  const cfg = await config(context);
+  if (cfg.owner?.gen || env(LEVELS.owner)) return 'o-' + (await generation('owner', context));
+  return 'p-' + (await generation('pin', context));
+}
+// The parent cookie says which studio's For parents it opens: a studio slug, or '*' for the owner (every studio).
+export async function makeParentFor(studio, context, minutes) {
+  const g = studio === '*' ? await ownerGen(context) : studio === MAIN ? await generation('pin', context) : (await getStudio(studio, context))?.pin?.gen;
+  return sign({ r: 'parent', s: studio, g, exp: Date.now() + minutes * 60000 }, secret());
+}
+export async function checkStudioPin(studio, pin, context) {
+  if (studio === MAIN) return checkLevel('pin', pin, context);
+  return checkPin(await getStudio(studio, context), pin);
+}
+export async function parentOf(req, context) {
+  const p = await verify(cookies(req)[COOKIE.parent], secret());
+  if (!p || p.r !== 'parent') return null;
+  if (p.s === '*') return p.g === (await ownerGen(context)) ? '*' : null;
+  const s = p.s || MAIN;
+  if (s === MAIN) return p.g === (await generation('pin', context)) ? MAIN : null;
+  const st = await getStudio(s, context);
+  return st?.pin?.gen && p.g === st.pin.gen ? s : null;
+}
+// A parent of this studio (its PIN), or the owner. The root studio also needs a family login or one of its keys, as before.
+export async function isParent(req, context, studio = MAIN) {
+  const got = await parentOf(req, context);
+  if (!got) return false;
+  if (got !== '*' && got !== studio) return false;
+  if (studio !== MAIN || got === '*') return true;
+  const fam = await who(req, context);
+  return fam?.role === 'family' || mayAdd(fam, MAIN) && fam?.role === 'guest';
+}
+export async function isOwner(req, context) { return (await parentOf(req, context)) === '*'; }
 
 // ---- share links (phase 6 uses these; the gate checks them on every friend visit) ----
 const linkCache = new Map();

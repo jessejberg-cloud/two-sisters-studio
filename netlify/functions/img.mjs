@@ -3,9 +3,9 @@
 // GET /img/<piece id>/<n>/print  Family Moments: the print-size copy (the web copy when there is none)
 // GET /img/<piece id>/<n>/pdf    the PDF itself, when the piece was added as a PDF
 // Family: everything. Households: their own photos, plus Family Moments and their pages. Friends: only pieces of a kid on their link. Put-away pieces: family only.
-import { who } from '../lib/auth.mjs';
+import { who, mayView } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
-import { getPiece, webName, pdfName, printName } from '../lib/pieces.mjs';
+import { getPiece, webName, pdfName, printName, studioOf, tagsOf } from '../lib/pieces.mjs';
 
 export default async (req, context) => {
   const [, , id, n, size] = new URL(req.url).pathname.split('/');
@@ -13,7 +13,11 @@ export default async (req, context) => {
   if (!me) return new Response('Please log in.', { status: 401 });
   const p = await getPiece(context, id);
   if (!p || !/^\d+$/.test(n || '')) return new Response('Not found', { status: 404 });
-  if (me.role !== 'family') {
+  // Studios: anyone who can look at the piece's studio, or (Family Moment) at any studio it was tagged for.
+  const sid = studioOf(p), viaKeys = p.section === 'moments' ? tagsOf(p).some((x) => mayView({ keys: me.keys }, x)) : mayView({ keys: me.keys }, sid);
+  if (viaKeys) { if (p.deleted || p.waiting) return new Response('Not found', { status: 404 }); }
+  else if (sid !== 'main' && me.role !== 'family') return new Response('Not found', { status: 404 });
+  else if (me.role !== 'family') {
     const kids = p.kid === 'both' ? ['leora', 'amaya'] : [p.kid];
     const allowed = p.section === 'moments' ? me.pages.includes('family-moments')
       : p.section === 'house' ? me.role === 'house' && p.house === me.house      // a household's own page: theirs and the family's only
