@@ -579,8 +579,10 @@ ${lightboxTpl}</template>
     <p class="share-help">Links never end. New link stops the old one; the other link keeps working.</p>
   </section>
   <section class="parent-card wobbly"><h2>Phones</h2><p class="share-help">A kid's name hides Put away and For parents on that phone.</p><ul class="link-list" id="phone-list"></ul></section>
-  <section class="parent-card wobbly" id="kids-card"><h2>Kids</h2><ul class="kid-edit" id="kid-list"></ul>
-    <p><button type="button" class="chip" id="kid-add">＋ Kid</button> <button type="button" class="btn-big" id="kids-save">Save</button></p><p class="share-help" id="kids-msg" role="status"></p></section>
+  <section class="parent-card wobbly" id="kids-card"><h2>Artists</h2><p class="share-help">Kids, grown-ups or pets. Only kids have a grade.</p><ul class="kid-edit" id="kid-list"></ul>
+    <p><button type="button" class="chip" id="kid-add">＋ Add</button> <button type="button" class="btn-big" id="kids-save">Save</button></p><p class="share-help" id="kids-msg" role="status"></p></section>
+  <section class="parent-card wobbly" id="cats-card"><h2>Categories</h2><p class="share-help">Beside Artwork, Snapshots and Family Moments. 📄 Paper gets the scan fix. 📷 Photo stays a plain picture.</p><ul class="kid-edit" id="cat-list"></ul>
+    <p><button type="button" class="chip" id="cat-add">＋ Add</button> <button type="button" class="btn-big" id="cats-save">Save</button></p><p class="share-help" id="cats-msg" role="status"></p></section>
   <section class="parent-card wobbly"><h2>Name</h2><div class="pw-row"><label>Studio <input type="text" id="studio-name" maxlength="40"></label><button type="button" class="chip" id="name-save">Save</button></div>
     <h2>Color</h2><div class="swatches" id="look">${swatches('look')}</div><p class="share-help" id="look-msg" role="status"></p></section>
   <section class="parent-card wobbly"><h2>Google Drive</h2><p id="g-status">…</p><p><a class="btn-big" id="g-connect" href="#">Connect Google Drive</a></p></section>
@@ -597,10 +599,15 @@ pages['start/index.html'] = page({
   body: `<div class="start">
   <section class="step" data-step="1">
     <label class="st-label">Studio <input type="text" id="st-name" maxlength="40" autocomplete="off" enterkeyhint="next"></label>
-    <p class="st-label">Kids</p>
+    <p class="st-label">Artists</p>
     <ul class="st-kids" id="st-kids"></ul>
-    <template id="st-kid"><li class="st-kid"><input type="text" maxlength="30" autocomplete="off" aria-label="Name"><select aria-label="Grade">${gradeOptions}</select></li></template>
-    <p><button type="button" class="chip st-more" id="st-more" aria-label="One more kid">＋</button></p>
+    <template id="st-kid"><li class="st-kid"><input type="text" maxlength="30" autocomplete="off" aria-label="Name"><select aria-label="Who" class="st-kind"><option value="kid">Kid</option><option value="adult">Grown-up</option><option value="pet">Pet</option></select><select aria-label="Grade" class="st-grade">${gradeOptions}</select></li></template>
+    <p><button type="button" class="chip st-more" id="st-more">＋ Add</button></p>
+    <p class="st-label">Categories</p>
+    <p class="st-fixed"><span class="chip">🎨 Artwork</span> <span class="chip">📷 Snapshots</span> <span class="chip">❤️ Family Moments</span></p>
+    <ul class="st-kids st-cats" id="st-cats"></ul>
+    <template id="st-cat"><li class="st-kid st-cat"><input type="text" maxlength="30" autocomplete="off" aria-label="Category" placeholder="School papers"><select aria-label="Kind" class="st-scan"><option value="1">📄 Paper</option><option value="">📷 Photo</option></select></li></template>
+    <p><button type="button" class="chip st-more" id="st-cat-more">＋ Add</button></p>
     <p class="st-nav"><button type="button" class="btn-big" data-next>→</button></p>
   </section>
   <section class="step" data-step="2" hidden>

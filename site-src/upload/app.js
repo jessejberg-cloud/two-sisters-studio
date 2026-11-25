@@ -51,7 +51,7 @@
   function status(msg, bad) { var s = $('#status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
   function setKid(k) {
     state.kid = k; state.day = null; $('#tag-chips').hidden = true;
-    $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (state.section === 'photos' ? '’s snapshots' : '’s art');
+    $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (state.section === 'cat' && state.cat ? ' · ' + state.cat.name : state.section === 'photos' ? '’s snapshots' : '’s art');
     document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '') + (devKid() ? ' dev-kid' : '') + (IN_APP ? ' in-app' : '');
     if (!$('#date').value) $('#date').value = today();
     status(''); renderList(); show('s-photos');
@@ -60,6 +60,8 @@
   // Inside the girls' tablet app (Amazon Kids' browser blocks the camera and photo picker; the app does not).
   var IN_APP = / TwoSistersApp\//.test(navigator.userAgent);
   if (IN_APP) document.body.classList.add('in-app');
+  // Artwork, and a studio category marked 📄 Paper, get the scan fix; everything else is a plain photo (Turn only).
+  function scans() { return (state.section || 'art') === 'art' || (state.section === 'cat' && !!state.cat && !!state.cat.scan); }
   function kidMode() { return !!(state.me && state.me.role === 'kid'); }
 
   // ---------- which studio this phone adds to (build spec, 2026-11-25) ----------
@@ -81,7 +83,7 @@
   var KID_EMOJI = ['🎨', '🖍️', '✏️', '🌈', '⭐', '🦄', '🚀', '🌻'];
   function kidButton(k, i, attr) {
     var b = el('button', 'big-button wobbly c-' + k.color); b.type = 'button'; b.setAttribute(attr, k.key);
-    b.append(el('span', 'big-icon', KID_EMOJI[i % KID_EMOJI.length]), el('span', 'big-label', k.name));
+    b.append(el('span', 'big-icon', k.kind === 'pet' ? '🐾' : KID_EMOJI[i % KID_EMOJI.length]), el('span', 'big-label', k.name));
     return b;
   }
   async function loadStudio() {
@@ -109,6 +111,15 @@
       STUDIO.kids.forEach(function (k, i) { var b = kidButton(k, i, 'data-kid'); b.addEventListener('click', function () { setKid(k.key); }); who.insertBefore(b, both); });
       both.remove();
       bindHome();
+      // The studio's own categories (Jesse, 2026-11-25), after Family Moments and before A video.
+      var pick = document.querySelector('#s-pick .up-what'), vid = pick.querySelector('[data-pick="video"]');
+      pick.querySelectorAll('[data-cat]').forEach(function (b) { b.remove(); });
+      (STUDIO.cats || []).forEach(function (c, i) {
+        var b = el('button', 'big-button wobbly c-' + ['lav', 'sky', 'mint', 'coral'][i % 4]); b.type = 'button'; b.dataset.cat = c.key;
+        b.append(el('span', 'big-icon', c.scan ? '📄' : '📷'), el('span', 'big-label', c.name));
+        b.addEventListener('click', function () { setWhere('cat'); state.cat = c; $('#where').hidden = true; setKid(state.pickKid); });
+        pick.insertBefore(b, vid);
+      });
     }
     document.querySelector('[data-what="both"]').hidden = !STUDIO.main;
     document.querySelector('[data-what="episode"]').hidden = !fam;
@@ -146,6 +157,7 @@
   function askName() {
     var box = $('#name-faces'); box.textContent = '';
     (STUDIO.kids || []).forEach(function (k, i) {
+      if (k.kind === 'pet') return;   // a pet does not hold a phone
       var b = kidButton(k, i, 'data-face');
       b.addEventListener('click', function () { saveName({ kid: k.key }); });
       box.append(b);
@@ -217,7 +229,7 @@
     });
   });
   function setWhere(w) {
-    state.section = w;
+    state.section = w; state.cat = null;
     document.querySelectorAll('[data-where]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.where === w)); });
   }
   document.querySelectorAll('[data-where]').forEach(function (b) { b.addEventListener('click', function () { setWhere(b.dataset.where); }); });
@@ -647,7 +659,7 @@
     });
     renderList();
     checkDupes(added);
-    if ((state.section || 'art') === 'art') added.reduce(function (p, ph) { return p.then(function () { return autoScan(ph); }); }, Promise.resolve());
+    if (scans()) added.reduce(function (p, ph) { return p.then(function () { return autoScan(ph); }); }, Promise.resolve());
   }
   $('#take').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
   $('#pick').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
@@ -743,7 +755,7 @@
       p.photos.forEach(function (ph, j) {
         var b = el('button', 'item-pic'); b.type = 'button'; b.setAttribute('aria-label', 'Fix up photo ' + (j + 1));
         var img = el('img'); img.src = ph.url; img.alt = '';
-        var art = (state.section || 'art') === 'art' && !ph.pdf;
+        var art = scans() && !ph.pdf;
         b.append(img, el('span', 'edit-tag', ph.pdf ? '📄 PDF' : ph.working ? '… Fixing' : art ? (ph.edit.orig ? 'Original' : ph.fixed ? '✓ Straightened' : '✎ Fix corners') : ph.edit.rot ? '↻ Turned' : ''));
         if (!art || ph.pdf) b.querySelector('.edit-tag').hidden = !ph.pdf && !ph.edit.rot && !ph.working;
         b.addEventListener('click', function () { if (art && !ph.working) openEditor(ph); });
@@ -758,7 +770,7 @@
         var turn = el('button', 'fix-btn wobbly', '↻ Turn'); turn.type = 'button'; turn.disabled = !!ph.working;
         turn.addEventListener('click', function () { turnOne(ph); });
         tools.append(turn);
-        if ((state.section || 'art') === 'art') {
+        if (scans()) {
           var corners = el('button', 'fix-btn wobbly', '✂ Fix corners'); corners.type = 'button'; corners.disabled = !!ph.working;
           corners.addEventListener('click', function () { openEditor(ph); });
           tools.append(corners);
@@ -1052,6 +1064,7 @@
         }
         await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: state.section || 'art', event: state.day,
           studio: STUDIO.slug, studios: state.day && !$('#tag-chips').hidden ? tags.slice() : null,
+          cat: state.section === 'cat' && state.cat ? state.cat.key : null,
           caption: p.caption.trim(), starred: p.starred, photos: photos, progress: {}, created: new Date().toISOString() });
       }
       clearPieces(); renderList();
@@ -1104,7 +1117,7 @@
   async function sendOne(q, label) {
     var pr = q.progress;
     if (!pr.start) {
-      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, section: q.section || 'art', event: q.event || null, caption: q.caption, starred: q.starred,
+      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, section: q.section || 'art', cat: q.cat || undefined, event: q.event || null, caption: q.caption, starred: q.starred,
         studio: q.studio || 'main', studios: q.studios || undefined,
         photos: q.photos.map(function (ph) { return { originalType: ph.originalType, originalSize: ph.original.size, edited: !!ph.edited, editedSize: ph.edited ? ph.edited.size : 0 }; }) });
       await put('outbox2', q);

@@ -64,19 +64,40 @@ export async function listStudios(context) {
   return out;
 }
 
-// ---------- kids ----------
+// ---------- artists (Jesse, 2026-11-25: a kid, a grown-up or a pet; the same to the site, only kids have a grade) ----------
+// Who may do what comes from the phone (kid mode) and the PIN, never from the artist.
+export const KINDS = ['kid', 'adult', 'pet'];
+export const kindOf = (k) => (KINDS.includes(k?.kind) ? k.kind : 'kid');
 export function cleanKids(list, old = []) {
   const out = [], used = new Set();
-  for (const k of Array.isArray(list) ? list.slice(0, 12) : []) {
+  for (const k of Array.isArray(list) ? list.slice(0, 16) : []) {
     const name = clean(k?.name, 30);
     if (!name) continue;
     const prev = old.find((o) => o.key === k.key);
-    let key = prev ? prev.key : toSlug(name) || 'kid';
+    let key = prev ? prev.key : toSlug(name) || 'artist';
     if (!prev) { let n = 1, base = key; while (used.has(key) || STUDIO_PAGES.includes(key)) key = base + (++n); }
     used.add(key);
-    const grade = GRADES.includes(k.grade) ? k.grade : '';
-    out.push({ key, name, color: COLORS.includes(k.color) ? k.color : COLORS[out.length % COLORS.length], grade,
+    const kind = KINDS.includes(k.kind) ? k.kind : 'kid';
+    const grade = kind === 'kid' && GRADES.includes(k.grade) ? k.grade : '';
+    out.push({ key, name, kind, color: COLORS.includes(k.color) ? k.color : COLORS[out.length % COLORS.length], grade,
       schoolYear: grade ? (prev && prev.grade === grade ? prev.schoolYear : schoolYearNow()) : '' });
+  }
+  return out;
+}
+
+// ---------- a studio's own categories, beside Artwork, A snapshot, Family Moments and A video (Jesse, 2026-11-25) ----------
+// { key, name, scan }: scan = flat paper (the scan fix, like Artwork); otherwise a photo (Turn only, like a snapshot).
+const BUILT_IN = ['art', 'photos', 'moments', 'video', 'house', 'cat', 'both'];
+export function cleanCats(list, old = []) {
+  const out = [], used = new Set();
+  for (const c of Array.isArray(list) ? list.slice(0, 8) : []) {
+    const name = clean(c?.name, 30);
+    if (!name) continue;
+    const prev = old.find((o) => o.key === c.key);
+    let key = prev ? prev.key : toSlug(name).slice(0, 20) || 'things';
+    if (!prev) { let n = 1, base = key; while (used.has(key) || BUILT_IN.includes(key)) key = base + (++n); }
+    used.add(key);
+    out.push({ key, name, scan: !!c.scan });
   }
   return out;
 }
@@ -90,10 +111,10 @@ export async function freeSlug(name, context) {
   while (RESERVED.has(slug) || (await st.get('s/' + slug, { type: 'json' }))) slug = base + (++n);   // a second "smith" becomes smith2
   return slug;
 }
-export async function makeStudio({ name, kids, color, pin, by }, context) {
+export async function makeStudio({ name, kids, cats, color, pin, by }, context) {
   const st = store('studios', context);
   const slug = await freeSlug(name, context);
-  const s = { slug, name: clean(name, 40) || slug, color: COLORS.includes(color) ? color : 'sky', kids: cleanKids(kids),
+  const s = { slug, name: clean(name, 40) || slug, color: COLORS.includes(color) ? color : 'sky', kids: cleanKids(kids), cats: cleanCats(cats),
     pin: pin ? { ...(await hashPassword(String(pin))), gen: randomId(9) } : null,
     view: null, invite: null, drive: false, skipped: [], created: new Date().toISOString(), by: by || null, off: false };
   await st.setJSON('s/' + slug, s);
@@ -162,5 +183,6 @@ export async function checkPin(s, pin) { return !!s?.pin && checkPassword(String
 
 // What every page may know about a studio (never its secrets).
 export const pubStudio = (s) => ({ slug: s.slug, name: s.name, color: s.color, main: !!s.main, href: s.main ? '/' : '/' + s.slug + '/',
-  kids: (s.kids || []).map((k) => ({ key: k.key, name: k.name, color: k.color, grade: k.grade, schoolYear: k.schoolYear })),
+  kids: (s.kids || []).map((k) => ({ key: k.key, name: k.name, kind: kindOf(k), color: k.color, grade: k.grade, schoolYear: k.schoolYear })),
+  cats: s.main ? [] : (s.cats || []).map((c) => ({ key: c.key, name: c.name, scan: !!c.scan })),
   drive: !!s.drive, pages: s.pages || null });

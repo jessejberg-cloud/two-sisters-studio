@@ -29,7 +29,27 @@
     $('.studio-kid-h').textContent = name0;
     var snaps = $('#snapshots');
     if (snaps) { snaps.dataset.src = q('&kid=' + encodeURIComponent(sub) + '&section=photos'); snaps.querySelector('.live-h').textContent = '📷'; snaps.querySelector('.live-note').textContent = ''; }
+    if (cached) cats(cached, false);
   }
+  // The studio's own categories (Jesse, 2026-11-25): one row each on an artist's page, under the snapshots; hidden while empty.
+  function cats(st, now) {
+    var snaps = $('#snapshots'); if (!snaps) return;
+    var at = snaps;
+    (st.cats || []).forEach(function (c) {
+      var id = 'cat-' + c.key, sec = document.getElementById(id);
+      if (!sec) {
+        sec = snaps.cloneNode(true); sec.id = id; sec.hidden = true;
+        sec.querySelector('.photo-grid').textContent = '';
+        sec.dataset.src = q('&kid=' + encodeURIComponent(sub) + '&section=cat&cat=' + encodeURIComponent(c.key));
+        sec.querySelector('.live-note').textContent = '';
+        at.after(sec);
+        if (now && window.TSS && TSS.livePhotos) TSS.livePhotos(sec);
+      }
+      sec.querySelector('.live-h').textContent = (c.scan ? '📄 ' : '📷 ') + c.name;
+      at = sec;
+    });
+  }
+  var ICON = { kid: '🎨', adult: '🎨', pet: '🐾' };
   if (kind === 'moments') {
     use('tpl-moments');
     var sec = $('.live-photos'); sec.dataset.src = q('&section=moments'); sec.querySelector('.live-h').textContent = ''; sec.querySelector('.live-note').textContent = '';
@@ -50,7 +70,7 @@
     // Tabs: the kids, then Family Moments, then the family menu (main.js shows it when there are other studios).
     var header = $('.site-header'), nav = make('nav'), ul = make('ul', 'tabs');
     nav.setAttribute('aria-label', 'Main');
-    st.kids.forEach(function (k) { ul.append(tab('/' + slug + '/' + k.key + '/', k.name, k.color, '🎨', kind === 'kid' && sub === k.key)); });
+    st.kids.forEach(function (k) { ul.append(tab('/' + slug + '/' + k.key + '/', k.name, k.color, ICON[k.kind] || '🎨', kind === 'kid' && sub === k.key)); });
     ul.append(tab('/' + slug + '/family-moments/', 'Family Moments', 'yellow', '❤️', kind === 'moments'));
     var fam = make('li', 'tab-fam-li'); fam.hidden = true;
     var fb = make('button', 'tab tab-fam c-sky'); fb.type = 'button'; fb.append(make('span', 'tab-icon', '🏠'), make('span', 'tab-label', 'Family'));
@@ -61,13 +81,14 @@
     if (kind === 'home') {
       $('.studio-name').textContent = st.name;
       var bb = $('#studio-buttons'); bb.textContent = '';
-      st.kids.forEach(function (k) { bb.append(big('/' + slug + '/' + k.key + '/', k.name, k.color, '🎨')); });
+      st.kids.forEach(function (k) { bb.append(big('/' + slug + '/' + k.key + '/', k.name, k.color, ICON[k.kind] || '🎨')); });
       bb.append(big('/' + slug + '/family-moments/', 'Family Moments', 'yellow', '❤️'));
     }
     if (kind === 'kid') {
       var k = kidOf(st, sub);
       if (!k) { use('tpl-none'); return; }
       $('.studio-kid-h') && ($('.studio-kid-h').textContent = k.name);
+      cats(st, true);
     }
     // The ＋: only on a phone this studio invited (the app); a View link only looks.
     if (adds && (me ? me.add : true) && kind !== 'parents') {
@@ -122,7 +143,7 @@
     $('#pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#pin-go').click(); });
     load();   // a trusted phone (PIN typed here in the last 30 days) opens straight away
 
-    var LABEL = { kids: 'Kids', name: 'Name', look: 'Color', drive: 'Google Drive' };
+    var LABEL = { kids: 'Artists', name: 'Name', look: 'Color', drive: 'Google Drive' };
     var HEADS = { pin: ['5 wrong PINs in a row.', 'Change the PIN below.'], delete: ['Many pictures put away in one hour.', 'Bring them back from Recent in the app.'],
       upload: ['Many pictures from one phone in one hour.', 'Look at Recent in the app.'], link: ['A link was opened on many phones.', 'Make a new link above.'], storage: ['Storage is nearly full.', 'Connect Google Drive.'] };
     function send(url, note) {
@@ -151,7 +172,7 @@
         var li = make('li', 'link-item' + (d.off ? ' is-off' : '')), row = make('div', 'send-row phone-row');
         var nm = make('input'); nm.type = 'text'; nm.value = d.name || ''; nm.placeholder = 'No name yet'; nm.maxLength = 30; nm.setAttribute('aria-label', 'Name');
         var kid = make('select'); kid.setAttribute('aria-label', 'Kid mode');
-        [['', 'Grown-up']].concat(st.kids.map(function (k) { return [k.key, k.name + ' (kid mode)']; })).forEach(function (o) { var op = make('option', '', o[1]); op.value = o[0]; op.selected = (d.kid || '') === o[0]; kid.append(op); });
+        [['', 'Grown-up']].concat(st.kids.filter(function (k) { return (k.kind || 'kid') === 'kid'; }).map(function (k) { return [k.key, k.name + ' (kid mode)']; })).forEach(function (o) { var op = make('option', '', o[1]); op.value = o[0]; op.selected = (d.kid || '') === o[0]; kid.append(op); });
         var off = make('button', 'linkish', d.off ? 'Turn back on' : 'Turn off'); off.type = 'button';
         nm.addEventListener('change', function () { if (nm.value.trim()) load({ do: 'device', id: d.id, name: nm.value.trim() }); });
         kid.addEventListener('change', function () { load({ do: 'device', id: d.id, kid: kid.value || null }); });
@@ -162,6 +183,8 @@
       var kl = $('#kid-list'); kl.textContent = '';
       st.kids.forEach(function (k) { kl.append(kidRow(k)); });
       if (!st.kids.length) kl.append(kidRow({}));
+      var cl = $('#cat-list'); cl.textContent = '';
+      (st.cats || []).forEach(function (c) { cl.append(catRow(c)); });
       $('#studio-name').value = st.name;
       document.querySelectorAll('#look input').forEach(function (r) { r.checked = r.value === st.color; });
       var g = j.drive || {};
@@ -170,18 +193,40 @@
       $('#g-connect').href = '/api/google/start?s=' + encodeURIComponent(slug);
     }
     var GRADES = ['', 'Pre-K', 'K4', 'K5', '1st grade', '2nd grade', '3rd grade', '4th grade', '5th grade', '6th grade', '7th grade', '8th grade', '9th grade', '10th grade', '11th grade', '12th grade'];
+    function sel(label, cls, opts, value) {
+      var x = make('select', cls); x.setAttribute('aria-label', label);
+      opts.forEach(function (o) { var op = make('option', '', o[1]); op.value = o[0]; op.selected = value === o[0]; x.append(op); });
+      return x;
+    }
+    // An artist: a kid, a grown-up or a pet (Jesse, 2026-11-25). Only a kid has a grade.
     function kidRow(k) {
       var li = make('li', 'st-kid'); li.dataset.key = k.key || '';
       var n = make('input'); n.type = 'text'; n.value = k.name || ''; n.maxLength = 30; n.setAttribute('aria-label', 'Name');
-      var g = make('select'); g.setAttribute('aria-label', 'Grade');
-      GRADES.forEach(function (x) { var o = make('option', '', x || 'Grade'); o.value = x; o.selected = (k.grade || '') === x; g.append(o); });
-      li.append(n, g); return li;
+      var w = sel('Who', 'st-kind', [['kid', 'Kid'], ['adult', 'Grown-up'], ['pet', 'Pet']], k.kind || 'kid');
+      var g = sel('Grade', 'st-grade', GRADES.map(function (x) { return [x, x || 'Grade']; }), k.grade || '');
+      function hideGrade() { g.hidden = w.value !== 'kid'; li.classList.toggle('no-grade', g.hidden); }
+      w.addEventListener('change', hideGrade); hideGrade();
+      li.append(n, w, g); return li;
     }
-    $('#kid-add').addEventListener('click', function () { $('#kid-list').append(kidRow({})); });
+    function catRow(c) {
+      var li = make('li', 'st-kid st-cat'); li.dataset.key = c.key || '';
+      var n = make('input'); n.type = 'text'; n.value = c.name || ''; n.maxLength = 30; n.placeholder = 'School papers'; n.setAttribute('aria-label', 'Category');
+      li.append(n, sel('Kind', 'st-scan', [['1', '📄 Paper'], ['', '📷 Photo']], c.key && !c.scan ? '' : '1')); return li;
+    }
+    $('#kid-add').addEventListener('click', function () { var r = kidRow({}); $('#kid-list').append(r); r.querySelector('input').focus(); });
+    $('#cat-add').addEventListener('click', function () { var r = catRow({}); $('#cat-list').append(r); r.querySelector('input').focus(); });
+    $('#cats-save').addEventListener('click', async function () {
+      var list = Array.prototype.map.call(document.querySelectorAll('#cat-list .st-cat'), function (li) {
+        return { key: li.dataset.key || undefined, name: li.querySelector('input').value.trim(), scan: !!li.querySelector('select').value };
+      }).filter(function (c) { return c.name; });
+      var j = await load({ do: 'cats', cats: list });
+      $('#cats-msg').textContent = j ? '✓ Saved' : 'That did not work.';
+    });
     $('#kids-save').addEventListener('click', async function () {
       var kids = Array.prototype.map.call(document.querySelectorAll('#kid-list .st-kid'), function (li, i) {
         var keep = (st.kids.filter(function (k) { return k.key === li.dataset.key; })[0]) || {};
-        return { key: li.dataset.key || undefined, name: li.querySelector('input').value.trim(), grade: li.querySelector('select').value, color: keep.color };
+        var kind = li.querySelector('.st-kind').value;
+        return { key: li.dataset.key || undefined, name: li.querySelector('input').value.trim(), kind: kind, grade: kind === 'kid' ? li.querySelector('.st-grade').value : '', color: keep.color };
       }).filter(function (k) { return k.name; });
       var j = await load({ do: 'kids', kids: kids });
       $('#kids-msg').textContent = j ? '✓ Saved' : 'That did not work.';

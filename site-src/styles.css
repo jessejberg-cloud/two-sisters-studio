@@ -775,3 +775,12 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .st-links { display: grid; gap: 18px; }
 .st-links .big-button { min-height: 96px; }
 .step .guide-pic svg { width: 100%; height: auto; }
+/* Artists (a kid, a grown-up or a pet) and the family's own categories (Jesse, 2026-11-25) */
+.st-kid:not(.st-cat) { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.st-kid:not(.st-cat) > input { grid-column: 1 / -1; }
+.st-kid.no-grade .st-kind, .kid-edit .no-grade .st-kind { grid-column: 1 / -1; }
+.st-kid [hidden] { display: none; }
+.st-fixed { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; }
+.st-fixed .chip { cursor: default; }
+.st-kids + p .st-more { font-size: 1.2rem; }
+.kid-edit .st-cat { grid-template-columns: minmax(0, 1fr); }

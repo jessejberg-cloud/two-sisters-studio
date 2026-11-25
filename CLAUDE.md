@@ -200,3 +200,12 @@ python3 -m http.server 5190 --directory dist     # local preview
   girls' tablets; never for friends on a share link (main.js). It opens the app on that page's screen: `/upload/?add=art&kid=leora`,
   `?add=day` (Family Moments), `?add=episode` (Pet Parents), `?add=house` (More family); `jumpTo()` in app.js. Households: My photos or
   the special day; a girl's tablet: her My art / A snapshot screen. Where it shows, the Add art tab is hidden (top row stays roomy).
+
+## Artists and a studio's own categories (Jesse, 2026-11-25; studios batch 2)
+- A studio's "kids" are its **artists**: `kind` kid / adult (Grown-up) / pet, added with **＋ Add** in onboarding and on the studio's For parents
+  (Artists card). Only a kid has a grade. Permissions come from the phone (kid mode only for a kind kid; a grown-up artist's face on the name
+  screen just names the phone; pets are not on the name screen) and the PIN, never from the artist.
+- **Categories**: `cats: [{ key, name, scan }]` (up to 8) beside Artwork / A snapshot / Family Moments, set in onboarding and on For parents.
+  📄 Paper (`scan: true`) gets the scan fix like Artwork; 📷 Photo is Turn only. Pieces: section `cat`, `cat`, `catName`; Drive
+  `<Artist>/<Category>/<school year>`; one row per category on the artist's page (`/api/pieces?studio=&kid=&section=cat&cat=`).
+  The app shows them on the artist's picker after Family Moments. Jesse's own studio keeps site.json kids and no categories for now.

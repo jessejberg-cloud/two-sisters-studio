@@ -220,3 +220,32 @@ test('a phone added with Jesse\'s own Invite can add a Family Moments video and 
   const vp = jar('', await studios(req(new URL(view).pathname, ''), {}));
   assert.equal((await videos(post('/api/videos/start', vp, { eventTitle: 'X', eventDate: '2026-11-26', size: 5 }), {})).status, 401, 'a View link only looks');
 });
+
+test('artists: a kid, a grown-up or a pet; a grown-up\'s name is not kid mode; a studio\'s own categories', async () => {
+  const j = await (await studios(post('/api/owner', owner, { do: 'invite', name: 'Lee' }), {})).json();
+  let p = jar('', await studios(req(new URL(j.creates[0].url).pathname, ''), {}));
+  const r = await studios(post('/api/studios/create', p, { name: 'Lee', pin: '2222', kids: [{ name: 'Mia', kind: 'kid', grade: 'K5' },
+    { name: 'Grandpa Joe', kind: 'adult', grade: '3rd grade' }, { name: 'Biscuit', kind: 'pet' }], cats: [{ name: 'School papers', scan: true }, { name: 'Lego', scan: false }, { name: 'Art' }] }), {});
+  const made = await r.json();
+  assert.ok(made.ok, JSON.stringify(made));
+  p = jar(p, r);
+  assert.deepEqual(made.studio.kids.map((k) => [k.key, k.kind, k.grade]), [['mia', 'kid', 'K5'], ['grandpa-joe', 'adult', ''], ['biscuit', 'pet', '']], 'only kids have a grade');
+  assert.deepEqual(made.studio.cats.map((c) => [c.key, c.scan]), [['school-papers', true], ['lego', false], ['art2', false]], 'never a built-in key');
+  // Grandpa's phone: his artist name, not kid mode.
+  p = jar(p, await studios(post('/api/studio/lee/device', p, { kid: 'grandpa-joe' }), {}));
+  const s = await (await studios(req('/api/studio/lee', p), {})).json();
+  assert.deepEqual(s.me.device, { name: 'Grandpa Joe', kid: null });
+  // His Lego, in its own category, on his page.
+  const lego = await save(p, { studio: 'lee', kid: 'grandpa-joe', section: 'cat', cat: 'lego', caption: 'A castle' });
+  assert.equal(lego.section, 'cat'); assert.equal(lego.cat, 'lego'); assert.equal(lego.grade, '');
+  const bad = await (await api(post('/api/pieces/start', p, { studio: 'lee', kid: 'mia', section: 'cat', cat: 'nope', date: '2026-11-20', photos: [{ originalType: 'image/jpeg' }] }), {})).json();
+  assert.equal(bad.error, 'bad');
+  const list = await (await api(req('/api/pieces?studio=lee&kid=grandpa-joe&section=cat&cat=lego', p), {})).json();
+  assert.deepEqual(list.pieces.map((x) => x.id), [lego.id]);
+  assert.equal((await (await api(req('/api/pieces?studio=lee&kid=grandpa-joe', p), {})).json()).pieces.length, 0, 'not in the art gallery');
+  // For parents: rename a category, add an artist; keys stay.
+  const k = await (await studios(post('/api/studio/lee/parent', p, { do: 'cats', cats: [{ key: 'lego', name: 'Lego builds' }] }), {})).json();
+  assert.deepEqual(k.studio.cats, [{ key: 'lego', name: 'Lego builds', scan: false }]);
+  const a = await (await studios(post('/api/studio/lee/parent', p, { do: 'kids', kids: [...made.studio.kids, { name: 'Aunt Bee', kind: 'adult' }] }), {})).json();
+  assert.deepEqual(a.studio.kids.map((x) => x.key), ['mia', 'grandpa-joe', 'biscuit', 'aunt-bee']);
+});
