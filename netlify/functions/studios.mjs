@@ -7,6 +7,7 @@
 //   POST /api/studios/create            onboarding: { name, kids: [{ name, kind, grade }], cats: [{ name, scan }], pin, color }
 //                                       (needs Jesse's invite on this phone; kids are the artists: a kid, a grown-up or a pet)
 //   POST /api/studio/<slug>/device      this phone picks its name once: { name, kid? } (a kid's name turns on kid mode)
+//   POST /api/studio/<slug>/cats        a grown-up phone adds a category from the app: { name, scan, icon }
 //   POST /api/studio/<slug>/pin         { pin } -> opens For parents for this visit (the studio PIN, or Jesse's owner PIN)
 //   GET  /api/studio/<slug>/parent      For parents: links, kids, devices, Drive, skipped onboarding items
 //   POST /api/studio/<slug>/parent      { do: view-reset | invite-reset | kids | cats | look | pin | device | skip | unskip, ... }
@@ -234,6 +235,21 @@ async function handle(req, context) {
     const { token, keys } = await keysAfter(req, { t: 'd', s: s.slug, d: d.id }, context);
     const h = new Headers(); keyCookies(h, token, keys);
     return json({ ok: true, device: { name: d.name, kid: d.kid } }, 200, h);
+  }
+
+  // A grown-up phone of this studio adds a category from the app ("＋ Something else"; Jesse, 2026-11-25). Never a kid-mode phone.
+  if (parts[3] === 'cats' && req.method === 'POST') {
+    const dk = deviceKey(me, s.slug);
+    const d = dk && (await getDevice(dk.d, context));
+    const parent = await isParent(req, context, s.slug);
+    if (s.main || !((d && !d.off && !d.kid) || parent)) return json({ ok: false, error: 'device' }, 401);
+    const b = await req.json().catch(() => ({}));
+    const old = s.cats || [];
+    if (old.length >= 8) return json({ ok: false, error: 'full' });
+    const same = old.find((c) => c.name.toLowerCase() === clean(b.name, 30).toLowerCase());
+    if (!same) { s.cats = cleanCats([...old, { name: b.name, scan: b.scan, icon: b.icon }], old); await putStudio(s, context); }
+    const fresh = await getStudio(s.slug, context);
+    return json({ ok: true, studio: pubStudio(fresh), cat: pubStudio(fresh).cats.find((c) => c.name.toLowerCase() === clean(b.name, 30).toLowerCase()) || null });
   }
 
   if (parts[3] === 'pin' && req.method === 'POST') {

@@ -794,3 +794,18 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .start .st-kid.no-grade .st-kind { grid-column: auto; }
 .start .st-kid .st-grade { grid-column: 1 / -1; }
 .start .st-more { font-size: 1.15rem; min-height: 48px; padding: 0; }
+/* Category ideas: plain, quiet buttons (setup, the app's Something else, an artist page's jump tabs) */
+.idea-chips, .cat-jump { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 12px; }
+.idea { font: 700 1.05rem var(--body); color: var(--ink); background: #fff; border: 2px solid #8a8178; border-radius: 10px; min-height: 48px; padding: 6px 14px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+.idea[aria-pressed="true"] { background: var(--yellow); border-color: var(--ink); }
+.idea[aria-pressed="true"]::before { content: '✓ '; white-space: pre; }
+.idea-big .idea { font-size: 1.2rem; min-height: 56px; }
+.own-row { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.own-row input[type="text"] { flex: 1 1 12em; min-width: 0; font: inherit; font-size: 1.15rem; min-height: 50px; padding: 8px 12px; border: 2px solid #8a8178; border-radius: 10px; background: #fff; }
+.paper-q { display: inline-flex; gap: 6px; align-items: center; font-size: 1.05rem; min-height: 48px; }
+.paper-q input { width: 22px; height: 22px; }
+.st-cats-box { margin: 0 0 10px; }
+.pick-more { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.newcat-paper .btn-big { min-width: 110px; }
+.cat-jump { margin: 0 0 16px; }
+.start .st-cats-box > .share-help:first-child { margin-top: 0; }

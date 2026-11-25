@@ -97,7 +97,8 @@ export function cleanCats(list, old = []) {
     let key = prev ? prev.key : toSlug(name).slice(0, 20) || 'things';
     if (!prev) { let n = 1, base = key; while (used.has(key) || BUILT_IN.includes(key)) key = base + (++n); }
     used.add(key);
-    out.push({ key, name, scan: !!c.scan });
+    const icon = typeof c.icon === 'string' && /^\p{Extended_Pictographic}[\u200d\ufe0f\p{Extended_Pictographic}]{0,4}$/u.test(c.icon) ? c.icon : (prev?.icon || '');
+    out.push({ key, name, scan: !!c.scan, ...(icon ? { icon } : {}) });
   }
   return out;
 }
@@ -184,5 +185,5 @@ export async function checkPin(s, pin) { return !!s?.pin && checkPassword(String
 // What every page may know about a studio (never its secrets).
 export const pubStudio = (s) => ({ slug: s.slug, name: s.name, color: s.color, main: !!s.main, href: s.main ? '/' : '/' + s.slug + '/',
   kids: (s.kids || []).map((k) => ({ key: k.key, name: k.name, kind: kindOf(k), color: k.color, grade: k.grade, schoolYear: k.schoolYear })),
-  cats: s.main ? [] : (s.cats || []).map((c) => ({ key: c.key, name: c.name, scan: !!c.scan })),
+  cats: s.main ? [] : (s.cats || []).map((c) => ({ key: c.key, name: c.name, scan: !!c.scan, icon: c.icon || '' })),
   drive: !!s.drive, pages: s.pages || null });

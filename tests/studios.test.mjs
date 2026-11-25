@@ -245,7 +245,23 @@ test('artists: a kid, a grown-up or a pet; a grown-up\'s name is not kid mode; a
   assert.equal((await (await api(req('/api/pieces?studio=lee&kid=grandpa-joe', p), {})).json()).pieces.length, 0, 'not in the art gallery');
   // For parents: rename a category, add an artist; keys stay.
   const k = await (await studios(post('/api/studio/lee/parent', p, { do: 'cats', cats: [{ key: 'lego', name: 'Lego builds' }] }), {})).json();
-  assert.deepEqual(k.studio.cats, [{ key: 'lego', name: 'Lego builds', scan: false }]);
+  assert.deepEqual(k.studio.cats, [{ key: 'lego', name: 'Lego builds', scan: false, icon: '' }]);
   const a = await (await studios(post('/api/studio/lee/parent', p, { do: 'kids', kids: [...made.studio.kids, { name: 'Aunt Bee', kind: 'adult' }] }), {})).json();
   assert.deepEqual(a.studio.kids.map((x) => x.key), ['mia', 'grandpa-joe', 'biscuit', 'aunt-bee']);
+});
+
+test('a grown-up phone adds a category from the app; a kid-mode phone cannot', async () => {
+  const j = await (await studios(post('/api/owner', owner, { do: 'invite', name: 'Kim' }), {})).json();
+  const inv = new URL(j.creates[0].url).pathname;
+  let p = jar('', await studios(req(inv, ''), {}));
+  p = jar(p, await studios(post('/api/studios/create', p, { name: 'Kim', pin: '3333', kids: [{ name: 'Jo' }] }), {}));
+  const r = await (await studios(post('/api/studio/kim/cats', p, { name: 'Awards', scan: true, icon: '🏅' }), {})).json();
+  assert.deepEqual(r.cat, { key: 'awards', name: 'Awards', scan: true, icon: '🏅' });
+  const again = await (await studios(post('/api/studio/kim/cats', p, { name: 'awards', scan: false }), {})).json();
+  assert.equal(again.studio.cats.length, 1, 'the same name twice is one category');
+  let t = jar('', await studios(req(inv, ''), {}));
+  t = jar(t, await studios(post('/api/studio/kim/device', t, { kid: 'jo' }), {}));
+  assert.equal((await studios(post('/api/studio/kim/cats', t, { name: 'Lego' }), {})).status, 401);
+  const bad = await (await studios(post('/api/studio/kim/cats', p, { name: 'Sports', icon: '<b>' }), {})).json();
+  assert.equal(bad.cat.icon, '');
 });

@@ -21,6 +21,26 @@
   }
   kidRow();
   $('#st-more').addEventListener('click', function () { kidRow().querySelector('input').focus(); });
+  // Categories, optional and folded away (Jesse, 2026-11-25): tap an idea (it comes with its template), or name your own.
+  var ideas = []; try { ideas = JSON.parse($('#cat-ideas').textContent); } catch (e) {}
+  var picked = [];
+  function chip(c) {
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'idea'; b.setAttribute('aria-pressed', 'false');
+    b.textContent = (c.icon ? c.icon + ' ' : '') + c.name;
+    b.addEventListener('click', function () {
+      var on = b.getAttribute('aria-pressed') !== 'true'; b.setAttribute('aria-pressed', String(on));
+      picked = on ? picked.concat(c) : picked.filter(function (x) { return x !== c; });
+    });
+    $('#st-ideas').append(b); return b;
+  }
+  ideas.forEach(chip);
+  $('#st-cats-open').addEventListener('click', function () { var box = $('#st-cats-box'); box.hidden = !box.hidden; this.setAttribute('aria-expanded', String(!box.hidden)); });
+  $('#st-own-add').addEventListener('click', function () {
+    var n = $('#st-own').value.trim(); if (!n) { $('#st-own').focus(); return; }
+    var c = { name: n, scan: $('#st-own-paper').checked, icon: $('#st-own-paper').checked ? '📄' : '📷' };
+    chip(c).click(); $('#st-own').value = ''; $('#st-own-paper').checked = false;
+  });
+  $('#st-own').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#st-own-add').click(); });
 
 
   // 2: PIN dots and color
@@ -44,7 +64,7 @@
     var j = {};
     try {
       var r = await fetch('/api/studios/create', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: name, kids: kids, pin: pin.value, color: color, skipped: skipped }) });
+        body: JSON.stringify({ name: name, kids: kids, cats: picked, pin: pin.value, color: color, skipped: skipped }) });
       j = await r.json();
     } catch (e) {}
     this.disabled = false;

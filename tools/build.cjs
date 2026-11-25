@@ -549,6 +549,10 @@ const lightboxTpl = `<dialog class="lightbox" aria-label="Photo">
   <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next photo">›</button>
 </dialog>`;
+// Category ideas (Jesse, 2026-11-25): each comes with its template: 📄 paper gets the scan fix, the rest are plain photos.
+const CAT_IDEAS = [{ name: 'School papers', icon: '📄', scan: true }, { name: 'Awards', icon: '🏅', scan: true }, { name: 'Stories', icon: '📝', scan: true },
+  { name: 'Lego and builds', icon: '🧱', scan: false }, { name: 'Crafts', icon: '✂️', scan: false }, { name: 'Sports', icon: '⚽', scan: false }];
+const ideasJson = `<script type="application/json" id="cat-ideas">${JSON.stringify(CAT_IDEAS)}</script>`;
 const swatches = (name) => ['coral', 'lav', 'mint', 'yellow', 'sky'].map((c, i) => `<label class="swatch c-${c}"><input type="radio" name="${name}" value="${c}"${i === 4 ? ' checked' : ''}><span class="sr">${c}</span></label>`).join('');
 pages['studio/index.html'] = page({
   key: 'studio', title: '', tabs: false, pre: ['studio.js'],
@@ -604,7 +608,14 @@ pages['start/index.html'] = page({
     <ul class="st-kids" id="st-kids"></ul>
     <template id="st-kid"><li class="st-kid"><input type="text" maxlength="30" autocomplete="off" aria-label="Name"><select aria-label="Who" class="st-kind"><option value="kid">Kid</option><option value="adult">Grown-up</option><option value="pet">Pet</option></select><select aria-label="Grade" class="st-grade">${gradeOptions}</select></li></template>
     <p><button type="button" class="linkish st-more" id="st-more">＋ Add someone</button></p>
-    <p class="st-nav"><button type="button" class="btn-big" data-next>→</button></p>
+    <p><button type="button" class="linkish st-more" id="st-cats-open" aria-expanded="false">＋ Categories (optional)</button></p>
+    <div class="st-cats-box" id="st-cats-box" hidden>
+      <p class="share-help">Artwork, Snapshots and Family Moments are there already. Tap to add more.</p>
+      <div class="idea-chips" id="st-ideas"></div>
+      <div class="own-row"><input type="text" id="st-own" maxlength="30" autocomplete="off" placeholder="Your own" aria-label="Your own category"><label class="paper-q"><input type="checkbox" id="st-own-paper"> On paper</label><button type="button" class="linkish" id="st-own-add">Add</button></div>
+    </div>
+    ${ideasJson}
+    <p class="st-nav"><button type="button" class="linkish" data-next>Skip</button> <button type="button" class="btn-big" data-next>→</button></p>
   </section>
   <section class="step" data-step="2" hidden>
     <p class="st-label">PIN</p>
@@ -625,12 +636,12 @@ pages['start/index.html'] = page({
       <button type="button" class="big-button wobbly c-sky" data-copy="view"><span class="big-icon" aria-hidden="true">📋</span><span class="big-label">View</span></button>
     </div>
     <p class="share-help st-copied" id="st-copied" role="status"></p>
-    <p class="st-nav"><button type="button" class="btn-big" data-next>→</button></p>
+    <p class="st-nav"><button type="button" class="linkish" data-next>Skip</button> <button type="button" class="btn-big" data-next>→</button></p>
   </section>
   <section class="step" data-step="5" hidden>
     <div class="guide-pic" data-os="ios">${guidePic('ios')}</div>
     <div class="guide-pic" data-os="android" hidden>${guidePic('android')}</div>
-    <p class="st-nav"><button type="button" class="btn-big" data-next>→</button></p>
+    <p class="st-nav"><button type="button" class="linkish" data-next>Skip</button> <button type="button" class="btn-big" data-next>→</button></p>
   </section>
   <section class="step" data-step="6" hidden>
     <p><a class="btn-big st-camera" id="st-camera" href="/upload/"><span aria-hidden="true">📷</span></a></p>
@@ -834,6 +845,18 @@ pages['upload/index.html'] = `<!doctype html>
       <button type="button" class="big-button wobbly c-yellow" data-pick="moment"><span class="big-icon">${ICONS.heart}</span><span class="big-label">Family Moments</span></button>
       <button type="button" class="big-button wobbly c-sky vid-only" data-pick="video"><span class="big-icon" aria-hidden="true">🎬</span><span class="big-label">A video</span></button>
     </div>
+    <p class="pick-more"><button type="button" class="linkish" id="pick-more" hidden>More…</button> <button type="button" class="linkish" id="pick-new" hidden>＋ Something else</button></p>
+  </section>
+
+  <section class="screen" id="s-newcat" hidden>
+    <p><button type="button" class="linkish" id="newcat-back">← Back</button></p>
+    <h1 class="up-h2">Something else</h1>
+    <div class="idea-chips idea-big" id="newcat-ideas"></div>
+    <div class="own-row"><input type="text" id="newcat-own" maxlength="30" autocomplete="off" placeholder="Your own" aria-label="Your own category"></div>
+    <div class="newcat-paper" id="newcat-paper" hidden><p class="up-lead">Is it on paper?</p>
+      <p><button type="button" class="btn-big" data-paper="1">Yes</button> <button type="button" class="btn-big" data-paper="">No</button></p></div>
+    <p class="share-help" id="newcat-msg" role="status"></p>
+    ${ideasJson}
   </section>
 
   <section class="screen" id="s-name" hidden>

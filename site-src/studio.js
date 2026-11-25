@@ -28,7 +28,7 @@
     live.dataset.empty = 'Nothing here yet.';
     $('.studio-kid-h').textContent = name0;
     var snaps = $('#snapshots');
-    if (snaps) { snaps.dataset.src = q('&kid=' + encodeURIComponent(sub) + '&section=photos'); snaps.querySelector('.live-h').textContent = '📷'; snaps.querySelector('.live-note').textContent = ''; }
+    if (snaps) { snaps.dataset.src = q('&kid=' + encodeURIComponent(sub) + '&section=photos'); snaps.querySelector('.live-h').textContent = '📷 Snapshots'; snaps.querySelector('.live-note').textContent = ''; }
     if (cached) cats(cached, false);
   }
   // The studio's own categories (Jesse, 2026-11-25): one row each on an artist's page, under the snapshots; hidden while empty.
@@ -45,9 +45,21 @@
         at.after(sec);
         if (now && window.TSS && TSS.livePhotos) TSS.livePhotos(sec);
       }
-      sec.querySelector('.live-h').textContent = (c.scan ? '📄 ' : '📷 ') + c.name;
+      sec.querySelector('.live-h').textContent = (c.icon || (c.scan ? '📄' : '📷')) + ' ' + c.name;
+      if (!sec.dataset.watch) { sec.dataset.watch = '1'; new MutationObserver(jumps).observe(sec, { attributes: true, attributeFilter: ['hidden'] }); }
       at = sec;
     });
+    jumps();
+  }
+  // With three or more filled rows on an artist's page, small tabs at the top jump to each (no long scroll to find one).
+  function jumps() {
+    var rows = Array.prototype.filter.call(document.querySelectorAll('#snapshots, [id^="cat-"]'), function (x) { return !x.hidden; });
+    var bar = document.getElementById('cat-jump');
+    if (rows.length < 3) { if (bar) bar.hidden = true; return; }
+    if (!bar) { bar = make('nav', 'cat-jump'); bar.id = 'cat-jump'; bar.setAttribute('aria-label', 'On this page'); var h = $('.page-head'); if (h) h.after(bar); }
+    bar.textContent = ''; bar.hidden = false;
+    var top = make('a', 'idea', '🎨 Art'); top.href = '#'; top.addEventListener('click', function (e) { e.preventDefault(); window.scrollTo({ top: 0, behavior: 'smooth' }); }); bar.append(top);
+    rows.forEach(function (x) { var a = make('a', 'idea', x.querySelector('.live-h').textContent || '📷'); a.href = '#' + x.id; bar.append(a); });
   }
   var ICON = { kid: '🎨', adult: '🎨', pet: '🐾' };
   if (kind === 'moments') {
@@ -217,7 +229,8 @@
     $('#cat-add').addEventListener('click', function () { var r = catRow({}); $('#cat-list').append(r); r.querySelector('input').focus(); });
     $('#cats-save').addEventListener('click', async function () {
       var list = Array.prototype.map.call(document.querySelectorAll('#cat-list .st-cat'), function (li) {
-        return { key: li.dataset.key || undefined, name: li.querySelector('input').value.trim(), scan: !!li.querySelector('select').value };
+        var was = (st.cats || []).filter(function (c) { return c.key === li.dataset.key; })[0] || {};
+        return { key: li.dataset.key || undefined, name: li.querySelector('input').value.trim(), scan: !!li.querySelector('select').value, icon: was.icon || undefined };
       }).filter(function (c) { return c.name; });
       var j = await load({ do: 'cats', cats: list });
       $('#cats-msg').textContent = j ? '✓ Saved' : 'That did not work.';
