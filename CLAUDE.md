@@ -205,7 +205,7 @@ python3 -m http.server 5190 --directory dist     # local preview
 - A studio's "kids" are its **artists**: `kind` kid / adult (Grown-up) / pet, added with **＋ Add** in onboarding and on the studio's For parents
   (Artists card). Only a kid has a grade. Permissions come from the phone (kid mode only for a kind kid; a grown-up artist's face on the name
   screen just names the phone; pets are not on the name screen) and the PIN, never from the artist.
-- **Categories**: `cats: [{ key, name, scan }]` (up to 8) beside Artwork / A snapshot / Family Moments, set in onboarding and on For parents.
+- **Categories**: `cats: [{ key, name, scan }]` (up to 8) beside Artwork / A snapshot / Family Moments, set on For parents (not in setup: Jesse 2026-11-25, setup stays short and calm).
   📄 Paper (`scan: true`) gets the scan fix like Artwork; 📷 Photo is Turn only. Pieces: section `cat`, `cat`, `catName`; Drive
   `<Artist>/<Category>/<school year>`; one row per category on the artist's page (`/api/pieces?studio=&kid=&section=cat&cat=`).
   The app shows them on the artist's picker after Family Moments. Jesse's own studio keeps site.json kids and no categories for now.

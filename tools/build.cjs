@@ -600,14 +600,10 @@ pages['start/index.html'] = page({
   <section class="step" data-step="1">
     <label class="st-label">Studio <input type="text" id="st-name" maxlength="40" autocomplete="off" enterkeyhint="next"></label>
     <p class="st-label">Artists</p>
+    <p class="share-help st-help">Kids, grown-ups or pets.</p>
     <ul class="st-kids" id="st-kids"></ul>
     <template id="st-kid"><li class="st-kid"><input type="text" maxlength="30" autocomplete="off" aria-label="Name"><select aria-label="Who" class="st-kind"><option value="kid">Kid</option><option value="adult">Grown-up</option><option value="pet">Pet</option></select><select aria-label="Grade" class="st-grade">${gradeOptions}</select></li></template>
-    <p><button type="button" class="chip st-more" id="st-more">＋ Add</button></p>
-    <p class="st-label">Categories</p>
-    <p class="st-fixed"><span class="chip">🎨 Artwork</span> <span class="chip">📷 Snapshots</span> <span class="chip">❤️ Family Moments</span></p>
-    <ul class="st-kids st-cats" id="st-cats"></ul>
-    <template id="st-cat"><li class="st-kid st-cat"><input type="text" maxlength="30" autocomplete="off" aria-label="Category" placeholder="School papers"><select aria-label="Kind" class="st-scan"><option value="1">📄 Paper</option><option value="">📷 Photo</option></select></li></template>
-    <p><button type="button" class="chip st-more" id="st-cat-more">＋ Add</button></p>
+    <p><button type="button" class="linkish st-more" id="st-more">＋ Add someone</button></p>
     <p class="st-nav"><button type="button" class="btn-big" data-next>→</button></p>
   </section>
   <section class="step" data-step="2" hidden>

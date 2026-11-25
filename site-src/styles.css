@@ -784,3 +784,13 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .st-fixed .chip { cursor: default; }
 .st-kids + p .st-more { font-size: 1.2rem; }
 .kid-edit .st-cat { grid-template-columns: minmax(0, 1fr); }
+/* Setup, calmer (Jesse, 2026-11-25: "not so many cartoon boxes"): plain fields, one line per artist, the grade under a kid only. */
+.start .st-label { font-size: 1.5rem; }
+.start .st-help { margin: -4px 0 4px; }
+.start .st-label input, .start .st-kid input, .start .st-kid select { border: 2px solid #8a8178; border-radius: 10px; min-height: 50px; font-size: 1.15rem; box-shadow: none; }
+.start .st-kids { gap: 12px; }
+.start .st-kid:not(.st-cat) { grid-template-columns: minmax(0, 1fr) 8em; }
+.start .st-kid:not(.st-cat) > input { grid-column: auto; }
+.start .st-kid.no-grade .st-kind { grid-column: auto; }
+.start .st-kid .st-grade { grid-column: 1 / -1; }
+.start .st-more { font-size: 1.15rem; min-height: 48px; padding: 0; }

@@ -1,5 +1,5 @@
 // Onboarding (build spec, 2026-11-25): a family makes its own studio from the invite Jesse sent.
-// 1 Studio + Artists (kid, grown-up or pet; + Add) + Categories · 2 PIN + Color (makes the studio) · 3 Google Drive (needed, Jesse 2026-11-25) · 4 Invite + View links
+// 1 Studio + Artists (kid, grown-up or pet; + Add someone) · 2 PIN + Color (makes the studio) · 3 Google Drive (needed, Jesse 2026-11-25) · 4 Invite + View links
 // · 5 Add to Home Screen picture · 6 Camera. One word per label. What was left empty shows on For parents.
 // The answers live in this browser (localStorage) so the trip to Google and back picks up where it left off.
 (function () {
@@ -13,7 +13,7 @@
   document.querySelectorAll('[data-next]').forEach(function (b) { b.addEventListener('click', function () { go(++step); }); });
   document.querySelectorAll('[data-back]').forEach(function (b) { b.addEventListener('click', function () { go(--step); }); });
 
-  // 1: studio name, artists (a kid, a grown-up or a pet; only a kid has a grade) and the family's own categories
+  // 1: studio name, artists (a kid, a grown-up or a pet; only a kid has a grade)
   function kidRow() {
     var li = $('#st-kid').content.firstElementChild.cloneNode(true), kind = li.querySelector('.st-kind'), grade = li.querySelector('.st-grade');
     kind.addEventListener('change', function () { grade.hidden = kind.value !== 'kid'; li.classList.toggle('no-grade', grade.hidden); });
@@ -21,8 +21,7 @@
   }
   kidRow();
   $('#st-more').addEventListener('click', function () { kidRow().querySelector('input').focus(); });
-  function catRow() { var li = $('#st-cat').content.firstElementChild.cloneNode(true); $('#st-cats').append(li); return li; }
-  $('#st-cat-more').addEventListener('click', function () { catRow().querySelector('input').focus(); });
+
 
   // 2: PIN dots and color
   var pin = $('#st-pin'), dots = document.querySelectorAll('#pin-dots span');
@@ -39,16 +38,13 @@
       var kind = li.querySelector('.st-kind').value;
       return { name: li.querySelector('input').value.trim(), kind: kind, grade: kind === 'kid' ? li.querySelector('.st-grade').value : '' };
     }).filter(function (k) { return k.name; });
-    var cats = Array.prototype.map.call(document.querySelectorAll('#st-cats .st-cat'), function (li) {
-      return { name: li.querySelector('input').value.trim(), scan: !!li.querySelector('.st-scan').value };
-    }).filter(function (c) { return c.name; });
     var color = (document.querySelector('input[name="st-color"]:checked') || {}).value || 'sky';
     var skipped = []; if (!name) skipped.push('name'); if (!kids.length) skipped.push('kids');
     this.disabled = true;
     var j = {};
     try {
       var r = await fetch('/api/studios/create', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: name, kids: kids, cats: cats, pin: pin.value, color: color, skipped: skipped }) });
+        body: JSON.stringify({ name: name, kids: kids, pin: pin.value, color: color, skipped: skipped }) });
       j = await r.json();
     } catch (e) {}
     this.disabled = false;
