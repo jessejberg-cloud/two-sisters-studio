@@ -1,5 +1,6 @@
 // Share links and passwords (parents only, after the parent PIN).
-//   GET  /s/<link>                    a friend opens a share link: remember it, then ask for the friends password
+//   GET  /s/<link>                    someone opens a share link: they are in, on the link's pages only (no password;
+//                                     Jesse, 2026-11-25: the link is the key, it can end and be turned off)
 //   GET  /api/links                   the list of links
 //   POST /api/links                   { pages: [...], expiry: week|month|year|never } -> a new link
 //   POST /api/links/<id>/off          turn a link off (anyone using it is logged out)
@@ -28,8 +29,11 @@ export default async (req, context) => {
     if (!linkOpen(link)) return Response.redirect(new URL('/login/?e=link', url), 303);
     const me = await who(req, context);
     if (me && (me.role === 'family' || me.link === link.id)) return Response.redirect(new URL('/', url), 303);
-    const h = new Headers({ location: '/login/?kind=friend' });
-    h.append('set-cookie', setCookie(COOKIE.link, await sign({ l: link.id, exp: Date.now() + DAY }, secret()), { maxAge: 86400 }));
+    const h = new Headers({ location: link.pages.length === 1 ? '/' + link.pages[0] + '/' : '/', 'cache-control': 'no-store' });
+    const left = link.expires ? Math.floor((link.expires - Date.now()) / 1000) : LOGIN_DAYS * 86400;
+    h.append('set-cookie', setCookie(COOKIE.login, await makeLogin('friend', context, { l: link.id }), { maxAge: Math.max(60, left) }));
+    h.append('set-cookie', setCookie(COOKIE.view, link.pages.join(','), { maxAge: Math.max(60, left), httpOnly: false }));
+    h.append('set-cookie', setCookie(COOKIE.link, '', { maxAge: 0 }));
     return new Response(null, { status: 303, headers: h });
   }
 
@@ -95,7 +99,6 @@ export default async (req, context) => {
     const pages = (Array.isArray(b.pages) ? b.pages : []).filter((p) => PAGES.includes(p));
     if (!pages.length) return json({ ok: false, error: 'pages' });
     if (!(b.expiry in EXPIRY)) return json({ ok: false, error: 'expiry' });
-    if (!(await isSetUp('friends', context))) return json({ ok: false, error: 'friends-not-set' });
     const days = EXPIRY[b.expiry];
     const link = { id: randomId(12), pages: [...new Set(pages)], expiry: b.expiry, expires: days ? Date.now() + days * DAY : null,
       created: new Date().toISOString(), off: false, note: String(b.note || '').slice(0, 60) };
