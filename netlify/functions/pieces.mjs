@@ -4,18 +4,21 @@
 //   GET    /api/pieces/dupes?fp=a,b           family: pieces whose photo fingerprint is close to these
 //   POST   /api/pieces/start                  family: reserve an id, make Drive upload addresses for the originals
 //   POST   /api/pieces/<id>/photo/<n>         family: the web copies (multipart: web, thumb, meta)
+//   POST   /api/pieces/<id>/print/<n>         family, Family Moments: the 3000px print copy (multipart: print)
 //   POST   /api/pieces/<id>/finish            family: write the details file to Drive and show it in the gallery
 //   POST   /api/pieces/<id>/edit              family: { caption?, date?, starred? }
 //   POST   /api/pieces/<id>/delete | restore  family: put away (30 days) or bring back. Drive originals are never deleted.
 //   GET    /api/pieces?kid=leora&section=photos   a girl's "My photos";  ?section=moments  photos the girls added to Family Moments
 //   GET    /api/pieces/waiting                parent: photos from the girls' tablets waiting for an OK
 //   POST   /api/pieces/<id>/ok                parent: show it on the site
+// A special day (Family Moments, family logins): start with section 'moments', kid 'both' and
+// event { key } for a day already on the page or { title, date } for a new one. The photo then shows in that day's section.
 // A girl's tablet login (role kid) may read like a friend and save new photos (start, photo, finish) as herself only;
 // they go to her "My photos" (or Family Moments, if a parent allowed it) and wait for a parent's OK.
 import { who, isParent } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
 import { folder, putSmall, uploadAddress } from '../lib/drive.mjs';
-import { KID_KEYS, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, pdfName, extOf, details, getPiece, savePiece, readIndex, check, short, sectionOf } from '../lib/pieces.mjs';
+import { KID_KEYS, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, pdfName, extOf, details, getPiece, savePiece, readIndex, check, short, sectionOf, dayKey, printName } from '../lib/pieces.mjs';
 
 const json = (o, status = 200) => Response.json(o, { status, headers: { 'cache-control': 'no-store' } });
 const now = () => new Date().toISOString();
@@ -116,15 +119,23 @@ async function handle(req, context) {
     const section = kidMe ? (b.section === 'moments' && me.moments ? 'moments' : 'photos')
       : (['art', 'photos', 'moments'].includes(b.section) ? b.section : 'art');
     const p = { kid: kidMe ? me.kid : b.kid, date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
-    if (section !== 'art' && p.kid === 'both') return json({ error: 'bad', fields: ['kid'] }, 400);
+    // A special day from a family phone: the whole family's, so kid 'both'; the day's own date.
+    let day = null;
+    if (!kidMe && section === 'moments' && b.event) {
+      const title = String(b.event.title || '').trim().slice(0, 80), date = String(b.event.date || '');
+      if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: 'bad', fields: ['event'] }, 400);
+      day = { event: /^[a-z0-9-]{10,90}$/.test(b.event.key || '') ? b.event.key : dayKey(date, title), eventTitle: title, eventDate: date };
+      p.kid = 'both'; if (!p.date) p.date = date;
+    }
+    if (section !== 'art' && p.kid === 'both' && !day) return json({ error: 'bad', fields: ['kid'] }, 400);
     const bad = check(p);
     if (bad.length) return json({ error: 'bad', fields: bad }, 400);
-    let id = baseId(p.kid, p.date, b.caption) + (section === 'art' ? '' : '_' + section), n = 1;
+    let id = (day ? `${day.event.slice(0, 60)}_${p.date}_${baseId(p.kid, p.date, b.caption).split('_').pop()}` : baseId(p.kid, p.date, b.caption)) + (section === 'art' ? '' : '_' + section), n = 1;
     while ((await getPiece(context, id + (n > 1 ? '-' + n : ''))) || (await pend.get('p/' + id + (n > 1 ? '-' + n : '')))) n++;
     if (n > 1) id += '-' + n;
     const piece = { id, kid: p.kid, date: p.date, season: seasonOf(p.date), schoolYear: schoolYearOf(p.date), caption: String(b.caption || '').slice(0, 200),
       starred: !!b.starred, created: now(), updated: now(), deleted: null, photos: p.photos.map((ph) => ({ n: ph.n })),
-      section, waiting: kidMe, by: kidMe ? me.kid : null };
+      section, waiting: kidMe, by: kidMe ? me.kid : null, ...(day || {}) };
     piece.grade = p.kid === 'both' ? '' : gradeFor(p.kid, p.date);
     const parent = await folder(context, folderParts(piece));
     const origin = url.origin, uploads = [];
@@ -187,6 +198,21 @@ async function handle(req, context) {
     if (new TextDecoder('latin1').decode(bytes.slice(0, 1024)).indexOf('%PDF-') === -1) return json({ error: 'pdf' }, 400);
     await store('images', context).set(pdfName(id, ph.n), bytes, { metadata: { type: 'application/pdf', piece: id } });
     ph.pdf = true;
+    await pend.setJSON('p/' + id, rec);
+    return json({ ok: true });
+  }
+
+  // Family Moments: a print-size copy (3000px JPEG) for "Download all" and photo books. Optional: without it the web copy stands in.
+  if (parts[1] === 'print') {
+    if (!family) return json({ error: 'family' }, 401);
+    const rec = await pend.get('p/' + id, { type: 'json' });
+    if (!rec) return json({ error: 'unknown' }, 404);
+    const ph = rec.piece.photos.find((x) => x.n === +parts[2]);
+    if (!ph || sectionOf(rec.piece) !== 'moments') return json({ error: 'photo' }, 400);
+    const file = (await req.formData()).get('print');
+    if (!file || file.size > 5.5e6 || file.size < 100) return json({ error: 'print' }, 400);
+    await store('images', context).set(printName(id, ph.n), await file.arrayBuffer(), { metadata: { type: 'image/jpeg', piece: id } });
+    ph.print = true;
     await pend.setJSON('p/' + id, rec);
     return json({ ok: true });
   }

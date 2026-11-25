@@ -40,25 +40,31 @@ export const slug = (s, n = 5) => (String(s || '').toLowerCase().replace(/[^a-z0
 export function baseId(kid, iso, caption) {
   return `${iso}_${kid}_${seasonOf(iso)}_${slug(caption, 4) === 'untitled' ? 'art' : slug(caption, 4)}`;
 }
-// Sections: art (the galleries), photos (a girl's own "My photos", from her tablet), moments (Family Moments,
-// photos the girls add when a parent allows it).
+// Sections: art (the galleries), photos (a girl's own "My photos", from her tablet), moments (Family Moments:
+// photos of a special day added from the app (Jesse, 2026-11-25), and photos the girls add when a parent allows it).
 export const SECTIONS = ['art', 'photos', 'moments'];
 export const sectionOf = (p) => (SECTIONS.includes(p.section) ? p.section : 'art');
+// A special day: its key, and its Drive folder (the same one the day's videos use): Family Moments / 2026-06-14 Wedding /
+export const dayKey = (date, title) => `${date}-${slug(title, 6)}`;
+export const dayFolder = (date, title) => ['Family Moments', `${date} ${String(title).replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 60).trim()}`];
 export const folderParts = (p) => sectionOf(p) === 'photos' ? [KIDS[p.kid], 'My photos', p.schoolYear]
+  : sectionOf(p) === 'moments' && p.event ? dayFolder(p.eventDate, p.eventTitle)
   : sectionOf(p) === 'moments' ? ['Family Moments', 'From ' + (KIDS[p.kid] || 'the girls'), p.schoolYear]
   : [p.kid === 'both' ? 'Both' : KIDS[p.kid], p.schoolYear, SEASON_LABEL[p.season]];
 // Image keys in Blobs (no extension: the type is kept with each image). Drive names add .webp or .jpg.
 export const pdfName = (id, n) => `${id}-${n}-pdf`;
 export const webName = (id, n, small) => `${id}-${n}${small ? '-sm' : ''}`;
+export const printName = (id, n) => `${id}-${n}-print`;   // Family Moments: a 3000px JPEG for "Download all" and photo books
 export const extOf = (type) => (type === 'image/webp' ? 'webp' : type === 'image/png' ? 'png' : 'jpg');
 
+const dayOf = (p) => (p.event ? { event: p.event, eventTitle: p.eventTitle, eventDate: p.eventDate } : {});
 // The details file: everything needed to show the piece again, nothing about Netlify.
 export function details(p) {
   return {
     version: 1, id: p.id, kid: p.kid, date: p.date, schoolYear: p.schoolYear, season: p.season, grade: p.grade,
     caption: p.caption || '', starred: !!p.starred, deleted: p.deleted || null, created: p.created, updated: p.updated,
-    section: sectionOf(p), waiting: !!p.waiting, by: p.by || null,
-    photos: (p.photos || []).map((ph) => ({ n: ph.n, w: ph.w, h: ph.h, fp: ph.fp || '', edits: ph.edits || [],
+    section: sectionOf(p), waiting: !!p.waiting, by: p.by || null, ...dayOf(p),
+    photos: (p.photos || []).map((ph) => ({ n: ph.n, w: ph.w, h: ph.h, fp: ph.fp || '', edits: ph.edits || [], print: !!ph.print,
       original: ph.original || null, edited: ph.edited || null, web: ph.web || null, thumb: ph.thumb || null, webType: ph.webType || 'image/webp', pdf: !!ph.pdf })),
     detailsFile: p.detailsFile || null,
   };
@@ -75,7 +81,7 @@ export function check(p) {
 // Short form for the gallery index.
 export const short = (p) => ({ id: p.id, kid: p.kid, date: p.date, schoolYear: p.schoolYear, season: p.season, grade: p.grade,
   caption: p.caption || '', starred: !!p.starred, deleted: p.deleted || null, updated: p.updated,
-  purged: !!p.purged, created: p.created, section: sectionOf(p), waiting: !!p.waiting, by: p.by || null, photos: p.photos.map((ph) => ({ n: ph.n, w: ph.w, h: ph.h, fp: ph.fp || '', pdf: !!ph.pdf })) });
+  purged: !!p.purged, created: p.created, section: sectionOf(p), waiting: !!p.waiting, by: p.by || null, ...dayOf(p), photos: p.photos.map((ph) => ({ n: ph.n, w: ph.w, h: ph.h, fp: ph.fp || '', pdf: !!ph.pdf, print: !!ph.print })) });
 
 export async function getPiece(context, id) { return store('pieces', context).get('p/' + id, { type: 'json' }); }
 

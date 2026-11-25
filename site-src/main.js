@@ -36,7 +36,49 @@ window.TSS = (function () {
     setTimeout(function () { URL.revokeObjectURL(u); }, 60000);
     return 'downloaded';
   }
-  return { enter: enter, exit: exit, save: save, isFull: function () { return !!current; } };
+  // A plain zip (stored, no compression: photos do not shrink anyway), made in the browser, so "Download all" needs no build.
+  var CRC = null;
+  function crc32(b) {
+    if (!CRC) { CRC = new Int32Array(256); for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; CRC[n] = c; } }
+    var x = -1; for (var i = 0; i < b.length; i++) x = CRC[(x ^ b[i]) & 255] ^ (x >>> 8); return (x ^ -1) >>> 0;
+  }
+  function zip(files) {   // [{ name, data: Uint8Array }] -> Blob
+    var parts = [], central = [], off = 0, enc = new TextEncoder();
+    files.forEach(function (f) {
+      var name = enc.encode(f.name), crc = crc32(f.data), n = f.data.length;
+      var h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true);
+      h.setUint32(14, crc, true); h.setUint32(18, n, true); h.setUint32(22, n, true); h.setUint16(26, name.length, true);
+      var c = new DataView(new ArrayBuffer(46)); c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true);
+      c.setUint32(16, crc, true); c.setUint32(20, n, true); c.setUint32(24, n, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+      parts.push(h.buffer, name, f.data); central.push(c.buffer, name); off += 30 + name.length + n;
+    });
+    var size = central.reduce(function (t, x) { return t + x.byteLength; }, 0), e = new DataView(new ArrayBuffer(22));
+    e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, size, true); e.setUint32(16, off, true);
+    return new Blob(parts.concat(central, [e.buffer]), { type: 'application/zip' });
+  }
+  // Family Moments: the section of a special day, made when the day so far has only things added from the app.
+  function daySection(key, title, date) {
+    var area = document.querySelector('.gallery-area[data-videos]');
+    var sec = document.getElementById(key);
+    if (sec && sec.classList.contains('moment')) return sec;
+    function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
+    sec = make('section', 'moment'); sec.id = key; sec.dataset.date = date;
+    var head = make('div', 'moment-head');
+    head.append(make('h2', 'moment-h', title), make('p', 'moment-date', new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })));
+    sec.append(head, make('div', 'masonry'));
+    var after = null;
+    area.querySelectorAll('.moment').forEach(function (s) { var d = s.dataset.date || ''; if (!after && d && d < date) after = s; });
+    area.insertBefore(sec, after);
+    area.hidden = false;
+    var empty = area.nextElementSibling; if (empty && empty.classList.contains('empty')) empty.hidden = true;
+    var jump = document.querySelector('.moment-jump ul');   // the day buttons at the top, in the same order as the days
+    if (jump) {
+      jump.textContent = '';
+      area.querySelectorAll('.moment').forEach(function (m) { var li = make('li'), a = make('a', '', (m.querySelector('.moment-h') || {}).textContent || ''); a.href = '#' + m.id; li.append(a); jump.append(li); });
+    }
+    return sec;
+  }
+  return { enter: enter, exit: exit, save: save, zip: zip, daySection: daySection, isFull: function () { return !!current; } };
 })();
 (function () {
   'use strict';
@@ -202,7 +244,8 @@ function initGallery() {
       function () { saveBtn.textContent = 'That did not work. Try again?'; });
   });
   // "Save all to this phone", one button per Family Moments event. Phones only (computers have the zip).
-  if (matchMedia('(pointer: coarse)').matches) area.querySelectorAll('.save-all').forEach(function (btn) {
+  function bindSaveAll(btn) {
+    if (!matchMedia('(pointer: coarse)').matches) return;
     btn.hidden = false;
     var label = btn.textContent, files = null, BATCH = 20, from = 0;
     btn.addEventListener('click', async function () {
@@ -222,7 +265,9 @@ function initGallery() {
       if (from < files.length) btn.textContent = 'Tap to save the next ' + Math.min(BATCH, files.length - from);
       else { btn.textContent = useShare ? '✓ Saved. Tap to save again' : '✓ Saved to Downloads'; from = 0; }
     });
-  });
+  }
+  area.querySelectorAll('.save-all').forEach(bindSaveAll);
+  TSS.bindSaveAll = bindSaveAll;
   area.addEventListener('click', function (e) {
     var a = e.target.closest('.piece-open'); if (!a) return;
     e.preventDefault();
@@ -399,6 +444,10 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
     .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
     .then(function (j) {
       list = (j.pieces || []).sort(function (a, b) { return (b.date + b.created).localeCompare(a.date + a.created); });
+      if (sec.dataset.src.indexOf('moments') !== -1) {
+        addToDays(list.filter(function (p) { return p.event; }));
+        list = list.filter(function (p) { return !p.event; });   // the girls' own photos stay in their own row
+      }
       if (!list.length) return;
       list.forEach(function (p, i) {
         p.byName = sec.dataset.src.indexOf('moments') !== -1 ? (names[p.kid] || (p.kid.charAt(0).toUpperCase() + p.kid.slice(1))) : '';
@@ -493,24 +542,7 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
   function nice(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); }
   function mmss(s) { s = Math.round(s || 0); return s ? Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') : ''; }
   function make(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
-  function section(v) {
-    var sec = document.getElementById(v.event);
-    if (sec && sec.classList.contains('moment')) return sec;
-    // A special day that has only videos so far: a new section, in date order (newest first).
-    sec = make('section', 'moment'); sec.id = v.event; sec.dataset.date = v.eventDate;
-    var head = make('div', 'moment-head');
-    head.append(make('h2', 'moment-h', v.eventTitle), make('p', 'moment-date', nice(v.eventDate)));
-    sec.append(head);
-    var after = null;
-    area.querySelectorAll('.moment').forEach(function (s) {
-      var d = s.dataset.date || ((s.querySelector('.moment-date time') || {}).dateTime) || '';
-      if (!after && d && d < v.eventDate) after = s;
-    });
-    area.insertBefore(sec, after);
-    var jump = document.querySelector('.moment-jump ul');
-    if (jump) { var li = make('li'), a = make('a', '', v.eventTitle); a.href = '#' + v.event; li.append(a); jump.append(li); }
-    return sec;
-  }
+  function section(v) { return TSS.daySection(v.event, v.eventTitle, v.eventDate); }
   // Save: fetch the whole video in pieces (the site hands it out a few MB at a time), then hand it to the phone or computer.
   var EXT = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'webm', 'video/3gpp': '3gp', 'video/x-m4v': 'm4v' };
   async function saveVideo(v, base, btn) {
@@ -574,3 +606,55 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
     })
     .catch(function () { /* the photos stay as they are */ });
 })();
+
+// ---------- Family Moments: photos of a special day added from the app, in that day's section ----------
+// Each day gets "Download all" (one zip, made in the browser from the print-size copies) and, on phones, "Save all".
+function addToDays(pieces) {
+  'use strict';
+  if (!pieces.length || !document.querySelector('.gallery-area[data-videos]')) return;
+  function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
+  function nice(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }); }
+  var touched = {};
+  pieces.slice().reverse().forEach(function (p) {   // oldest first inside each day
+    var sec = TSS.daySection(p.event, p.eventTitle, p.eventDate), grid = sec.querySelector('.masonry');
+    if (!grid) { grid = make('div', 'masonry'); sec.append(grid); }
+    p.photos.forEach(function (ph) {
+      var base = '/img/' + encodeURIComponent(p.id) + '/' + ph.n;
+      var fig = make('figure', 'piece'), a = make('a', 'piece-open'), im = document.createElement('img');
+      a.href = base; a.dataset.full = base; a.dataset.dl = base + '/print'; a.dataset.name = p.id + (p.photos.length > 1 ? '-' + ph.n : '');
+      a.dataset.w = ph.w; a.dataset.h = ph.h; a.dataset.caption = p.caption || ''; a.dataset.label = nice(p.date) + ' · ' + p.eventTitle;
+      a.setAttribute('aria-label', 'Open ' + (p.caption || 'this photo') + ' big');
+      im.src = base + '/sm'; im.alt = p.caption || 'A photo from ' + p.eventTitle; im.loading = 'lazy'; im.decoding = 'async';
+      if (ph.w && ph.h) { im.width = ph.w; im.height = ph.h; }
+      a.append(im); fig.append(a);
+      if (p.caption) { var fc = make('figcaption'); fc.append(make('span', 'art-cap', p.caption)); fig.append(fc); }
+      grid.append(fig);
+    });
+    touched[p.event] = sec;
+  });
+  Object.keys(touched).forEach(function (k) {
+    var sec = touched[k], head = sec.querySelector('.moment-head'), n = sec.querySelectorAll('.piece-open').length;
+    var old = head.querySelector('.dl-row'); if (old) old.remove();   // the hand-added zip no longer has every photo
+    var row = make('div', 'dl-row'), phone = make('button', 'btn-download save-all', '📱 Save all ' + n + ' to this phone'), all = make('button', 'btn-download zip-all', '⬇ Download all ' + n + ' as one zip');
+    phone.type = all.type = 'button'; phone.hidden = true;
+    all.append(make('span', 'dl-size', '(for a computer or a photo book)'));
+    all.addEventListener('click', async function () {
+      if (all.disabled) return;
+      var links = sec.querySelectorAll('.piece-open'), files = [], label = all.innerHTML; all.disabled = true;
+      try {
+        for (var i = 0; i < links.length; i++) {
+          all.textContent = 'Getting ' + (i + 1) + ' of ' + links.length + '…';
+          var r = await fetch(links[i].dataset.dl || links[i].dataset.full, { credentials: 'same-origin' });
+          if (!r.ok) throw new Error(r.status);
+          var type = r.headers.get('content-type') || '', ext = /webp/.test(type) ? 'webp' : /png/.test(type) ? 'png' : 'jpg';
+          files.push({ name: k + '/' + String(i + 1).padStart(3, '0') + '_' + (links[i].dataset.name || 'photo') + '.' + ext, data: new Uint8Array(await r.arrayBuffer()) });
+        }
+        await TSS.save(new File([TSS.zip(files)], k + '.zip', { type: 'application/zip' }));
+        all.innerHTML = label;
+      } catch (e) { all.textContent = 'That did not work. Try again?'; }
+      all.disabled = false;
+    });
+    row.append(phone, all); head.append(row);
+    if (TSS.bindSaveAll) TSS.bindSaveAll(phone);
+  });
+}

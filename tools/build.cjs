@@ -480,7 +480,13 @@ ${blocks}
   <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next photo">›</button>
 </dialog>` : `<div class="gallery-area" data-videos="/api/videos" hidden></div>
-${gallery([], 'Family photos will show up here soon!')}`}`,
+${gallery([], 'Family photos will show up here soon!')}
+<dialog class="lightbox" aria-label="Photo">
+  <button type="button" class="lb-close" aria-label="Close">✕</button>
+  <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button></span></figcaption></figure>
+  <button type="button" class="lb-next" aria-label="Next photo">›</button>
+</dialog>`}`,
   });
 }
 
@@ -618,7 +624,7 @@ pages['upload/index.html'] = `<!doctype html>
     <div class="up-kids up-what">
       <button type="button" class="big-button wobbly c-coral" data-what="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Art<small>A drawing, painting or something they made</small></span></button>
       <button type="button" class="big-button wobbly c-mint" data-what="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo one of the girls took</small></span></button>
-      <button type="button" class="big-button wobbly c-yellow" data-what="video"><span class="big-icon" aria-hidden="true">🎬</span><span class="big-label">A video<small>For Family Moments</small></span></button>
+      <button type="button" class="big-button wobbly c-yellow" data-what="video"><span class="big-icon" aria-hidden="true">❤️</span><span class="big-label">A special day<small>Photos and videos for Family Moments</small></span></button>
       <button type="button" class="big-button wobbly c-lav" data-what="episode"><span class="big-icon">${ICONS.mic}</span><span class="big-label">A podcast episode<small>Pet Parents audio</small></span></button>
     </div>
     <p class="up-more"><button type="button" class="chip" id="recent">Recent uploads</button> <a class="linkish" href="/parent/">For parents</a></p>
@@ -657,6 +663,7 @@ pages['upload/index.html'] = `<!doctype html>
       <button type="button" class="linkish" id="share" disabled>If Save will not work: share to the Drive app</button>
     </div>
     <p class="status" id="status" role="status" aria-live="polite"></p>
+    <p class="day-look"><a class="chip" href="/family-moments/">❤️ See it on Family Moments</a></p>
     <p class="kid-look"><a class="chip" id="kid-page" href="/">🎨 See my page</a> <a class="chip" href="/">🏠 Look at the site</a></p>
   </section>
 
@@ -688,11 +695,8 @@ pages['upload/index.html'] = `<!doctype html>
 
   <section class="screen c-yellow" id="s-video" hidden>
     <p><button type="button" class="linkish" id="vid-back">← Back</button></p>
-    <h1 class="up-h2">Add a video to Family Moments</h1>
-    <p class="share-help">It goes on the Family Moments page as soon as it is sent. The site then keeps the video in Google Drive by itself.</p>
-    <label class="big-pick wobbly ep-pick"><input type="file" id="vid-file" accept="video/*"><span id="vid-label">🎬 Choose a video</span></label>
-    <p class="vid-note" id="vid-note" hidden></p>
-    <img class="vid-poster" id="vid-poster" alt="" hidden>
+    <h1 class="up-h2">A special day</h1>
+    <p class="share-help">Photos and videos go on the Family Moments page as soon as they are sent. The originals are kept in Google Drive.</p>
     <div class="ep-form">
       <label id="vid-event-pick">Which special day? <select id="vid-event"></select></label>
       <div class="vid-new" id="vid-new">
@@ -700,10 +704,19 @@ pages['upload/index.html'] = `<!doctype html>
         <p class="muted vid-eg">For example: Leora's 9th birthday, or Trip to Grandma's</p>
         <label>Date <input type="date" id="vid-event-date"></label>
       </div>
-      <label>A few words about it <span class="muted">(optional)</span> <input type="text" id="vid-caption" maxlength="200"></label>
     </div>
-    <div class="up-actions">
-      <button type="button" class="save wobbly" id="vid-save" disabled>Send the video</button>
+    <div class="up-add day-add">
+      <label class="big-pick wobbly pick-choose"><input type="file" id="day-photos" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
+      <label class="big-pick wobbly pick-take"><input type="file" id="vid-file" accept="video/*"><span id="vid-label">🎬 Choose a video</span></label>
+    </div>
+    <p class="status" id="day-status" role="status" aria-live="polite"></p>
+    <div id="vid-more" hidden>
+      <p class="vid-note" id="vid-note" hidden></p>
+      <img class="vid-poster" id="vid-poster" alt="" hidden>
+      <div class="ep-form"><label>A few words about the video <span class="muted">(optional)</span> <input type="text" id="vid-caption" maxlength="200"></label></div>
+      <div class="up-actions">
+        <button type="button" class="save wobbly" id="vid-save" disabled>Send the video</button>
+      </div>
     </div>
     <div class="ep-bar" id="vid-bar" hidden><span id="vid-bar-fill"></span></div>
     <p class="status" id="vid-status" role="status" aria-live="polite"></p>
