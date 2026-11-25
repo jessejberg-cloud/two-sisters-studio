@@ -19,7 +19,13 @@ test('preview: add one piece with real Google Drive, see it, put it away', async
   await page.goto('/login/');
   await page.fill('#pw', PW);
   await page.locator('form.login-form button').first().click();
-  await page.waitForURL((u) => !u.pathname.startsWith('/login'));
+  await page.waitForLoadState('domcontentloaded');
+  // Still on the login page: say why (wrong test password, too many tries), instead of waiting out the clock.
+  if (new URL(page.url()).pathname.startsWith('/login')) {
+    const why = await page.locator('.login-error:not([hidden])').allInnerTexts();
+    throw new Error('the preview did not take PREVIEW_FAMILY_PASSWORD (' + (why.join(' ') || 'no message; ' + page.url()) + '). '
+      + 'Check that the GitHub secret matches the Deploy Previews value of FAMILY_PASSWORD in Netlify.');
+  }
 
   const pin = await (await page.request.post('/api/studio/main/pin', { data: { pin: PIN } })).json();
   expect(pin.ok, 'parent PIN on the preview').toBeTruthy();
