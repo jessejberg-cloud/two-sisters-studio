@@ -11,7 +11,7 @@
   var cfg = JSON.parse(document.getElementById('cfg').textContent);
   var $ = function (s) { return document.querySelector(s); };
   var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  var state = { kid: null, pieces: [], section: 'art', me: null };   // pieces: [{ caption, starred, photos: [photo], dupes: [] }]
+  var state = { kid: null, pieces: [], section: 'art', me: null, day: null };   // day: { key, title, date } when adding photos of a special day   // pieces: [{ caption, starred, photos: [photo], dupes: [] }]
   // photo: { file, url, bmpUrl, edit: { rot, crop, look }, edited: Blob|null, fp }
 
   // ---------- dates ----------
@@ -50,7 +50,7 @@
   function show(id) { document.querySelectorAll('.screen').forEach(function (s) { s.hidden = s.id !== id; }); window.scrollTo(0, 0); }
   function status(msg, bad) { var s = $('#status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
   function setKid(k) {
-    state.kid = k;
+    state.kid = k; state.day = null;
     $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (state.section === 'photos' ? '’s snapshots' : '’s art');
     document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '') + (IN_APP ? ' in-app' : '');
     if (!$('#date').value) $('#date').value = today();
@@ -219,18 +219,18 @@
   // ---------- a Family Moments video: one file, a special day, a few words ----------
   // The phone sends the video once, to the site, in pieces (Send again picks up where a weak signal stopped it).
   // The site shows it right away and copies it into Google Drive by itself.
-  var vid = { file: null, info: null, busy: false, job: null, list: [] };
+  var vid = { file: null, info: null, busy: false, job: null, list: [], days: [] };   // days: special days that have photos added from the app
   function vidStatus(msg, bad) { var s = $('#vid-status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
   function vidBar(f) { $('#vid-bar').hidden = f == null; $('#vid-bar-fill').style.width = Math.round((f || 0) * 100) + '%'; }
   function vidReady() { $('#vid-save').disabled = vid.busy || !vid.file; }
   function events() {   // the special days on the page, plus any that only have videos so far
     var seen = {}, out = [];
-    (cfg.moments || []).concat(vid.list.filter(function (v) { return !v.deleted; }).map(function (v) { return { key: v.event, title: v.eventTitle, date: v.eventDate }; }))
+    (cfg.moments || []).concat(vid.list.filter(function (v) { return !v.deleted; }).map(function (v) { return { key: v.event, title: v.eventTitle, date: v.eventDate }; }), vid.days)
       .forEach(function (e) { if (!seen[e.key]) { seen[e.key] = 1; out.push(e); } });
     return out.sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
   function fillEvents() {
-    var sel = $('#vid-event'), was = vid.lastEvent || sel.value;
+    var sel = $('#vid-event'), was = vid.lastEvent || (vid.picked ? sel.value : null);   // until someone picks, the newest day
     sel.innerHTML = '';
     events().forEach(function (e) { var o = el('option', '', e.title + ' (' + niceDate(e.date) + ')'); o.value = e.key; sel.append(o); });
     var n = el('option', '', '➕ A new special day'); n.value = ''; sel.append(n);
@@ -238,11 +238,50 @@
     $('#vid-new').hidden = sel.value !== '';
     $('#vid-event-pick').hidden = sel.options.length < 2;   // no days yet: just ask for the name
   }
-  $('#vid-event').addEventListener('change', function () { $('#vid-new').hidden = $('#vid-event').value !== ''; });
+  $('#vid-event').addEventListener('change', function () { vid.picked = true; $('#vid-new').hidden = $('#vid-event').value !== ''; });
   function openVideo() {
     if (!$('#vid-event-date').value) $('#vid-event-date').value = today();
-    vidStatus(''); fillEvents(); show('s-video'); vidList();
+    document.body.className = 'up c-yellow' + (IN_APP ? ' in-app' : '');
+    vidStatus(''); dayStatus(''); fillEvents(); show('s-video'); vidList(); dayList();
   }
+  // The special days that already have photos from the app, so new photos and videos can join them.
+  async function dayList() {
+    try {
+      var r = await fetch('/api/pieces?section=moments', { credentials: 'same-origin' });
+      if (!r.ok) return;
+      var seen = {};
+      vid.days = ((await r.json()).pieces || []).filter(function (p) { if (!p.event || seen[p.event]) return false; seen[p.event] = 1; return true; })
+        .map(function (p) { return { key: p.event, title: p.eventTitle, date: p.eventDate }; });
+      fillEvents();
+    } catch (e) { /* no signal: the days on the page are still there */ }
+  }
+  function dayStatus(msg, bad) { var s = $('#day-status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
+  // The day picked (or typed) on the special day screen. Null, with a note, when a new day has no name yet.
+  function pickedDay(fallbackTitle) {
+    var key = $('#vid-event').value, ev = null;
+    events().forEach(function (x) { if (x.key === key) ev = x; });
+    if (ev) return { key: ev.key, title: ev.title, date: ev.date };
+    var title = $('#vid-event-title').value.trim() || (fallbackTitle || '');
+    if (!title) {
+      $('#vid-event-title').scrollIntoView({ block: 'center' }); $('#vid-event-title').focus();
+      return null;
+    }
+    return { key: '', title: title, date: $('#vid-event-date').value || today() };
+  }
+  // Photos of a special day: straight to the photos screen, the day already chosen, nothing else to pick.
+  $('#day-photos').addEventListener('change', function (e) {
+    var files = Array.prototype.slice.call(e.target.files); e.target.value = '';
+    if (!files.length) return;
+    var day = pickedDay();
+    if (!day) { dayStatus('Type a name for the special day first (the box under "Name of the special day").', true); return; }
+    dayStatus('');
+    state.kid = 'both'; state.section = 'moments'; state.day = day;
+    $('#who').textContent = '❤️ ' + day.title;
+    $('#date').value = day.date;
+    document.body.className = 'up c-yellow day-mode' + (IN_APP ? ' in-app' : '');
+    status(''); show('s-photos');
+    addFiles(files);
+  });
   $('#vid-back').addEventListener('click', function () {
     if (vid.busy && !confirm('The video is still sending. Leave anyway? You can send it again later.')) return;
     show('s-kid');
@@ -287,7 +326,7 @@
   $('#vid-file').addEventListener('change', async function (e) {
     var f = e.target.files[0];
     if (!f) return;
-    vid.file = f; vid.info = null; vid.job = null; vidReady();
+    vid.file = f; vid.info = null; vid.job = null; vidReady(); $('#vid-more').hidden = false;
     $('#vid-label').textContent = '🎬 ' + (f.name || 'Video') + ' (' + mb(f.size) + ')';
     $('#vid-done').hidden = true; $('#vid-poster').hidden = true; $('#vid-note').hidden = true; vidStatus('');
     var info = await videoInfo(f);
@@ -302,14 +341,11 @@
   });
   $('#vid-save').addEventListener('click', async function () {
     if (!vid.file || vid.busy) return;
-    var f = vid.file, info = vid.info || {}, key = $('#vid-event').value, ev = null;
-    events().forEach(function (x) { if (x.key === key) ev = x; });
+    var f = vid.file, info = vid.info || {};
     // No name typed? Use the few words about it, so nothing blocks sending.
-    var evTitle = ev ? ev.title : ($('#vid-event-title').value.trim() || $('#vid-caption').value.trim()), evDate = ev ? ev.date : ($('#vid-event-date').value || today());
-    if (!evTitle) {
-      vidStatus('Type a name for the special day (the box under "Name of the special day").', true);
-      $('#vid-event-title').scrollIntoView({ block: 'center' }); $('#vid-event-title').focus(); return;
-    }
+    var day = pickedDay($('#vid-caption').value.trim());
+    if (!day) { vidStatus('Type a name for the special day (the box under "Name of the special day").', true); return; }
+    var ev = day.key ? day : null, evTitle = day.title, evDate = day.date;
     vid.busy = true; vidReady(); $('#vid-done').hidden = true;
     var lock = null; try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch (e) {}
     try {
@@ -340,7 +376,7 @@
       $('#vid-done').hidden = false;
       vid.file = null; vid.info = null; vid.job = null;
       ['#vid-file', '#vid-caption', '#vid-event-title'].forEach(function (s) { $(s).value = ''; });
-      $('#vid-label').textContent = '🎬 Choose a video'; $('#vid-poster').hidden = true; $('#vid-note').hidden = true;
+      $('#vid-label').textContent = '🎬 Choose a video'; $('#vid-poster').hidden = true; $('#vid-note').hidden = true; $('#vid-more').hidden = true;
       setTimeout(vidList, 1500);
     } catch (e) {
       vidBar(null);
@@ -380,11 +416,13 @@
   }
   $('#back').addEventListener('click', function () {
     if (state.pieces.length && !confirm('Leave without saving these pictures?')) return;
-    clearPieces(); show('s-kid'); refreshOutbox();
+    var wasDay = !!state.day;
+    clearPieces(); state.day = null;
+    if (wasDay) openVideo(); else { show('s-kid'); refreshOutbox(); }
   });
   function clearPieces() {
     state.pieces.forEach(function (p) { p.photos.forEach(function (ph) { URL.revokeObjectURL(ph.url); }); });
-    state.pieces = []; $('#date').value = today();
+    state.pieces = []; $('#date').value = state.day ? state.day.date : today();
   }
 
   // ---------- adding photos ----------
@@ -569,7 +607,7 @@
       var inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment');
       inp.addEventListener('change', function () { addFiles(inp.files, p); inp.value = ''; });
       more.append(inp, el('span', null, '＋ Another photo of this piece'));
-      var cap = el('input'); cap.type = 'text'; cap.placeholder = 'Caption, in their own words (optional)';
+      var cap = el('input'); cap.type = 'text'; cap.placeholder = state.day ? 'A few words (optional)' : 'Caption, in their own words (optional)';
       cap.value = p.caption; cap.maxLength = 140; cap.setAttribute('aria-label', 'Caption for piece ' + (i + 1));
       cap.addEventListener('input', function () { p.caption = cap.value; });
       var star = el('button', 'star', p.starred ? '★ Show big' : '☆ Show big'); star.type = 'button';
@@ -584,7 +622,8 @@
       li.append(pics, more, box, quick); ul.append(li);
     });
     var n = state.pieces.length;
-    $('#count').textContent = n ? n + ' piece' + (n > 1 ? 's' : '') + '. Tap a photo to fix it up.' : 'No pictures yet';
+    $('#count').textContent = state.day ? (n ? n + ' photo' + (n > 1 ? 's' : '') + '. Tap Save to send ' + (n > 1 ? 'them' : 'it') + '.' : 'All sent. Add more, or go back.')
+      : n ? n + ' piece' + (n > 1 ? 's' : '') + '. Tap a photo to fix it up.' : 'No pictures yet';
     $('#save').disabled = !n; $('#share').disabled = !n;
   }
 
@@ -786,6 +825,17 @@
     return out;
   }
 
+  // Family Moments: a print-size copy (3000px JPEG) for "Download all" and photo books.
+  async function printCopy(blob) {
+    var b = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    var s = Math.min(1, 3000 / Math.max(b.width, b.height)), c = document.createElement('canvas');
+    c.width = Math.round(b.width * s); c.height = Math.round(b.height * s);
+    var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(b, 0, 0, c.width, c.height);
+    b.close && b.close();
+    var out = await toBlob(c, 'image/jpeg', 0.88);
+    if (out && out.size > 5.4e6) out = await toBlob(c, 'image/jpeg', 0.75);
+    return out && out.size <= 5.4e6 ? out : null;
+  }
   // ---------- Save: keep on the phone, then send ----------
   $('#save').addEventListener('click', async function () {
     var btn = this; btn.disabled = true;
@@ -797,13 +847,14 @@
         for (var j = 0; j < p.photos.length; j++) {
           var ph = p.photos[j], wc = await webCopies(ph.pdf ? ph.preview : (ph.edited || ph.file));
           var edits = []; if (ph.edit.rot) edits.push('turn'); if (ph.edit.crop) edits.push('crop'); if (ph.edit.look) edits.push(ph.edit.look);
-          photos.push({ pdf: !!ph.pdf, original: ph.file, originalType: ph.pdf ? 'application/pdf' : (ph.file.type || 'image/jpeg'), edited: ph.edited, web: wc.web, thumb: wc.thumb, w: wc.w, h: wc.h, fp: ph.fp, edits: edits });
+          var print = state.section === 'moments' && !ph.pdf ? await printCopy(ph.edited || ph.file).catch(function () { return null; }) : null;
+          photos.push({ print: print, pdf: !!ph.pdf, original: ph.file, originalType: ph.pdf ? 'application/pdf' : (ph.file.type || 'image/jpeg'), edited: ph.edited, web: wc.web, thumb: wc.thumb, w: wc.w, h: wc.h, fp: ph.fp, edits: edits });
         }
-        await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: state.section || 'art',
+        await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: state.section || 'art', event: state.day,
           caption: p.caption.trim(), starred: p.starred, photos: photos, progress: {}, created: new Date().toISOString() });
       }
       clearPieces(); renderList();
-      status('Saved ' + n + (kidMode() ? ' photo' : ' piece') + (n > 1 ? 's' : '') + ' on this ' + (kidMode() ? 'tablet' : 'phone') + '.' + (navigator.onLine ? ' Sending…' : ' They will go up next time there is signal.'));
+      status('Saved ' + n + (kidMode() || state.day ? ' photo' : ' piece') + (n > 1 ? 's' : '') + ' on this ' + (kidMode() ? 'tablet' : 'phone') + '.' + (navigator.onLine ? ' Sending…' : ' They will go up next time there is signal.'));
       sendOutbox();
     } catch (e) { status('Could not save on this phone: ' + e.message, true); }
     btn.disabled = !state.pieces.length;
@@ -852,7 +903,7 @@
   async function sendOne(q, label) {
     var pr = q.progress;
     if (!pr.start) {
-      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, section: q.section || 'art', caption: q.caption, starred: q.starred,
+      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, section: q.section || 'art', event: q.event || null, caption: q.caption, starred: q.starred,
         photos: q.photos.map(function (ph) { return { originalType: ph.originalType, originalSize: ph.original.size, edited: !!ph.edited, editedSize: ph.edited ? ph.edited.size : 0 }; }) });
       await put('outbox2', q);
     }
@@ -880,6 +931,19 @@
       if (!r.ok) throw await notTaken(r, 'picture');
       pr.sent[n] = true; await put('outbox2', q);
     }
+    pr.printSent = pr.printSent || {};
+    for (var pn = 1; pn <= q.photos.length; pn++) {
+      var pq = q.photos[pn - 1];
+      if (!pq.print || pr.printSent[pn]) continue;
+      try {   // one more try later on a dropped signal; if the site will not take it, the web copy stands in
+        var prf = new FormData(); prf.set('print', pq.print, 'print.jpg');
+        var prr = await fetch('/api/pieces/' + pr.start.id + '/print/' + pn, { method: 'POST', credentials: 'same-origin', body: prf });
+        if (prr.status >= 500) throw new Error('server');
+      } catch (e) {
+        if (!pr.printTried) { pr.printTried = true; await put('outbox2', q); throw new Error('The connection dropped. Nothing was lost; it will try again.'); }
+      }
+      pr.printSent[pn] = true; await put('outbox2', q);
+    }
     pr.pdfSent = pr.pdfSent || {};
     for (var m = 1; m <= q.photos.length; m++) {
       var pp = q.photos[m - 1];
@@ -904,7 +968,7 @@
         await sendOne(list[i], label); done++;
       }
       status(kidMode() ? 'Sent! A grown-up will look, then ' + (done === 1 ? 'it shows' : 'they show') + ' in your snapshots.'
-        : 'All sent! ' + (done === 1 ? 'It is' : 'They are') + ' on the site now.');
+        : 'All sent! ' + (done === 1 ? 'It is' : 'They are') + (state.day ? ' on the Family Moments page now.' : ' on the site now.'));
       outboxErr = '';
     } catch (e) {
       outboxErr = e.message;
@@ -956,7 +1020,7 @@
   function recentRow(p, deleted, keepDays) {
     var li = el('li', 'item recent');
     var img = el('img', 'recent-pic'); img.src = '/img/' + p.id + '/1/sm'; img.alt = ''; img.loading = 'lazy';
-    var who = el('p', 'recent-who', (p.kid === 'both' ? 'Made together' : cfg.kids[p.kid].name) + (p.photos.length > 1 ? ' · ' + p.photos.length + ' photos' : ''));
+    var who = el('p', 'recent-who', (p.eventTitle ? '❤️ ' + p.eventTitle : p.kid === 'both' ? 'Made together' : cfg.kids[p.kid].name) + (p.photos.length > 1 ? ' · ' + p.photos.length + ' photos' : ''));
     var box = el('div', 'item-text'); box.append(who);
     if (deleted) {
       var until = new Date(Date.parse(p.deleted) + keepDays * 86400000).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });

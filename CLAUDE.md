@@ -153,3 +153,14 @@ python3 -m http.server 5190 --directory dist     # local preview
   `site-src/upload/vendor/`, loaded only when a PDF is picked, not scanned by the audit) and that picture is the web copy; the original PDF goes to Drive as
   `<id>-<n>-original.pdf`. The PDF itself (up to 5 MB, one function call) is stored in Blobs `images` as `<id>-<n>-pdf` via `POST /api/pieces/<id>/pdf/<n>`
   and opens from `/img/<id>/<n>/pdf` ("Open the PDF" button in the lightbox). Bigger PDFs: picture only, PDF in Drive. Rebuilding from Drive restores the picture, not the site copy of the PDF.
+
+## Special days from the app (Jesse, 2026-11-25; ease-of-use audit, batch 1 of 3)
+- The app's **A special day** button (was "A video") opens one screen: pick the day (or name a new one), then **Choose photos** or
+  **Choose a video**. Photos go through the normal outbox as section `moments`, kid `both`, with `event`/`eventTitle`/`eventDate`
+  (`/api/pieces/start` with `event: { key }` or `{ title, date }`); Drive folder `Family Moments/<2026-06-14 Title>/`, the same as videos.
+  No looks, crop, star or date on those photos; Turn stays. A 3000px JPEG print copy goes to Blobs `images` `<id>-<n>-print`
+  (`POST /api/pieces/<id>/print/<n>`, served at `/img/<id>/<n>/print`, web copy stands in when missing; not restored by a Drive rebuild).
+- The Family Moments page puts these photos in their day's section (`addToDays` in main.js, `TSS.daySection` shared with videos).
+  A day with app photos gets **Download all** as a zip made in the browser (`TSS.zip`) plus Save all on phones; no build needed.
+  The girls' own Family Moments photos (no day) stay in their own row. `tools/add.py moments` still works for hand-added days.
+- Audit and the next two batches (one-link sharing; scan fix + girls add art): /mnt/project-files/two-sisters-studio/ease-audit-2026-11-25.md. Tests: tests/moments.test.mjs.

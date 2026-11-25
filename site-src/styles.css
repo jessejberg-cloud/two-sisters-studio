@@ -418,6 +418,7 @@ html.is-adder .tab-add-li { display: list-item; }
 .lightbox .lb-save:disabled { opacity: .7; cursor: default; }
 .dl-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
 button.btn-download { font: inherit; font-weight: 800; cursor: pointer; background: var(--yellow); }
+button.btn-download.zip-all { background: #fff; font-weight: 800; text-align: left; }
 .dl-row .btn-download { max-width: 100%; box-sizing: border-box; }
 .dl-row .dl-size { white-space: normal; display: block; }
 .lightbox .lb-save { font-family: inherit; }
@@ -531,6 +532,16 @@ body.kid-mode.in-app .pick-take { grid-column: 1 / -1; min-height: 140px; font-s
 .kid-look { display: none; }
 body.kid-mode .kid-look { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 24px; }
 .is-kid .foot-parent { display: none; }
+
+/* Photos of a special day (Jesse, 2026-11-25): the day is already chosen; no date, star, looks or crop to think about.
+   Turn stays for the odd sideways photo. */
+body.day-mode .up-date, body.day-mode .star, body.day-mode #share, body.day-mode .quick-row, body.day-mode .crop-btn,
+body.day-mode .more-photo, body.day-mode #cam-open { display: none !important; }
+.day-look { display: none; }
+body.day-mode .day-look { display: flex; justify-content: center; margin-top: 24px; }
+.day-add { margin-top: 14px; }
+.day-add .big-pick { min-height: 110px; }
+#vid-more[hidden] { display: none; }
 
 /* Photos from the girls' tablets */
 .live-photos { margin: 40px 0 24px; }
