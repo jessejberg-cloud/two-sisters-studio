@@ -1,6 +1,6 @@
 // Two Sisters Studio "Add art" app.
-// Pick who made it (Leora, Amaya or Both), take or pick photos, fix them up (turn, crop, Auto, Paper white, Vivid,
-// Glow), caption, star, Save. Save keeps everything on the phone first (IndexedDB "outbox"), then sends it to the
+// Pick who made it (Leora, Amaya or Both), take or pick photos (art is straightened and its light evened out by itself;
+// Turn and Fix corners if needed), caption, star, Save. Save keeps everything on the phone first (IndexedDB "outbox"), then sends it to the
 // site: the untouched original (and the edited copy) go straight to Google Drive through one-time upload addresses
 // the site makes; the web copies go to the site, which shows the piece in the gallery right away.
 // No Google sign-in on the phone: the site holds the Drive connection. Works with no signal and resumes.
@@ -69,13 +69,22 @@
   async function startKidMode() {
     try { state.me = await (await fetch('/api/whoami', { credentials: 'same-origin' })).json(); } catch (e) { state.me = null; }
     if (!kidMode() || !cfg.kids[state.me.kid]) return false;
-    $('#where').hidden = !state.me.moments;
     $('#kid-page').href = '/' + state.me.kid + '/';
-    setWhere('photos');
-    $('#kid-help').textContent = 'Take a picture or choose one. It goes to your snapshots after a grown-up says OK.' + (state.me.moments ? ' Or tap Family Moments below.' : '');
-    setKid(state.me.kid);
+    document.querySelectorAll('.kid-page').forEach(function (a) { a.href = '/' + state.me.kid + '/'; });
+    document.body.className = 'up c-' + cfg.kids[state.me.kid].color + ' kid-mode' + (IN_APP ? ' in-app' : '');
+    show('s-kidhome');   // My art or A snapshot (Jesse, 2026-11-25)
     return true;
   }
+  document.querySelectorAll('[data-kidwhat]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var art = b.dataset.kidwhat === 'art';
+      setWhere(art ? 'art' : 'photos');
+      $('#where').hidden = art || !state.me.moments;
+      $('#kid-help').textContent = art ? 'Take a picture of your art, or choose one. It goes on your page after a grown-up says OK.'
+        : 'Take a picture or choose one. It goes to your snapshots after a grown-up says OK.' + (state.me.moments ? ' Or tap Family Moments below.' : '');
+      setKid(state.me.kid);
+    });
+  });
   // ---------- home: what are we adding? Art, a snapshot (a photo she took), or a podcast episode ----------
   function chooseWhat(what) {
     if (what === 'episode') { openEpisode(); return; }
@@ -418,7 +427,7 @@
     if (state.pieces.length && !confirm('Leave without saving these pictures?')) return;
     var wasDay = !!state.day;
     clearPieces(); state.day = null;
-    if (wasDay) openVideo(); else { show('s-kid'); refreshOutbox(); }
+    if (wasDay) openVideo(); else if (kidMode()) show('s-kidhome'); else { show('s-kid'); refreshOutbox(); }
   });
   function clearPieces() {
     state.pieces.forEach(function (p) { p.photos.forEach(function (ph) { URL.revokeObjectURL(ph.url); }); });
@@ -426,7 +435,7 @@
   }
 
   // ---------- adding photos ----------
-  function newPhoto(f) { return { file: f, url: URL.createObjectURL(f), edit: { rot: 0, crop: null, look: '' }, edited: null, fp: '' }; }
+  function newPhoto(f) { return { file: f, url: URL.createObjectURL(f), edit: newEdit(), edited: null, fp: '' }; }
   // ---------- PDFs: a picture of page 1 stands in for the piece; the PDF itself is kept too ----------
   var pdfLoading = null;
   function loadPdfJs() {
@@ -480,7 +489,7 @@
     });
     renderList();
     checkDupes(added);
-    if ((state.section || 'art') === 'art') added.reduce(function (p, ph) { return p.then(function () { return autoCrop(ph); }); }, Promise.resolve());
+    if ((state.section || 'art') === 'art') added.reduce(function (p, ph) { return p.then(function () { return autoScan(ph); }); }, Promise.resolve());
   }
   $('#take').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
   $('#pick').addEventListener('change', function (e) { addFiles(e.target.files); e.target.value = ''; });
@@ -576,38 +585,38 @@
       p.photos.forEach(function (ph, j) {
         var b = el('button', 'item-pic'); b.type = 'button'; b.setAttribute('aria-label', 'Fix up photo ' + (j + 1));
         var img = el('img'); img.src = ph.url; img.alt = '';
-        b.append(img, el('span', 'edit-tag', ph.pdf ? '📄 PDF' : ph.cropping ? '✂ Cropping…' : ph.auto ? '✂ Cropped' : ph.edited ? '✎ Edited' : '✎ Fix up'));
-        b.addEventListener('click', function () { if (!ph.pdf) openEditor(ph); });
+        var art = (state.section || 'art') === 'art' && !ph.pdf;
+        b.append(img, el('span', 'edit-tag', ph.pdf ? '📄 PDF' : ph.working ? '… Fixing' : art ? (ph.edit.orig ? 'Original' : ph.fixed ? '✓ Straightened' : '✎ Fix corners') : ph.edit.rot ? '↻ Turned' : ''));
+        if (!art || ph.pdf) b.querySelector('.edit-tag').hidden = !ph.pdf && !ph.edit.rot && !ph.working;
+        b.addEventListener('click', function () { if (art && !ph.working) openEditor(ph); });
         pics.append(b);
       });
-      // Quick looks, one tap each, right under the photos (Turn and Crop are in Fix up).
+      // Under each photo: Turn (one tap), and for art Fix corners and Use the original. No looks: the girls' colours stay theirs.
       var quick = el('div', 'quick');
       p.photos.forEach(function (ph, j) {
-        if (ph.pdf) return;   // a PDF has no looks or crop
-        var row = el('div', 'quick-row');
-        if (p.photos.length > 1) row.append(el('span', 'quick-n', 'Photo ' + (j + 1)));
-        [['', 'Original'], ['auto', 'Auto'], ['paper', 'Paper white'], ['vivid', 'Vivid'], ['glow', '✨ Glow']].forEach(function (o) {
-          var c = el('button', 'chip chip-sm', o[1]); c.type = 'button';
-          c.setAttribute('aria-pressed', String((ph.edit.look || '') === o[0]));
-          c.addEventListener('click', function () { quickLook(ph, o[0], c); });
-          row.append(c);
-        });
-        quick.append(row);
-        // Crop is the most used fix: a big button of its own, opening straight into cropping.
-        var tools = el('div', 'crop-row');
-        var crop = el('button', 'crop-btn wobbly', ph.auto ? '✂ Adjust the crop' : '✂ Crop'); crop.type = 'button';
-        crop.addEventListener('click', function () { openEditor(ph, true); });
-        var turn = el('button', 'chip', '↻ Turn'); turn.type = 'button';
-        turn.addEventListener('click', function () { openEditor(ph); });
-        tools.append(crop, turn);
-        if (ph.auto) { var un = el('button', 'linkish', 'Undo the crop'); un.type = 'button'; un.addEventListener('click', function () { undoAutoCrop(ph); }); tools.append(un); }
-        quick.insertBefore(tools, row);
+        if (ph.pdf) return;
+        var tools = el('div', 'fix-row');
+        if (p.photos.length > 1) tools.append(el('span', 'quick-n', 'Photo ' + (j + 1)));
+        var turn = el('button', 'fix-btn wobbly', '↻ Turn'); turn.type = 'button'; turn.disabled = !!ph.working;
+        turn.addEventListener('click', function () { turnOne(ph); });
+        tools.append(turn);
+        if ((state.section || 'art') === 'art') {
+          var corners = el('button', 'fix-btn wobbly', '✂ Fix corners'); corners.type = 'button'; corners.disabled = !!ph.working;
+          corners.addEventListener('click', function () { openEditor(ph); });
+          tools.append(corners);
+          if (ph.fixed) {
+            var orig = el('button', 'linkish', ph.edit.orig ? 'Use the fix' : 'Use the original'); orig.type = 'button';
+            orig.addEventListener('click', function () { toggleOriginal(ph); });
+            tools.append(orig);
+          }
+        }
+        quick.append(tools);
       });
       var more = el('label', 'more-photo');
       var inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment');
       inp.addEventListener('change', function () { addFiles(inp.files, p); inp.value = ''; });
       more.append(inp, el('span', null, '＋ Another photo of this piece'));
-      var cap = el('input'); cap.type = 'text'; cap.placeholder = state.day ? 'A few words (optional)' : 'Caption, in their own words (optional)';
+      var cap = el('input'); cap.type = 'text'; cap.placeholder = state.day ? 'A few words (optional)' : kidMode() ? 'What is it? (you can skip this)' : 'Caption, in their own words (optional)';
       cap.value = p.caption; cap.maxLength = 140; cap.setAttribute('aria-label', 'Caption for piece ' + (i + 1));
       cap.addEventListener('input', function () { p.caption = cap.value; });
       var star = el('button', 'star', p.starred ? '★ Show big' : '☆ Show big'); star.type = 'button';
@@ -627,32 +636,21 @@
     $('#save').disabled = !n; $('#share').disabled = !n;
   }
 
-  async function quickLook(ph, look, btn) {
-    if (btn) btn.textContent = '…';
-    var e = { rot: ph.edit.rot, crop: ph.edit.crop, look: look };
-    try {
-      if (!e.rot && !e.crop && !look) { ph.edit = e; ph.edited = null; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(ph.file); renderList(); return; }
-      var bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' });
-      var R = rotatedSize(bmp, e.rot), c = e.crop || { w: 1, h: 1 };
-      var big = document.createElement('canvas');
-      paint(big.getContext('2d', { willReadFrequently: true }), bmp, e.rot, e.crop, look, Math.min(1, 4000 / Math.max(R.w * c.w, R.h * c.h)));
-      bmp.close && bmp.close();
-      var b = await new Promise(function (ok) { big.toBlob(ok, 'image/jpeg', 0.92); });
-      ph.edit = e; ph.edited = b; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(b);
-    } catch (err) { status('This photo can’t be changed here, but it can still be saved.', true); }
-    renderList();
-  }
-
-  // ---------- automatic crop for photos of art (Jesse, 2026-11-19: crop is the most used fix; do it by default) ----------
-  // Finds the paper: the colour around the photo's edges is the table or floor; the biggest connected patch that looks
-  // different from it is the art. Returns a crop box (fractions of the photo) or null when there is nothing sure to crop.
-  function findArt(bmp) {
-    var S = 320, sc = Math.min(1, S / Math.max(bmp.width, bmp.height));
+  // ---------- the scan fix for photos of art (Jesse, 2026-11-25: fewer presses, no looks that change the girls' colours) ----------
+  // Done by itself when a photo is added as Art: find the paper's four corners, straighten it as if shot from straight above,
+  // and even out shadows so the paper is white, without changing any colour the girls chose. Under each photo: Turn (one tap),
+  // Fix corners, Use the original. The untouched original is always kept.
+  // edit: { quad: [[x, y] x4] (fractions of the photo as taken: top-left, top-right, bottom-right, bottom-left) or null,
+  //         light: even out the light, rot: quarter turns after straightening, orig: show the untouched photo }
+  function newEdit() { return { quad: null, light: false, rot: 0, orig: false }; }
+  // Finds the paper: the colour around the photo's edges is the table or floor; the biggest connected patch that differs is the art.
+  // Paper-shaped patch: its four corners. Anything else (clay, a cut-out): a straight box around it. Null when nothing is sure.
+  function findPaper(bmp) {
+    var S = 360, sc = Math.min(1, S / Math.max(bmp.width, bmp.height));
     var W = Math.max(8, Math.round(bmp.width * sc)), H = Math.max(8, Math.round(bmp.height * sc));
     var c = document.createElement('canvas'); c.width = W; c.height = H;
     var g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(bmp, 0, 0, W, H);
     var d = g.getImageData(0, 0, W, H).data, n = W * H;
-    // The background: the middle colour of a thin ring around the edges.
     var ring = Math.max(2, Math.round(Math.min(W, H) * 0.03)), rs = [], gs = [], bs = [];
     for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
       if (x >= ring && x < W - ring && y >= ring && y < H - ring) continue;
@@ -664,149 +662,193 @@
     var T = Math.max(45, mid(spread) * 3);   // a busy background (wood grain, carpet) needs a bigger difference
     var on = new Uint8Array(n);
     for (var p = 0; p < n; p++) { var j = p * 4; if (Math.abs(d[j] - br) + Math.abs(d[j + 1] - bg) + Math.abs(d[j + 2] - bb) > T) on[p] = 1; }
-    // The biggest connected patch.
-    var seen = new Uint8Array(n), stack = new Int32Array(n), best = null;
+    var label = new Int32Array(n), stack = new Int32Array(n), best = null, id = 0;
     for (var s0 = 0; s0 < n; s0++) {
-      if (!on[s0] || seen[s0]) continue;
-      var top = 0, cnt = 0, x0 = W, x1 = 0, y0 = H, y1 = 0; stack[top++] = s0; seen[s0] = 1;
+      if (!on[s0] || label[s0]) continue;
+      id++; var top = 0, cnt = 0; stack[top++] = s0; label[s0] = id;
       while (top) {
-        var q = stack[--top], qx = q % W, qy = (q / W) | 0; cnt++;
-        if (qx < x0) x0 = qx; if (qx > x1) x1 = qx; if (qy < y0) y0 = qy; if (qy > y1) y1 = qy;
-        var nb = [qx > 0 ? q - 1 : -1, qx < W - 1 ? q + 1 : -1, qy > 0 ? q - W : -1, qy < H - 1 ? q + W : -1];
-        for (var m = 0; m < 4; m++) { var r2 = nb[m]; if (r2 >= 0 && on[r2] && !seen[r2]) { seen[r2] = 1; stack[top++] = r2; } }
+        var q = stack[--top], qx = q % W; cnt++;
+        var nb = [qx > 0 ? q - 1 : -1, qx < W - 1 ? q + 1 : -1, q >= W ? q - W : -1, q < n - W ? q + W : -1];
+        for (var m = 0; m < 4; m++) { var r2 = nb[m]; if (r2 >= 0 && on[r2] && !label[r2]) { label[r2] = id; stack[top++] = r2; } }
       }
-      if (!best || cnt > best.cnt) best = { cnt: cnt, x0: x0, x1: x1, y0: y0, y1: y1 };
+      if (!best || cnt > best.cnt) best = { cnt: cnt, id: id };
     }
     if (!best || best.cnt < n * 0.08) return null;
-    var pad = Math.round(Math.min(W, H) * 0.01);
-    var bx0 = Math.max(0, best.x0 - pad), by0 = Math.max(0, best.y0 - pad), bx1 = Math.min(W - 1, best.x1 + pad), by1 = Math.min(H - 1, best.y1 + pad);
-    var box = { x: bx0 / W, y: by0 / H, w: (bx1 - bx0 + 1) / W, h: (by1 - by0 + 1) / H };
-    if (box.w * box.h > 0.92 || box.w * box.h < 0.1) return null;   // almost the whole photo already, or too small to trust
-    return box;
+    // Corners (the patch's furthest points toward each corner), its box, and how light it is.
+    var tl = [W, H, 1e9], tr = [0, 0, -1e9], brc = [0, 0, -1e9], bl = [0, 0, -1e9], x0 = W, x1 = 0, y0 = H, y1 = 0, lums = [];
+    for (var pp = 0; pp < n; pp++) {
+      if (label[pp] !== best.id) continue;
+      var px = pp % W, py = (pp / W) | 0;
+      if (px + py < tl[2]) tl = [px, py, px + py];
+      if (px - py > tr[2]) tr = [px, py, px - py];
+      if (px + py > brc[2]) brc = [px, py, px + py];
+      if (py - px > bl[2]) bl = [px, py, py - px];
+      if (px < x0) x0 = px; if (px > x1) x1 = px; if (py < y0) y0 = py; if (py > y1) y1 = py;
+      if (!(pp % 7)) { var li = pp * 4; lums.push(d[li] * .3 + d[li + 1] * .59 + d[li + 2] * .11); }
+    }
+    var pts = [tl, tr, brc, bl].map(function (v) { return [(v[0] + .5) / W, (v[1] + .5) / H]; });
+    function area(a) { var s = 0; for (var t = 0; t < 4; t++) { var u = a[t], v = a[(t + 1) % 4]; s += u[0] * v[1] - v[0] * u[1]; } return Math.abs(s) / 2; }
+    var quadArea = area(pts) * n, paperish = quadArea > 0 && best.cnt / quadArea > 0.88;
+    var quad = paperish ? pts : [[x0 / W, y0 / H], [(x1 + 1) / W, y0 / H], [(x1 + 1) / W, (y1 + 1) / H], [x0 / W, (y1 + 1) / H]];
+    var frac = area(quad);
+    if (frac > 0.95 || frac < 0.1) return null;   // almost the whole photo already, or too small to trust
+    return { quad: quad, light: mid(lums) > 150 };
   }
-  async function autoCrop(ph) {
-    ph.cropping = true; renderList();
+  // The square-to-corners map (Heckbert): (u, v) in 0..1 on the straightened picture -> (x, y) on the photo.
+  function squareToQuad(q) {
+    var x0 = q[0][0], y0 = q[0][1], x1 = q[1][0], y1 = q[1][1], x2 = q[2][0], y2 = q[2][1], x3 = q[3][0], y3 = q[3][1];
+    var dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3, g = 0, h = 0;
+    if (Math.abs(dx3) > 1e-9 || Math.abs(dy3) > 1e-9) { var det = dx1 * dy2 - dx2 * dy1; g = (dx3 * dy2 - dx2 * dy3) / det; h = (dx1 * dy3 - dx3 * dy1) / det; }
+    var a = x1 - x0 + g * x1, b = x3 - x0 + h * x3, c = x0, dd = y1 - y0 + g * y1, e = y3 - y0 + h * y3, f = y0;
+    return function (u, v) { var w = g * u + h * v + 1; return [(a * u + b * v + c) / w, (dd * u + e * v + f) / w]; };
+  }
+  var dist = function (p, q) { return Math.hypot(p[0] - q[0], p[1] - q[1]); };
+  // Straighten: the area inside the four corners becomes a flat rectangle (bilinear, at most 3600 px on the long side).
+  function straighten(bmp, quadF) {
+    var sc = Math.min(1, 4096 / Math.max(bmp.width, bmp.height)), SW = Math.round(bmp.width * sc), SH = Math.round(bmp.height * sc);
+    var sc0 = document.createElement('canvas'); sc0.width = SW; sc0.height = SH;
+    var sg = sc0.getContext('2d', { willReadFrequently: true }); sg.drawImage(bmp, 0, 0, SW, SH);
+    var src = sg.getImageData(0, 0, SW, SH).data;
+    var q = quadF.map(function (p) { return [p[0] * SW, p[1] * SH]; });
+    var W = Math.max(dist(q[0], q[1]), dist(q[3], q[2])), H = Math.max(dist(q[0], q[3]), dist(q[1], q[2]));
+    var s = Math.min(1, 3600 / Math.max(W, H)); W = Math.max(1, Math.round(W * s)); H = Math.max(1, Math.round(H * s));
+    var out = document.createElement('canvas'); out.width = W; out.height = H;
+    var og = out.getContext('2d', { willReadFrequently: true }), img = og.createImageData(W, H), o = img.data, map = squareToQuad(q);
+    for (var y = 0; y < H; y++) {
+      var v = (y + .5) / H;
+      for (var x = 0; x < W; x++) {
+        var pt = map((x + .5) / W, v), fx = Math.min(SW - 1.001, Math.max(0, pt[0] - .5)), fy = Math.min(SH - 1.001, Math.max(0, pt[1] - .5));
+        var ix = fx | 0, iy = fy | 0, ax = fx - ix, ay = fy - iy, i00 = (iy * SW + ix) * 4, i10 = i00 + 4, i01 = i00 + SW * 4, i11 = i01 + 4, k = (y * W + x) * 4;
+        for (var ch = 0; ch < 3; ch++) {
+          o[k + ch] = (src[i00 + ch] * (1 - ax) + src[i10 + ch] * ax) * (1 - ay) + (src[i01 + ch] * (1 - ax) + src[i11 + ch] * ax) * ay;
+        }
+        o[k + 3] = 255;
+      }
+    }
+    og.putImageData(img, 0, 0);
+    return out;
+  }
+  // Even out the light: find how bright the bare paper is across the picture (ignoring patches full of colour), then brighten
+  // each spot by the same amount for red, green and blue, so shadows lift and the paper turns white but colours keep their hue.
+  function evenLight(cv) {
+    var W = cv.width, H = cv.height, g = cv.getContext('2d', { willReadFrequently: true }), img = g.getImageData(0, 0, W, H), d = img.data;
+    var G = 24, gw = Math.max(2, Math.round(G * W / Math.max(W, H))), gh = Math.max(2, Math.round(G * H / Math.max(W, H)));
+    var cells = new Float32Array(gw * gh), all = [];
+    for (var cy = 0; cy < gh; cy++) for (var cx = 0; cx < gw; cx++) {
+      var xa = Math.floor(cx * W / gw), xb = Math.floor((cx + 1) * W / gw), ya = Math.floor(cy * H / gh), yb = Math.floor((cy + 1) * H / gh), ls = [];
+      var st = Math.max(1, Math.floor((xb - xa) / 12));
+      for (var y = ya; y < yb; y += st) for (var x = xa; x < xb; x += st) { var i = (y * W + x) * 4; ls.push(d[i] * .3 + d[i + 1] * .59 + d[i + 2] * .11); }
+      ls.sort(function (a, b) { return a - b; });
+      cells[cy * gw + cx] = ls.length ? ls[Math.floor(ls.length * .92)] : 0; all.push(cells[cy * gw + cx]);
+    }
+    all.sort(function (a, b) { return a - b; });
+    var paper = all[Math.floor(all.length * .75)];
+    if (paper < 120) return cv;   // dark paper: leave it alone
+    for (var t = 0; t < cells.length; t++) if (cells[t] < paper * .65) cells[t] = paper;   // a cell full of paint is not paper
+    for (var pass = 0; pass < 2; pass++) {   // smooth
+      var nx = new Float32Array(cells.length);
+      for (var yy = 0; yy < gh; yy++) for (var xx = 0; xx < gw; xx++) {
+        var s = 0, c2 = 0;
+        for (var oy = -1; oy <= 1; oy++) for (var ox = -1; ox <= 1; ox++) { var X = xx + ox, Y = yy + oy; if (X >= 0 && Y >= 0 && X < gw && Y < gh) { s += cells[Y * gw + X]; c2++; } }
+        nx[yy * gw + xx] = s / c2;
+      }
+      cells = nx;
+    }
+    for (var py = 0; py < H; py++) {
+      var gy = Math.min(gh - 1.001, Math.max(0, (py + .5) / H * gh - .5)), y0 = gy | 0, fy = gy - y0;
+      for (var px = 0; px < W; px++) {
+        var gx = Math.min(gw - 1.001, Math.max(0, (px + .5) / W * gw - .5)), x0 = gx | 0, fx = gx - x0;
+        var pv = (cells[y0 * gw + x0] * (1 - fx) + cells[y0 * gw + x0 + 1] * fx) * (1 - fy) + (cells[(y0 + 1) * gw + x0] * (1 - fx) + cells[(y0 + 1) * gw + x0 + 1] * fx) * fy;
+        var gain = Math.min(1.7, Math.max(1, 250 / Math.max(1, pv))), k = (py * W + px) * 4;
+        d[k] = d[k] * gain; d[k + 1] = d[k + 1] * gain; d[k + 2] = d[k + 2] * gain;
+      }
+    }
+    g.putImageData(img, 0, 0);
+    return cv;
+  }
+  function turned(cv, rot) {
+    if (!rot) return cv;
+    var o = document.createElement('canvas'); o.width = rot % 2 ? cv.height : cv.width; o.height = rot % 2 ? cv.width : cv.height;
+    var g = o.getContext('2d'); g.translate(o.width / 2, o.height / 2); g.rotate(rot * Math.PI / 2); g.drawImage(cv, -cv.width / 2, -cv.height / 2);
+    return o;
+  }
+  // Make the fixed picture from the untouched photo and its edit. Null edit (or Use the original): no fixed copy.
+  async function render(ph) {
+    var e = ph.edit, quad = e.orig ? null : e.quad, light = !e.orig && e.light;   // Use the original keeps only the turn
+    if (!quad && !light && !e.rot) { ph.edited = null; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(ph.file); return; }
+    var bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' }), cv;
+    if (quad) cv = straighten(bmp, quad);
+    else {
+      var s = Math.min(1, 4000 / Math.max(bmp.width, bmp.height)); cv = document.createElement('canvas');
+      cv.width = Math.round(bmp.width * s); cv.height = Math.round(bmp.height * s); cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+    }
+    bmp.close && bmp.close();
+    if (light) evenLight(cv);
+    cv = turned(cv, e.rot);
+    var b = await toBlob(cv, 'image/jpeg', 0.92);
+    ph.edited = b; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(b);
+  }
+  async function redo(ph) {
+    ph.working = true; renderList();
+    try { await render(ph); } catch (err) { ph.edit = newEdit(); ph.edited = null; status('This photo can’t be fixed here, but it can still be saved.', true); }
+    ph.working = false; renderList();
+  }
+  async function autoScan(ph) {
+    ph.working = true; renderList();
     try {
       var bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' });
-      var box = findArt(bmp); bmp.close && bmp.close();
-      ph.cropping = false;
-      if (box && !ph.edit.crop && !ph.edit.rot) { ph.edit.crop = box; ph.auto = true; await quickLook(ph, ph.edit.look); return; }
-    } catch (e) { ph.cropping = false; }
-    renderList();
+      var found = findPaper(bmp); bmp.close && bmp.close();
+      if (found && !ph.edit.quad && !ph.edit.rot) { ph.edit.quad = found.quad; ph.edit.light = found.light; ph.fixed = true; await render(ph); }
+    } catch (e) { /* stays as taken */ }
+    ph.working = false; renderList();
   }
-  async function undoAutoCrop(ph) { ph.edit.crop = null; ph.auto = false; ph.noAuto = true; await quickLook(ph, ph.edit.look); }
+  function turnOne(ph) { ph.edit.rot = (ph.edit.rot + 1) % 4; ph.edit.orig = false; redo(ph); }
+  function toggleOriginal(ph) { ph.edit.orig = !ph.edit.orig; redo(ph); }
 
-  // ---------- editor: turn, crop, and one look (Auto, Paper white, Vivid, Glow) ----------
-  var ed = { ph: null, bmp: null, rot: 0, crop: null, look: '', cropping: false };
-  var cv = $('#ed-canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
-  function rotatedSize(b, rot) { return rot % 2 ? { w: b.height, h: b.width } : { w: b.width, h: b.height }; }
-  // Pixel math (works on every phone, including iPhone Safari, which has no canvas filters).
-  function applyLook(ctx, W, H, look) {
-    if (!look) return;
-    var img = ctx.getImageData(0, 0, W, H), d = img.data, n = d.length;
-    var step = Math.max(4, Math.floor(n / 4 / 40000) * 4), hr = new Uint32Array(256), hg = new Uint32Array(256), hb = new Uint32Array(256), hl = new Uint32Array(256), cnt = 0;
-    for (var i = 0; i < n; i += step) { hr[d[i]]++; hg[d[i + 1]]++; hb[d[i + 2]]++; hl[(d[i] * 77 + d[i + 1] * 151 + d[i + 2] * 28) >> 8]++; cnt++; }
-    function pct(h, p) { var t = cnt * p, s = 0; for (var v = 0; v < 256; v++) { s += h[v]; if (s >= t) return v; } return 255; }
-    var lo = [pct(hr, .005), pct(hg, .005), pct(hb, .005)], hi = [pct(hr, .995), pct(hg, .995), pct(hb, .995)];
-    var sat = 1, con = 1, white = 255;
-    if (look === 'paper') { var paper = pct(hl, .85); hi = [paper, paper, paper].map(function (v) { return Math.max(140, v - 6); }); lo = [Math.min(lo[0], 40), Math.min(lo[1], 40), Math.min(lo[2], 40)]; con = 1.08; sat = 1.1; }
-    if (look === 'vivid') { sat = 1.45; con = 1.12; }
-    if (look === 'glow') { sat = 1.3; con = 1.06; white = 262; }
-    var lut = [0, 1, 2].map(function (c) {
-      var t = new Uint8ClampedArray(256), span = Math.max(24, hi[c] - lo[c]);
-      for (var v = 0; v < 256; v++) { var x = (v - lo[c]) / span * white; t[v] = (x - 128) * con + 128; }
-      return t;
-    });
-    for (var k = 0; k < n; k += 4) {
-      var r = lut[0][d[k]], g = lut[1][d[k + 1]], b = lut[2][d[k + 2]], l = r * .3 + g * .59 + b * .11;
-      if (look === 'paper' && l > 222) { r = g = b = 255; }
-      else if (sat !== 1) { r = l + (r - l) * sat; g = l + (g - l) * sat; b = l + (b - l) * sat; }
-      d[k] = r; d[k + 1] = g; d[k + 2] = b;
-    }
-    ctx.putImageData(img, 0, 0);
-    if (look === 'glow' && 'filter' in ctx) {   // soft halo where the phone supports it
-      var c2 = document.createElement('canvas'); c2.width = W; c2.height = H; c2.getContext('2d').drawImage(ctx.canvas, 0, 0);
-      ctx.save(); ctx.filter = 'blur(' + Math.max(4, Math.round(Math.max(W, H) / 90)) + 'px)'; ctx.globalAlpha = .35; ctx.globalCompositeOperation = 'screen';
-      ctx.drawImage(c2, 0, 0); ctx.restore();
-    }
-  }
-  function paint(ctx, bmp, rot, crop, look, scale) {
-    var R = rotatedSize(bmp, rot), c = crop || { x: 0, y: 0, w: 1, h: 1 };
-    var W = Math.max(1, Math.round(R.w * c.w * scale)), H = Math.max(1, Math.round(R.h * c.h * scale));
-    ctx.canvas.width = W; ctx.canvas.height = H;
-    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H);
-    ctx.save();
-    ctx.translate(-c.x * R.w * scale, -c.y * R.h * scale); ctx.scale(scale, scale);
-    ctx.translate(R.w / 2, R.h / 2); ctx.rotate(rot * Math.PI / 2); ctx.drawImage(bmp, -bmp.width / 2, -bmp.height / 2);
-    ctx.restore();
-    applyLook(ctx, W, H, look);
-  }
-  function edScale() { var R = rotatedSize(ed.bmp, ed.rot), c = ed.cropping ? { w: 1, h: 1 } : (ed.crop || { w: 1, h: 1 }); return Math.min(1, (Math.min(window.innerWidth, 640) - 32) / (R.w * c.w), (window.innerHeight * 0.55) / (R.h * c.h)); }
+  // ---------- Fix corners: drag four dots onto the paper's corners ----------
+  var ed = { ph: null, bmp: null, quad: null, drag: -1 };
+  var cv = $('#ed-canvas'), cx = cv.getContext('2d');
+  var FULL = function () { return [[0, 0], [1, 0], [1, 1], [0, 1]]; };
   function edDraw() {
-    paint(cx, ed.bmp, ed.rot, ed.cropping ? null : ed.crop, ed.cropping ? '' : ed.look, edScale());
-    $('#ed-box').hidden = !ed.cropping;
-    if (ed.cropping) placeBox();
-    document.querySelectorAll('[data-look]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.look === ed.look)); });
-    $('#ed-crop').textContent = ed.cropping ? '✓ Done cropping' : '✂ Crop';
+    var b = ed.bmp, s = Math.min(1, (Math.min(window.innerWidth, 640) - 72) / b.width, (window.innerHeight * 0.6) / b.height);
+    cv.width = Math.max(1, Math.round(b.width * s)); cv.height = Math.max(1, Math.round(b.height * s));
+    cx.drawImage(b, 0, 0, cv.width, cv.height);
+    placeDots();
   }
-  async function openEditor(ph, cropNow) {
-    ed.ph = ph; ed.rot = ph.edit.rot; ed.crop = ph.edit.crop; ed.look = ph.edit.look; ed.cropping = false;
+  function placeDots() {
+    var r = cv.getBoundingClientRect(), w = $('#ed-wrap').getBoundingClientRect(), pts = [];
+    document.querySelectorAll('.ed-dot').forEach(function (dot, i) {
+      var x = r.left - w.left + ed.quad[i][0] * r.width, y = r.top - w.top + ed.quad[i][1] * r.height;
+      dot.style.left = x + 'px'; dot.style.top = y + 'px'; pts.push(x + ',' + y);
+    });
+    var svg = $('#ed-lines'); svg.setAttribute('viewBox', '0 0 ' + w.width + ' ' + w.height);
+    svg.querySelector('polygon').setAttribute('points', pts.join(' '));
+  }
+  async function openEditor(ph) {
+    ed.ph = ph; ed.quad = (ph.edit.quad || FULL()).map(function (p) { return p.slice(); });
     try { ed.bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' }); }
     catch (e) { status('This photo can’t be fixed up here, but it can still be saved.', true); return; }
-    if (cropNow) { ed.box = ed.crop ? Object.assign({}, ed.crop) : { x: .05, y: .05, w: .9, h: .9 }; ed.cropping = true; }
     show('s-edit'); edDraw();
   }
-  $('#ed-turn').addEventListener('click', function () { ed.rot = (ed.rot + 1) % 4; ed.crop = null; ed.cropping = false; edDraw(); });
-  document.querySelectorAll('[data-look]').forEach(function (b) {
-    b.addEventListener('click', function () { ed.look = ed.look === b.dataset.look ? '' : b.dataset.look; edDraw(); });
+  document.querySelectorAll('.ed-dot').forEach(function (dot, i) {
+    dot.addEventListener('pointerdown', function (e) { ed.drag = i; dot.setPointerCapture(e.pointerId); e.preventDefault(); });
+    dot.addEventListener('pointermove', function (e) {
+      if (ed.drag !== i) return;
+      var r = cv.getBoundingClientRect();
+      ed.quad[i] = [Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))];
+      placeDots();
+    });
+    dot.addEventListener('pointerup', function () { ed.drag = -1; });
   });
-  $('#ed-crop').addEventListener('click', function () {
-    if (!ed.cropping) { ed.box = ed.crop ? Object.assign({}, ed.crop) : { x: .05, y: .05, w: .9, h: .9 }; ed.cropping = true; }
-    else { ed.crop = ed.box; ed.cropping = false; }
-    edDraw();
-  });
-  $('#ed-reset').addEventListener('click', function () { ed.rot = 0; ed.crop = null; ed.look = ''; ed.cropping = false; edDraw(); });
+  $('#ed-reset').addEventListener('click', function () { ed.quad = FULL(); placeDots(); });
   $('#ed-cancel').addEventListener('click', function () { ed.bmp && ed.bmp.close && ed.bmp.close(); show('s-photos'); });
   $('#ed-done').addEventListener('click', function () {
-    if (ed.cropping) { ed.crop = ed.box; ed.cropping = false; }
-    var ph = ed.ph, changed = ed.rot || ed.crop || ed.look;
-    if (!ed.crop || ed.crop !== ph.edit.crop) ph.auto = false;
-    ph.edit = { rot: ed.rot, crop: ed.crop, look: ed.look };
-    if (!changed) { ph.edited = null; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(ph.file); show('s-photos'); renderList(); return; }
-    var R = rotatedSize(ed.bmp, ed.rot), c = ed.crop || { w: 1, h: 1 };
-    var scale = Math.min(1, 4000 / Math.max(R.w * c.w, R.h * c.h));
-    var big = document.createElement('canvas'); paint(big.getContext('2d', { willReadFrequently: true }), ed.bmp, ed.rot, ed.crop, ed.look, scale);
-    big.toBlob(function (b) {
-      ph.edited = b; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(b);
-      ed.bmp.close && ed.bmp.close(); show('s-photos'); renderList();
-    }, 'image/jpeg', 0.92);
+    var ph = ed.ph, full = ed.quad.every(function (p, i) { return dist(p, FULL()[i]) < 0.01; });
+    ph.edit.quad = full ? null : ed.quad; ph.edit.orig = false; ph.fixed = !full;
+    if (full) ph.edit.light = false;
+    ed.bmp && ed.bmp.close && ed.bmp.close(); show('s-photos'); redo(ph);
   });
-  var box = $('#ed-box');
-  function placeBox() {
-    var b = ed.box, r = cv.getBoundingClientRect(), wrap = $('#ed-wrap').getBoundingClientRect();
-    box.style.left = (r.left - wrap.left + b.x * r.width) + 'px'; box.style.top = (r.top - wrap.top + b.y * r.height) + 'px';
-    box.style.width = (b.w * r.width) + 'px'; box.style.height = (b.h * r.height) + 'px';
-  }
-  var drag = null;
-  box.addEventListener('pointerdown', function (e) {
-    var r = cv.getBoundingClientRect();
-    drag = { mode: e.target.dataset.h || 'move', x0: e.clientX, y0: e.clientY, b0: Object.assign({}, ed.box), W: r.width, H: r.height };
-    box.setPointerCapture(e.pointerId); e.preventDefault();
-  });
-  box.addEventListener('pointermove', function (e) {
-    if (!drag) return;
-    var dx = (e.clientX - drag.x0) / drag.W, dy = (e.clientY - drag.y0) / drag.H, b = Object.assign({}, drag.b0), MIN = 0.08;
-    if (drag.mode === 'move') { b.x = Math.min(Math.max(0, b.x + dx), 1 - b.w); b.y = Math.min(Math.max(0, b.y + dy), 1 - b.h); }
-    else {
-      if (drag.mode.indexOf('l') > -1) { var nx = Math.min(Math.max(0, b.x + dx), b.x + b.w - MIN); b.w += b.x - nx; b.x = nx; }
-      if (drag.mode.indexOf('r') > -1) { b.w = Math.min(Math.max(MIN, b.w + dx), 1 - b.x); }
-      if (drag.mode.indexOf('t') > -1) { var ny = Math.min(Math.max(0, b.y + dy), b.y + b.h - MIN); b.h += b.y - ny; b.y = ny; }
-      if (drag.mode.indexOf('b') > -1) { b.h = Math.min(Math.max(MIN, b.h + dy), 1 - b.y); }
-    }
-    ed.box = b; placeBox();
-  });
-  box.addEventListener('pointerup', function () { drag = null; });
-  window.addEventListener('resize', function () { if (!$('#s-edit').hidden) edDraw(); });
+  window.addEventListener('resize', function () { if (!$('#s-edit').hidden && ed.bmp) edDraw(); });
 
   // ---------- web copies (made on the phone) ----------
   function toBlob(c, type, q) { return new Promise(function (ok) { c.toBlob(ok, type, q); }); }
@@ -846,7 +888,7 @@
         status('Getting piece ' + (i + 1) + ' of ' + n + ' ready…');
         for (var j = 0; j < p.photos.length; j++) {
           var ph = p.photos[j], wc = await webCopies(ph.pdf ? ph.preview : (ph.edited || ph.file));
-          var edits = []; if (ph.edit.rot) edits.push('turn'); if (ph.edit.crop) edits.push('crop'); if (ph.edit.look) edits.push(ph.edit.look);
+          var edits = []; if (!ph.edit.orig) { if (ph.edit.quad) edits.push('straighten'); if (ph.edit.light) edits.push('light'); } if (ph.edit.rot) edits.push('turn');
           var print = state.section === 'moments' && !ph.pdf ? await printCopy(ph.edited || ph.file).catch(function () { return null; }) : null;
           photos.push({ print: print, pdf: !!ph.pdf, original: ph.file, originalType: ph.pdf ? 'application/pdf' : (ph.file.type || 'image/jpeg'), edited: ph.edited, web: wc.web, thumb: wc.thumb, w: wc.w, h: wc.h, fp: ph.fp, edits: edits });
         }
@@ -967,7 +1009,7 @@
         status(label + '…');
         await sendOne(list[i], label); done++;
       }
-      status(kidMode() ? 'Sent! A grown-up will look, then ' + (done === 1 ? 'it shows' : 'they show') + ' in your snapshots.'
+      status(kidMode() ? 'Sent! A grown-up will look, then ' + (done === 1 ? 'it shows' : 'they show') + (state.section === 'art' ? ' on your page.' : ' in your snapshots.')
         : 'All sent! ' + (done === 1 ? 'It is' : 'They are') + (state.day ? ' on the Family Moments page now.' : ' on the site now.'));
       outboxErr = '';
     } catch (e) {
@@ -1073,9 +1115,30 @@
     }
   }
 
+  // ---------- the girls' pictures waiting for a parent's OK: on the first screen, one tap for all ----------
+  var waitingList = [];
+  async function showWaitingBar() {
+    var bar = $('#waiting-bar');
+    try {
+      var r = await fetch('/api/pieces/waiting', { credentials: 'same-origin' });
+      waitingList = r.ok ? ((await r.json()).waiting || []) : [];
+    } catch (e) { waitingList = []; }
+    bar.hidden = !waitingList.length;
+    if (waitingList.length) $('#waiting-text').textContent = waitingList.length + ' picture' + (waitingList.length > 1 ? 's' : '') + ' from the girls ' + (waitingList.length > 1 ? 'are' : 'is') + ' waiting for your OK.';
+  }
+  $('#waiting-ok').addEventListener('click', async function () {
+    var btn = this; btn.disabled = true;
+    for (var i = 0; i < waitingList.length; i++) {
+      $('#waiting-text').textContent = 'Showing ' + (i + 1) + ' of ' + waitingList.length + '…';
+      try { await apiJSON('/api/pieces/' + encodeURIComponent(waitingList[i].id) + '/ok'); } catch (e) { $('#waiting-text').textContent = e.message; btn.disabled = false; return; }
+    }
+    $('#waiting-text').textContent = '✓ All on the site now.'; btn.disabled = false;
+    setTimeout(showWaitingBar, 1500);
+  });
+
   // ---------- start ----------
   show('s-kid');
-  startKidMode();
+  startKidMode().then(function (kid) { if (!kid) showWaitingBar(); });
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/upload/sw.js', { scope: '/upload/' }).catch(function () {});
   takeShared().then(moveOldOutbox).then(refreshOutbox).then(sendOutbox);
 })();

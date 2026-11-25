@@ -19,8 +19,9 @@ Plain steps for Jesse. The site is **twosistersstudio.com**. Claude does the tec
    **Light** to switch it off; tap the circle for each photo, then **Done**). The first time, allow the camera.
 4. Each photo is one piece. For a 3D piece, tap **＋ Another photo of this piece** to add more sides; on the site
    people swipe through them.
-5. Under each photo, tap one look: **Original**, **Auto**, **Paper white** (cleans up a grey paper background),
-   **Vivid**, or **Glow**. **Turn or crop** opens the photo bigger. The untouched original is always saved too.
+5. The app straightens the paper and evens out the light by itself (the tag says **Straightened**). If it needs help:
+   **↻ Turn** turns it with one tap, **✂ Fix corners** lets you drag four dots onto the paper's corners, and
+   **Use the original** undoes the fix. The girls' colours are never changed. The untouched original is always saved too.
 6. Type a caption in her own words if she has one (optional). Tap **Show big** on the best one or two of the season.
    If none is starred, the newest piece of the season shows big.
 7. Check **Date it was made** (it starts as today). The grade label works itself out from the date and rolls

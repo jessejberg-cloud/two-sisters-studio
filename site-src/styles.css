@@ -520,7 +520,7 @@ button.btn-download.zip-all { background: #fff; font-weight: 800; text-align: le
 
 /* A girl's own tablet (her tablet password): one big Choose photos, nothing she cannot use (Jesse, 2026-11-04).
    Amazon Kids blocks the camera inside web pages, so she takes the picture with the tablet's Camera app first. */
-body.kid-mode #back, body.kid-mode:not(.in-app) .pick-take, body.kid-mode:not(.in-app) #cam-open, body.kid-mode .up-date,
+body.kid-mode:not(.in-app) .pick-take, body.kid-mode:not(.in-app) #cam-open, body.kid-mode .up-date,
 body.kid-mode #share, body.kid-mode .star { display: none !important; }
 body.kid-mode:not(.in-app) .up-add { grid-template-columns: 1fr; }
 body.kid-mode:not(.in-app) .pick-choose { min-height: 140px; font-size: 1.6rem; }
@@ -530,6 +530,8 @@ body.kid-mode.in-app .pick-take { grid-column: 1 / -1; min-height: 140px; font-s
 .up-where p { margin: 0; font-weight: 700; width: 100%; }
 .up-where .chip[aria-pressed="true"] { background: var(--c, var(--yellow)); }
 .kid-look { display: none; }
+.kid-look.kid-look-home { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 24px; }
+.waiting-bar[hidden] { display: none; }
 body.kid-mode .kid-look { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 24px; }
 .is-kid .foot-parent { display: none; }
 
@@ -673,3 +675,13 @@ html.full-open { overflow: hidden; }
 .share-go { width: 100%; }
 .share-msg { min-height: 1.4em; margin: 12px 0 4px; font-weight: 700; overflow-wrap: anywhere; }
 .share-close { display: block; margin: 6px auto 0; min-height: 44px; }
+
+/* Photos of art: Turn and Fix corners under each photo; the corner editor (Jesse, 2026-11-25). */
+.fix-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
+.fix-btn { min-height: 52px; padding: 8px 18px; font: inherit; font-weight: 800; color: var(--ink); background: #fff; border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); cursor: pointer; }
+.fix-btn:disabled { opacity: .5; }
+.ed-wrap { position: relative; }
+.ed-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.ed-lines polygon { fill: rgba(255, 214, 102, .18); stroke: #fff; stroke-width: 3; paint-order: stroke; filter: drop-shadow(0 0 1.5px #1d1a24); }
+.ed-dot { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border: 3px solid var(--ink); border-radius: 50%; background: rgba(255, 214, 102, .85); touch-action: none; cursor: grab; box-sizing: border-box; }
+.ed-dot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--ink); }

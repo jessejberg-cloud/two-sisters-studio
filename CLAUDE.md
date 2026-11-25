@@ -172,3 +172,13 @@ python3 -m http.server 5190 --directory dist     # local preview
 - **📤 Share this page** on Leora, Amaya, Pet Parents and Family Moments (family logins only; main.js): pick how long, Share the link,
   the phone's Share list opens. Asks for the parent PIN when needed.
 - The parent PIN cookie lasts 30 days (`PARENT_MINUTES` in netlify/lib/core.mjs).
+
+## Scan fix and the girls' art (Jesse, 2026-11-25; audit batch 3 of 3)
+- Replaces the looks (Auto, Paper white, Vivid, Glow) and the box crop. Every photo added as **Art** gets the scan fix by itself
+  (`findPaper` + `straighten` + `evenLight` in app.js): finds the paper's four corners (furthest patch points toward each corner;
+  a non-paper shape gets a straight box), straightens it (perspective, bilinear, max 3600px), and evens out the light per area
+  with one gain for red, green and blue (hues unchanged; paint-filled areas ignored; dark paper left alone). Under each photo:
+  **↻ Turn** (one tap), **✂ Fix corners** (drag four 44px dots), **Use the original**. Edits saved as straighten / light / turn.
+  Snapshots and special-day photos: Turn only.
+- The girls' tablets open on **My art** / **A snapshot**. Her art is section `art`, waiting for a parent's OK, then in her gallery.
+- **OK all**: on For parents, and on the app's first screen for a parent's phone (shows when `/api/pieces/waiting` answers).

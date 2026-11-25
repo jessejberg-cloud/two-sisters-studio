@@ -88,11 +88,22 @@
     var j = {}; try { j = await (await fetch('/api/pieces/waiting', { credentials: 'same-origin' })).json(); } catch (e) { return; }
     var ul = $('#wait-list'); ul.textContent = '';
     if (!j.waiting || !j.waiting.length) { var none = document.createElement('li'); none.className = 'muted'; none.textContent = 'None waiting.'; ul.append(none); return; }
+    // OK all: one tap for everything the girls sent.
+    if (j.waiting.length > 1) {
+      var allLi = document.createElement('li'), all = document.createElement('button');
+      all.type = 'button'; all.className = 'btn-big'; all.textContent = '✓ OK all ' + j.waiting.length;
+      all.addEventListener('click', async function () {
+        all.disabled = true;
+        for (var i = 0; i < j.waiting.length; i++) { all.textContent = 'Showing ' + (i + 1) + ' of ' + j.waiting.length + '…'; await post('/api/pieces/' + encodeURIComponent(j.waiting[i].id) + '/ok'); }
+        showWaiting();
+      });
+      allLi.append(all); ul.append(allLi);
+    }
     j.waiting.forEach(function (p) {
       var li = document.createElement('li'); li.className = 'wait-item';
       var im = document.createElement('img'); im.src = '/img/' + encodeURIComponent(p.id) + '/1/sm'; im.alt = p.caption || 'Photo'; im.loading = 'lazy';
       var t = document.createElement('p');
-      t.textContent = (KIDNAME[p.kid] || p.kid) + ' · ' + (p.section === 'moments' ? 'for Family Moments' : 'for her snapshots') + (p.caption ? ' · “' + p.caption + '”' : '')
+      t.textContent = (KIDNAME[p.kid] || p.kid) + ' · ' + (p.section === 'moments' ? 'for Family Moments' : p.section === 'art' ? 'for her art' : 'for her snapshots') + (p.caption ? ' · “' + p.caption + '”' : '')
         + ' · ' + new Date(p.created).toLocaleDateString();
       var row = document.createElement('div'); row.className = 'send-row';
       var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'btn-big'; ok.textContent = 'OK, show it';

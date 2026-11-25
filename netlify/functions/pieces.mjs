@@ -14,7 +14,7 @@
 // A special day (Family Moments, family logins): start with section 'moments', kid 'both' and
 // event { key } for a day already on the page or { title, date } for a new one. The photo then shows in that day's section.
 // A girl's tablet login (role kid) may read like a friend and save new photos (start, photo, finish) as herself only;
-// they go to her "My photos" (or Family Moments, if a parent allowed it) and wait for a parent's OK.
+// they go to her art, her "My photos" (or Family Moments, if a parent allowed it) and wait for a parent's OK.
 import { who, isParent } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
 import { folder, putSmall, uploadAddress } from '../lib/drive.mjs';
@@ -116,7 +116,8 @@ async function handle(req, context) {
     }
     // A girl's tablet saves as her, into her photos (or Family Moments if allowed), waiting for a parent's OK.
     const kidMe = me.role === 'kid';
-    const section = kidMe ? (b.section === 'moments' && me.moments ? 'moments' : 'photos')
+    // Her art (Jesse, 2026-11-25) goes to her gallery after the OK, like her snapshots.
+    const section = kidMe ? (b.section === 'moments' && me.moments ? 'moments' : b.section === 'art' ? 'art' : 'photos')
       : (['art', 'photos', 'moments'].includes(b.section) ? b.section : 'art');
     const p = { kid: kidMe ? me.kid : b.kid, date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
     // A special day from a family phone: the whole family's, so kid 'both'; the day's own date.

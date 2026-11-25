@@ -623,6 +623,7 @@ pages['upload/index.html'] = `<!doctype html>
     <h1 class="up-h">${logo(false)}</h1>
     <p class="up-lead" id="kid-lead">What do you want to add?</p>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
+    <div class="outbox wobbly waiting-bar" id="waiting-bar" hidden><p id="waiting-text"></p><button type="button" class="chip" id="waiting-ok">✓ OK all</button> <a class="linkish" href="/parent/">Look first</a></div>
     <div class="up-kids up-what">
       <button type="button" class="big-button wobbly c-coral" data-what="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Art<small>A drawing, painting or something they made</small></span></button>
       <button type="button" class="big-button wobbly c-mint" data-what="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo one of the girls took</small></span></button>
@@ -633,6 +634,16 @@ pages['upload/index.html'] = `<!doctype html>
     <nav class="up-look" aria-label="Look at the site"><p class="up-look-h">Look at the site</p>
       <ul>${TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('')}</ul>
     </nav>
+  </section>
+
+  <section class="screen" id="s-kidhome" hidden>
+    <h1 class="up-h">${logo(false)}</h1>
+    <p class="up-lead">What do you want to add?</p>
+    <div class="up-kids up-what">
+      <button type="button" class="big-button wobbly c-coral" data-kidwhat="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">My art<small>Something I drew, painted or made</small></span></button>
+      <button type="button" class="big-button wobbly c-mint" data-kidwhat="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo I took</small></span></button>
+    </div>
+    <p class="kid-look kid-look-home"><a class="chip kid-page" href="/">🎨 See my page</a> <a class="chip" href="/">🏠 Look at the site</a></p>
   </section>
 
   <section class="screen" id="s-who" hidden>
@@ -728,22 +739,14 @@ pages['upload/index.html'] = `<!doctype html>
   </section>
 
   <section class="screen" id="s-edit" hidden>
-    <h1 class="up-h2">Fix up the picture</h1>
+    <h1 class="up-h2">Fix the corners</h1>
+    <p class="share-help">Drag the four dots onto the corners of the paper. The picture is straightened when you tap Done.</p>
     <div class="ed-wrap" id="ed-wrap">
       <canvas id="ed-canvas" class="ed-canvas" aria-label="The picture"></canvas>
-      <div class="ed-box" id="ed-box" hidden><span data-h="tl"></span><span data-h="tr"></span><span data-h="bl"></span><span data-h="br"></span></div>
+      <svg class="ed-lines" id="ed-lines" aria-hidden="true"><polygon points=""></polygon></svg>
+      <span class="ed-dot" aria-label="Top left corner"></span><span class="ed-dot" aria-label="Top right corner"></span><span class="ed-dot" aria-label="Bottom right corner"></span><span class="ed-dot" aria-label="Bottom left corner"></span>
     </div>
-    <div class="ed-tools">
-      <button type="button" class="chip" id="ed-turn">↻ Turn</button>
-      <button type="button" class="chip" id="ed-crop">✂ Crop</button>
-      <button type="button" class="linkish" id="ed-reset">Start over</button>
-    </div>
-    <div class="ed-tools ed-looks" role="group" aria-label="Look">
-      <button type="button" class="chip" data-look="auto" aria-pressed="false">Auto</button>
-      <button type="button" class="chip" data-look="paper" aria-pressed="false">Paper white</button>
-      <button type="button" class="chip" data-look="vivid" aria-pressed="false">Vivid</button>
-      <button type="button" class="chip glow-chip" data-look="glow" aria-pressed="false">✨ Glow</button>
-    </div>
+    <div class="ed-tools"><button type="button" class="linkish" id="ed-reset">Use the whole photo</button></div>
     <div class="up-actions">
       <button type="button" class="save wobbly" id="ed-done">Done</button>
       <button type="button" class="linkish" id="ed-cancel">Cancel</button>
