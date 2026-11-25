@@ -132,7 +132,7 @@ ${scripts.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).joi
 <a class="skip" href="#main">Skip to the main part</a>
 <header class="site-header">
   <a class="brand" href="/">${logo(false)}</a>
-  ${tabs ? '' : '<!--'}<nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li></ul></nav>${tabs ? '' : '-->'}
+  ${tabs ? '' : '<!--'}<nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-houses-li" hidden><a class="tab c-sky tab-houses" href="/households/"${current === 'households' ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS.home}</span><span class="tab-label">More family</span></a></li><li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li></ul></nav>${tabs ? '' : '-->'}
 </header>
 <main id="main">
 ${body}
@@ -493,6 +493,18 @@ ${gallery([], 'Family photos will show up here soon!')}
   });
 }
 
+// ---------- More family (Jesse, 2026-11-25): each household's own photos (Grandma's photos, ...) ----------
+// main.js draws one section per household: a household's phone sees only its own; family phones see all of them.
+pages['households/index.html'] = page({
+  key: 'households', title: 'More family', csp: CSP_SELF, bodyClass: 'c-sky',
+  body: `<div class="page-head"><h1 id="houses-h">More family</h1></div>
+<p class="houses-lead" id="houses-lead">Photos from Grandma, aunts, uncles and cousins.</p>
+<p class="houses-add" id="houses-add" hidden><a class="btn-big" href="/upload/">📷 Add photos</a></p>
+<p class="houses-mine muted" id="houses-mine" hidden>That was an invite link for someone else. This phone is already logged in as family, so nothing changed.</p>
+<div id="houses-area"><p class="loading">Getting the pictures…</p></div>
+<template id="house-tpl">${livePhotos('', '', '', '')}</template>`,
+});
+
 // ---------- login (the gate sends everyone without a login here) ----------
 pages['login/index.html'] = page({
   key: 'login', title: 'Log in', csp: CSP_LOGIN, tabs: false,
@@ -509,7 +521,9 @@ pages['login/index.html'] = page({
     <p class="login-error" data-e="pw" hidden>That password did not work. Try again?</p>
     <p class="login-error" data-e="wait" hidden>Too many tries. Please wait 15 minutes and try again.</p>
     <p class="login-error" data-e="link" hidden>This link has ended or was turned off. Ask for a new one.</p>
+    <p class="login-error" data-e="invite" hidden>This invite link has ended or was turned off. Ask Jesse for a new one.</p>
   </form>
+  <p class="login-invite">Got an invite link? Paste it in the box and tap Come in.</p>
 </section>`,
 });
 
@@ -547,6 +561,20 @@ pages['parent/index.html'] = page({
     <h2>Google Drive</h2>
     <p id="g-status">Checking…</p>
     <p><a class="btn-big" id="g-connect" href="/api/google/start">Connect Google Drive</a></p>
+  </section>
+  <section class="parent-card wobbly" id="houses-card">
+    <h2>Family who add photos</h2>
+    <p>Give Grandma, an aunt or a cousin their own invite link. They tap it once on their phone and they are in, with no password, for as long as they keep visiting. They get their own page (for example "Grandma's photos") and can add photos and videos to the special days on Family Moments. Their photos show right away. You can put any of them away from Recent uploads in the app.</p>
+    <label class="house-name">Who is it for? <input type="text" id="house-name" maxlength="40" autocomplete="off" placeholder="Grandma"></label>
+    <fieldset class="ticks"><legend>What else they can see</legend>
+      ${TABS.filter((n) => n.key !== 'family-moments').map((n) => `<label class="tick"><input type="checkbox" name="house-pages" value="${n.key}"> ${esc(n.label)}</label>`).join('\n      ')}
+      <p class="share-help">Family Moments and their own page are always on.</p>
+    </fieldset>
+    <p><button type="button" class="btn-big" id="house-make">Make an invite link</button></p>
+    <p class="login-error" id="house-msg" hidden></p>
+    <h3>Invites</h3>
+    <ul class="link-list house-list" id="house-list"><li class="muted">None yet.</li></ul>
+    <p class="share-help">On an iPhone: after tapping the link, they can tap Share, then Add to Home Screen, to get an app button. If that app ever asks for a password, they paste the invite link into the box.</p>
   </section>
   <section class="parent-card wobbly" id="share-card">
     <h2>Share with a friend</h2>
@@ -623,6 +651,7 @@ pages['upload/index.html'] = `<!doctype html>
     <h1 class="up-h">${logo(false)}</h1>
     <p class="up-lead" id="kid-lead">What do you want to add?</p>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
+    <div class="outbox wobbly waiting-bar" id="waiting-bar" hidden><p id="waiting-text"></p><button type="button" class="chip" id="waiting-ok">✓ OK all</button> <a class="linkish" href="/parent/">Look first</a></div>
     <div class="up-kids up-what">
       <button type="button" class="big-button wobbly c-coral" data-what="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Art<small>A drawing, painting or something they made</small></span></button>
       <button type="button" class="big-button wobbly c-mint" data-what="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo one of the girls took</small></span></button>
@@ -633,6 +662,33 @@ pages['upload/index.html'] = `<!doctype html>
     <nav class="up-look" aria-label="Look at the site"><p class="up-look-h">Look at the site</p>
       <ul>${TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('')}</ul>
     </nav>
+  </section>
+
+  <section class="screen" id="s-kidhome" hidden>
+    <h1 class="up-h">${logo(false)}</h1>
+    <p class="up-lead">What do you want to add?</p>
+    <div class="up-kids up-what">
+      <button type="button" class="big-button wobbly c-coral" data-kidwhat="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">My art<small>Something I drew, painted or made</small></span></button>
+      <button type="button" class="big-button wobbly c-mint" data-kidwhat="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo I took</small></span></button>
+    </div>
+    <p class="kid-look kid-look-home"><a class="chip kid-page" href="/">🎨 See my page</a> <a class="chip" href="/">🏠 Look at the site</a></p>
+  </section>
+
+  <section class="screen" id="s-househome" hidden>
+    <h1 class="up-h">${logo(false)}</h1>
+    <div class="outbox wobbly welcome-box" id="welcome" hidden>
+      <p class="welcome-h">Welcome<span id="welcome-name"></span>! You are in. No password needed.</p>
+      <div class="ios-tip" id="ios-tip" hidden>
+        <p>To get an app button: tap <strong>Share</strong> <span aria-hidden="true">⬆️</span> at the bottom of Safari, then <strong>Add to Home Screen</strong>.</p>
+        <p class="share-help">If the app button ever asks for a password, paste your invite link in the box. <button type="button" class="chip" id="copy-invite">📋 Copy my invite link</button></p>
+      </div>
+    </div>
+    <p class="up-lead">What do you want to add?</p>
+    <div class="up-kids up-what">
+      <button type="button" class="big-button wobbly c-sky" data-housewhat="house"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label"><span id="house-own">My photos</span><small>On your own page</small></span></button>
+      <button type="button" class="big-button wobbly c-yellow" data-housewhat="day"><span class="big-icon" aria-hidden="true">❤️</span><span class="big-label">A special day<small>Photos and videos for Family Moments</small></span></button>
+    </div>
+    <p class="kid-look kid-look-home"><a class="chip" href="/households/">🏡 See my page</a> <a class="chip" href="/">🏠 Look at the site</a></p>
   </section>
 
   <section class="screen" id="s-who" hidden>
@@ -666,6 +722,7 @@ pages['upload/index.html'] = `<!doctype html>
     </div>
     <p class="status" id="status" role="status" aria-live="polite"></p>
     <p class="day-look"><a class="chip" href="/family-moments/">❤️ See it on Family Moments</a></p>
+    <p class="house-look"><a class="chip" href="/households/">🏡 See my page</a></p>
     <p class="kid-look"><a class="chip" id="kid-page" href="/">🎨 See my page</a> <a class="chip" href="/">🏠 Look at the site</a></p>
   </section>
 
@@ -728,22 +785,14 @@ pages['upload/index.html'] = `<!doctype html>
   </section>
 
   <section class="screen" id="s-edit" hidden>
-    <h1 class="up-h2">Fix up the picture</h1>
+    <h1 class="up-h2">Fix the corners</h1>
+    <p class="share-help">Drag the four dots onto the corners of the paper. The picture is straightened when you tap Done.</p>
     <div class="ed-wrap" id="ed-wrap">
       <canvas id="ed-canvas" class="ed-canvas" aria-label="The picture"></canvas>
-      <div class="ed-box" id="ed-box" hidden><span data-h="tl"></span><span data-h="tr"></span><span data-h="bl"></span><span data-h="br"></span></div>
+      <svg class="ed-lines" id="ed-lines" aria-hidden="true"><polygon points=""></polygon></svg>
+      <span class="ed-dot" aria-label="Top left corner"></span><span class="ed-dot" aria-label="Top right corner"></span><span class="ed-dot" aria-label="Bottom right corner"></span><span class="ed-dot" aria-label="Bottom left corner"></span>
     </div>
-    <div class="ed-tools">
-      <button type="button" class="chip" id="ed-turn">↻ Turn</button>
-      <button type="button" class="chip" id="ed-crop">✂ Crop</button>
-      <button type="button" class="linkish" id="ed-reset">Start over</button>
-    </div>
-    <div class="ed-tools ed-looks" role="group" aria-label="Look">
-      <button type="button" class="chip" data-look="auto" aria-pressed="false">Auto</button>
-      <button type="button" class="chip" data-look="paper" aria-pressed="false">Paper white</button>
-      <button type="button" class="chip" data-look="vivid" aria-pressed="false">Vivid</button>
-      <button type="button" class="chip glow-chip" data-look="glow" aria-pressed="false">✨ Glow</button>
-    </div>
+    <div class="ed-tools"><button type="button" class="linkish" id="ed-reset">Use the whole photo</button></div>
     <div class="up-actions">
       <button type="button" class="save wobbly" id="ed-done">Done</button>
       <button type="button" class="linkish" id="ed-cancel">Cancel</button>

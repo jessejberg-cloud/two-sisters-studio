@@ -3,15 +3,16 @@
 // can start it again (POST /api/videos-drive/<id>) if Drive was not connected at the time.
 // Runs in the background (up to 15 minutes). Drive:  Two Sisters Studio / Family Moments / <2026-06-14 Wedding> /
 //   <id>.mp4   the video, untouched        <id>.json   the details        <id>-poster.webp   the still picture
-import { who } from '../lib/auth.mjs';
+import { who, byOf } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
 import { folder, putSmall, uploadAddress } from '../lib/drive.mjs';
 import { getVideo, saveVideo, pub, driveFolder, fileName } from './videos.mjs';
 
 export default async (req, context) => {
   const me = await who(req, context);
-  if (me?.role !== 'family') return;
+  if (me?.role !== 'family' && me?.role !== 'house') return;
   const id = new URL(req.url).pathname.split('/').filter(Boolean)[2];
+  if (me.role === 'house' && (await getVideo(context, id))?.by !== byOf(me)) return;   // a household: only its own video
   await copyToDrive(context, id, new URL(req.url).origin);
 };
 

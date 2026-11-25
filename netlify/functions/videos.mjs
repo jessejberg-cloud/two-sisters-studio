@@ -14,7 +14,7 @@
 // The pieces live in Netlify Blobs (store "video") and play from there, so videos keep playing even if
 // Google Drive is ever disconnected. Right after, the site copies the whole file into Google Drive by itself
 // (functions/video-drive-background.mjs): Two Sisters Studio / Family Moments / <2026-06-14 Wedding> /.
-import { who } from '../lib/auth.mjs';
+import { who, byOf } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
 import { slug } from '../lib/pieces.mjs';
 
@@ -31,7 +31,7 @@ const TYPES = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'web
 export const pub = (v) => ({ id: v.id, event: v.event, eventTitle: v.eventTitle, eventDate: v.eventDate, caption: v.caption,
   date: v.date, type: v.type, size: v.size, seconds: v.seconds, w: v.w, h: v.h, hevc: !!v.hevc,
   poster: v.poster ? { w: v.poster.w, h: v.poster.h } : null, ready: !!v.ready, deleted: v.deleted || null, created: v.created,
-  drive: v.drive ? v.drive.state : null });
+  drive: v.drive ? v.drive.state : null, from: v.from || null });
 
 export const eventKey = (date, title) => `${date}-${slug(title, 6)}`;
 export const driveFolder = (v) => ['Family Moments', `${v.eventDate} ${v.eventTitle.replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 60).trim()}`];
@@ -85,7 +85,9 @@ async function handle(req, context) {
     return new Response('Not found', { status: 404 });
   }
 
-  if (!family) return json({ error: 'family' }, 401);
+  // A household's phone may add a video to a special day (start, its pieces, poster, finish), as itself, nothing else.
+  const saver = me.role === 'house' ? byOf(me) : null;
+  if (!family && !(saver && req.method === 'POST' && (parts[0] === 'start' || ['part', 'poster', 'finish'].includes(parts[1])))) return json({ error: 'family' }, 401);
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
 
   // ----- adding a video -----
@@ -108,13 +110,14 @@ async function handle(req, context) {
     const v = { id, event, eventTitle, eventDate, caption: clean(b.caption, 200), date, type, size,
       seconds: Math.max(0, Math.round(+b.seconds || 0)) || null, w: Math.round(+b.w || 0) || null, h: Math.round(+b.h || 0) || null,
       hevc: !!b.hevc, chunkSize: CHUNK, chunks: Math.ceil(size / CHUNK), received: [], poster: null,
-      ready: false, deleted: null, created: now(), drive: null };
+      ready: false, deleted: null, created: now(), drive: null, by: saver, from: saver ? me.name : null };
     await saveVideo(context, v);
     return json({ id, chunkSize: CHUNK, chunks: v.chunks });
   }
 
   const v = await getVideo(context, parts[0]);
   if (!v) return json({ error: 'unknown' }, 404);
+  if (!family && v.by !== saver) return json({ error: 'family' }, 401);
 
   if (parts[1] === 'part') {
     const i = Math.floor(+parts[2]);

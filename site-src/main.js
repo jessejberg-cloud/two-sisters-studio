@@ -108,7 +108,8 @@ window.TSS = (function () {
   var v = (document.cookie.match(/(?:^|;\s*)tssv=([^;]*)/) || [])[1];
   var pages = v ? decodeURIComponent(v).split(',') : null;
   // A girl's own tablet login: Add art always shows, and the page knows it is her tablet.
-  if (pages && pages.indexOf('upload') !== -1) document.documentElement.classList.add('is-adder', 'is-kid');
+  // A household's phone (an invite link): Add photos shows too, but it is not a girl's tablet.
+  if (pages && pages.indexOf('upload') !== -1) document.documentElement.classList.add('is-adder', pages.indexOf('house') !== -1 ? 'is-house' : 'is-kid');
   try { if (!pages && localStorage.getItem('tss-adder')) document.documentElement.classList.add('is-adder'); } catch (e) {}
 })();
 
@@ -121,6 +122,52 @@ window.TSS = (function () {
     if (first && pages.indexOf(first) === -1) { var li = a.closest('li'); (li || a).hidden = true; }
   });
   document.documentElement.classList.add('is-friend');
+})();
+
+// ---------- More family: the tab, and the page of each household's own photos (Jesse, 2026-11-25) ----------
+// A household's phone: the tab is "<name>'s photos". A family phone: "More family", once there is a household.
+(function () {
+  'use strict';
+  var root = document.documentElement, li = document.querySelector('.tab-houses-li');
+  var isHouse = root.classList.contains('is-house'), isFamily = !root.classList.contains('is-friend');
+  var onPage = document.getElementById('houses-area');
+  if (!li || (!isHouse && !isFamily)) return;
+  var cached = null;
+  try { cached = JSON.parse(sessionStorage.getItem('tss-houses') || 'null'); } catch (e) {}
+  function label(me) {
+    if (me.role === 'house') { li.querySelector('.tab-label').textContent = me.name + '’s photos'; li.hidden = false; }
+    else if (me.role === 'family' && me.houses && me.houses.length) li.hidden = false;
+  }
+  if (isHouse) { var add = document.querySelector('.tab-add .tab-label'); if (add) add.textContent = 'Add photos'; }
+  if (cached) label(cached);
+  if (cached && !onPage) return;
+  fetch('/api/whoami', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (me) {
+    try { sessionStorage.setItem('tss-houses', JSON.stringify({ role: me.role, name: me.name, house: me.house, houses: me.houses })); } catch (e) {}
+    label(me);
+    if (onPage) drawHouses(me);
+  }).catch(function () { if (onPage) onPage.innerHTML = '<p class="muted">The photos could not load. Try again in a minute?</p>'; });
+
+  function drawHouses(me) {
+    var tpl = document.getElementById('house-tpl'), list = me.role === 'house' ? [{ id: me.house, name: me.name }] : (me.houses || []);
+    onPage.innerHTML = '';
+    if (new URLSearchParams(location.search).get('mine')) document.getElementById('houses-mine').hidden = false;
+    if (me.role === 'house') {
+      document.getElementById('houses-h').textContent = me.name + '’s photos';
+      document.getElementById('houses-lead').textContent = 'Photos you added. Everyone in the family can see them.';
+      document.getElementById('houses-add').hidden = false;
+    }
+    if (!list.length) { onPage.innerHTML = '<p class="muted">Nobody has been invited yet. Invites are made on the For parents page.</p>'; return; }
+    list.forEach(function (h) {
+      var sec = tpl.content.firstElementChild.cloneNode(true);
+      sec.dataset.src = '/api/pieces?section=house&house=' + encodeURIComponent(h.id);
+      sec.dataset.empty = me.role === 'house' ? 'Nothing here yet. Tap Add photos to put the first one on.' : 'No photos yet.';
+      sec.querySelector('.live-h').textContent = h.name + '’s photos';
+      if (me.role === 'house') sec.querySelector('.live-h').hidden = true;   // the page title already says it
+      sec.querySelector('.live-note').textContent = me.role === 'house' ? '' : (h.off ? 'Their invite is turned off.' : '');
+      onPage.append(sec);
+      TSS.livePhotos(sec);
+    });
+  }
 })();
 
 // ---------- art galleries: filters and the big-picture viewer ----------
@@ -402,7 +449,9 @@ function initGallery() {
 })();
 
 // ---------- photos from the girls' tablets: a simple grid and viewer ----------
-document.querySelectorAll('.live-photos').forEach(function (sec) {
+TSS.livePhotos = livePhotos;
+document.querySelectorAll('.live-photos').forEach(function (sec) { if (sec.dataset.src) livePhotos(sec); });
+function livePhotos(sec) {
   'use strict';
   var grid = sec.querySelector('.photo-grid'), box = sec.querySelector('.photo-box');
   var img = box.querySelector('.pb-img'), cap = box.querySelector('.pb-cap'), list = [], at = 0;
@@ -448,7 +497,10 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
         addToDays(list.filter(function (p) { return p.event; }));
         list = list.filter(function (p) { return !p.event; });   // the girls' own photos stay in their own row
       }
-      if (!list.length) return;
+      if (!list.length) {
+        if (sec.dataset.empty) { var em = document.createElement('p'); em.className = 'muted'; em.textContent = sec.dataset.empty; grid.replaceWith(em); sec.hidden = false; }
+        return;
+      }
       list.forEach(function (p, i) {
         p.byName = sec.dataset.src.indexOf('moments') !== -1 ? (names[p.kid] || (p.kid.charAt(0).toUpperCase() + p.kid.slice(1))) : '';
         var li = document.createElement('li'), b = document.createElement('button'), t = document.createElement('img');
@@ -461,7 +513,7 @@ document.querySelectorAll('.live-photos').forEach(function (sec) {
       if (sec.id === 'snapshots') document.querySelectorAll('.snap-jump').forEach(function (j) { j.hidden = false; });
     })
     .catch(function () { /* stays hidden */ });
-});
+}
 
 // ---------- Pet Parents: episodes added from the app join the hand-added ones ----------
 (function () {
@@ -622,7 +674,7 @@ function addToDays(pieces) {
       var base = '/img/' + encodeURIComponent(p.id) + '/' + ph.n;
       var fig = make('figure', 'piece'), a = make('a', 'piece-open'), im = document.createElement('img');
       a.href = base; a.dataset.full = base; a.dataset.dl = base + '/print'; a.dataset.name = p.id + (p.photos.length > 1 ? '-' + ph.n : '');
-      a.dataset.w = ph.w; a.dataset.h = ph.h; a.dataset.caption = p.caption || ''; a.dataset.label = nice(p.date) + ' · ' + p.eventTitle;
+      a.dataset.w = ph.w; a.dataset.h = ph.h; a.dataset.caption = p.caption || ''; a.dataset.label = nice(p.date) + ' · ' + p.eventTitle + (p.from ? ' · from ' + p.from : '');
       a.setAttribute('aria-label', 'Open ' + (p.caption || 'this photo') + ' big');
       im.src = base + '/sm'; im.alt = p.caption || 'A photo from ' + p.eventTitle; im.loading = 'lazy'; im.decoding = 'async';
       if (ph.w && ph.h) { im.width = ph.w; im.height = ph.h; }

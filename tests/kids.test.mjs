@@ -75,7 +75,7 @@ async function kidSave(cookie, body) {
 }
 
 test('her photo saves as hers, into her photos, waiting for an OK', async () => {
-  const p = await kidSave(leora, { kid: 'amaya', section: 'art', caption: 'My cat' });   // tries to be Amaya's art: not allowed
+  const p = await kidSave(leora, { kid: 'amaya', section: 'photos', caption: 'My cat' });   // tries to be Amaya's: not allowed
   photoId = p.id;
   assert.equal(p.kid, 'leora'); assert.equal(p.section, 'photos'); assert.equal(p.waiting, true);
   const shown = await (await api(req('/api/pieces?kid=leora&section=photos', parentCookie), {})).json();
@@ -99,6 +99,14 @@ test('a parent sees it waiting, taps OK, and it shows in her photos (not her art
   const art = await (await api(req('/api/pieces?kid=leora', leora), {})).json();
   assert.ok(!art.pieces.some((p) => p.id === photoId));
   assert.equal((await img(req('/img/' + photoId + '/1/sm', leora), {})).status, 200);
+});
+
+test('her art (My art) is hers, waits for an OK, then shows in her art gallery', async () => {
+  const p = await kidSave(leora, { kid: 'amaya', section: 'art', caption: 'Rainbow dog' });
+  assert.equal(p.kid, 'leora', 'never another girl\'s'); assert.equal(p.section, 'art'); assert.equal(p.waiting, true);
+  assert.ok(!(await (await api(req('/api/pieces?kid=leora', leora), {})).json()).pieces.some((x) => x.id === p.id), 'not shown before OK');
+  assert.equal((await api(post('/api/pieces/' + p.id + '/ok', parentCookie, {}), {})).status, 200);
+  assert.ok((await (await api(req('/api/pieces?kid=leora', leora), {})).json()).pieces.some((x) => x.id === p.id));
 });
 
 test('Family Moments: off by default; a parent switches it on; her photo waits, then shows', async () => {

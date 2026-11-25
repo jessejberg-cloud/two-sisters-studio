@@ -1,10 +1,10 @@
 // The front door. Runs before every page and file: family logins see everything, friends see only the pages
 // on their share link, everyone else goes to the login page. Netlify's built-in password can be turned off
 // once this is live.
-import { who, friendMayOpen, kidMayOpen, makeLogin, secret, isSetUp } from '../lib/auth.mjs';
+import { who, friendMayOpen, kidMayOpen, houseMayOpen, makeLogin, makeHouseLogin, getHouse, secret, isSetUp } from '../lib/auth.mjs';
 import { setCookie, COOKIE, DAY, LOGIN_DAYS } from '../lib/core.mjs';
 
-const OPEN = [/^\/login\/?$/, /^\/api\/login$/, /^\/s\/[A-Za-z0-9_-]+$/, /^\/styles\.css$/, /^\/main\.js$/,
+const OPEN = [/^\/login\/?$/, /^\/api\/login$/, /^\/s\/[A-Za-z0-9_-]+$/, /^\/i\/[A-Za-z0-9_-]+$/, /^\/styles\.css$/, /^\/main\.js$/,
   /^\/assets\/fonts\//, /^\/assets\/brand\//, /^\/robots\.txt$/, /^\/favicon\.ico$/, /^\/api\/google\/callback$/];
 
 export default async (req, context) => {
@@ -34,12 +34,27 @@ export default async (req, context) => {
   if (me.role === 'kid' && !kidMayOpen(me, url.pathname)) {
     return Response.redirect(new URL('/', url), 302);
   }
+  if (me.role === 'house' && !houseMayOpen(me, url.pathname)) {
+    return Response.redirect(new URL('/', url), 302);
+  }
 
   const res = await context.next();
   // Keep family devices logged in: renew the cookie about once a week.
   if (me.role === 'family' && Date.now() - (me.iat || 0) > 7 * DAY) {
     const out = new Response(res.body, res);
     out.headers.append('set-cookie', setCookie(COOKIE.login, await makeLogin('family', context), { maxAge: LOGIN_DAYS * 86400 }));
+    return out;
+  }
+  // A household's phone: stays logged in as long as they visit (renewed weekly), and the page learns its tabs.
+  if (me.role === 'house') {
+    const out = new Response(res.body, res);
+    if (Date.now() - (me.iat || 0) > 7 * DAY) {
+      const house = await getHouse(me.house, context);
+      if (house) out.headers.append('set-cookie', setCookie(COOKIE.login, await makeHouseLogin(house), { maxAge: LOGIN_DAYS * 86400 }));
+    }
+    if ((res.headers.get('content-type') || '').includes('text/html')) {
+      out.headers.append('set-cookie', setCookie(COOKIE.view, [...me.pages, 'upload', 'house'].join(','), { maxAge: LOGIN_DAYS * 86400, httpOnly: false }));
+    }
     return out;
   }
   // A girl's tablet: tell the page which tabs to show (her pages, Add art, Family Moments if a parent allowed it).

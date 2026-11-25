@@ -14,11 +14,14 @@
 // A special day (Family Moments, family logins): start with section 'moments', kid 'both' and
 // event { key } for a day already on the page or { title, date } for a new one. The photo then shows in that day's section.
 // A girl's tablet login (role kid) may read like a friend and save new photos (start, photo, finish) as herself only;
-// they go to her "My photos" (or Family Moments, if a parent allowed it) and wait for a parent's OK.
-import { who, isParent } from '../lib/auth.mjs';
+// they go to her art, her "My photos" (or Family Moments, if a parent allowed it) and wait for a parent's OK.
+// A household's phone (role house, from an invite link) saves the same way, as that household: section 'house'
+// (their own page, ?section=house) or a Family Moments day. Shown right away (Jesse, 2026-11-25). Family may read
+// ?section=house&house=<id> (or every household without house=); a household reads only its own.
+import { who, isParent, byOf } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
 import { folder, putSmall, uploadAddress } from '../lib/drive.mjs';
-import { KID_KEYS, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, pdfName, extOf, details, getPiece, savePiece, readIndex, check, short, sectionOf, dayKey, printName } from '../lib/pieces.mjs';
+import { KID_KEYS, slug, seasonOf, schoolYearOf, gradeFor, baseId, folderParts, webName, pdfName, extOf, details, getPiece, savePiece, readIndex, check, short, sectionOf, dayKey, printName } from '../lib/pieces.mjs';
 
 const json = (o, status = 200) => Response.json(o, { status, headers: { 'cache-control': 'no-store' } });
 const now = () => new Date().toISOString();
@@ -59,7 +62,11 @@ async function handle(req, context) {
     const section = url.searchParams.get('section') || 'art';
     const kid = url.searchParams.get('kid');
     let list;
-    if (section === 'moments') {
+    if (section === 'house') {
+      const h = me.role === 'house' ? me.house : url.searchParams.get('house');
+      if (!family && me.role !== 'house') return json({ error: 'page' }, 401);
+      list = (await readIndex(context)).filter((p) => !p.deleted && !p.waiting && sectionOf(p) === 'house' && (!h || p.house === h));
+    } else if (section === 'moments') {
       if (!family && !me.pages.includes('family-moments')) return json({ error: 'page' }, 401);
       list = (await readIndex(context)).filter((p) => !p.deleted && !p.waiting && sectionOf(p) === 'moments');
     } else {
@@ -70,7 +77,9 @@ async function handle(req, context) {
     }
     return json({ pieces: list.map(({ photos, ...p }) => ({ ...p, photos: photos.map(({ fp, ...ph }) => ph) })) });
   }
-  const kidSaving = me.role === 'kid' && req.method === 'POST' && (parts[0] === 'start' || ['photo', 'pdf', 'finish'].includes(parts[1]));
+  const saver = byOf(me);   // a girl's tablet or a household's phone: may only add, as themselves
+  const kidSaving = !!saver && req.method === 'POST' && (parts[0] === 'start' || ['photo', 'finish'].includes(parts[1])
+    || (parts[1] === 'pdf' && me.role === 'kid') || (parts[1] === 'print' && me.role === 'house'));
   if (!family && !kidSaving) return json({ error: 'family' }, 401);
 
   if (req.method === 'GET' && parts[0] === 'waiting') {
@@ -115,10 +124,12 @@ async function handle(req, context) {
       }
     }
     // A girl's tablet saves as her, into her photos (or Family Moments if allowed), waiting for a parent's OK.
-    const kidMe = me.role === 'kid';
-    const section = kidMe ? (b.section === 'moments' && me.moments ? 'moments' : 'photos')
+    const kidMe = me.role === 'kid', houseMe = me.role === 'house';
+    // Her art (Jesse, 2026-11-25) goes to her gallery after the OK, like her snapshots.
+    const section = kidMe ? (b.section === 'moments' && me.moments ? 'moments' : b.section === 'art' ? 'art' : 'photos')
+      : houseMe ? (b.section === 'moments' && b.event ? 'moments' : 'house')
       : (['art', 'photos', 'moments'].includes(b.section) ? b.section : 'art');
-    const p = { kid: kidMe ? me.kid : b.kid, date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
+    const p = { kid: kidMe ? me.kid : houseMe ? 'both' : b.kid, date: b.date, photos: (b.photos || []).map((ph, i) => ({ n: i + 1, ...ph })) };
     // A special day from a family phone: the whole family's, so kid 'both'; the day's own date.
     let day = null;
     if (!kidMe && section === 'moments' && b.event) {
@@ -127,15 +138,16 @@ async function handle(req, context) {
       day = { event: /^[a-z0-9-]{10,90}$/.test(b.event.key || '') ? b.event.key : dayKey(date, title), eventTitle: title, eventDate: date };
       p.kid = 'both'; if (!p.date) p.date = date;
     }
-    if (section !== 'art' && p.kid === 'both' && !day) return json({ error: 'bad', fields: ['kid'] }, 400);
+    if (section !== 'art' && section !== 'house' && p.kid === 'both' && !day) return json({ error: 'bad', fields: ['kid'] }, 400);
     const bad = check(p);
     if (bad.length) return json({ error: 'bad', fields: bad }, 400);
-    let id = (day ? `${day.event.slice(0, 60)}_${p.date}_${baseId(p.kid, p.date, b.caption).split('_').pop()}` : baseId(p.kid, p.date, b.caption)) + (section === 'art' ? '' : '_' + section), n = 1;
+    const who_ = houseMe ? { house: me.house, from: me.name } : {};
+    let id = section === 'house' ? `${p.date}_${slug(me.name, 2)}_${slug(b.caption || 'photo', 4)}_house` : (day ? `${day.event.slice(0, 60)}_${p.date}_${baseId(p.kid, p.date, b.caption).split('_').pop()}` : baseId(p.kid, p.date, b.caption)) + (section === 'art' ? '' : '_' + section), n = 1;
     while ((await getPiece(context, id + (n > 1 ? '-' + n : ''))) || (await pend.get('p/' + id + (n > 1 ? '-' + n : '')))) n++;
     if (n > 1) id += '-' + n;
     const piece = { id, kid: p.kid, date: p.date, season: seasonOf(p.date), schoolYear: schoolYearOf(p.date), caption: String(b.caption || '').slice(0, 200),
       starred: !!b.starred, created: now(), updated: now(), deleted: null, photos: p.photos.map((ph) => ({ n: ph.n })),
-      section, waiting: kidMe, by: kidMe ? me.kid : null, ...(day || {}) };
+      section, waiting: kidMe, by: saver, ...(day || {}), ...who_ };
     piece.grade = p.kid === 'both' ? '' : gradeFor(p.kid, p.date);
     const parent = await folder(context, folderParts(piece));
     const origin = url.origin, uploads = [];
@@ -161,7 +173,7 @@ async function handle(req, context) {
   if (parts[1] === 'photo') {
     const rec = await pend.get('p/' + id, { type: 'json' });
     if (!rec) return json({ error: 'unknown' }, 404);
-    if (me.role === 'kid' && rec.piece.by !== me.kid) return json({ error: 'family' }, 401);
+    if (!family && rec.piece.by !== saver) return json({ error: 'family' }, 401);
     const n = +parts[2];
     const ph = rec.piece.photos.find((x) => x.n === n);
     if (!ph) return json({ error: 'photo' }, 400);
@@ -188,7 +200,7 @@ async function handle(req, context) {
   if (parts[1] === 'pdf') {
     const rec = await pend.get('p/' + id, { type: 'json' });
     if (!rec) return json({ error: 'unknown' }, 404);
-    if (me.role === 'kid' && rec.piece.by !== me.kid) return json({ error: 'family' }, 401);
+    if (!family && rec.piece.by !== saver) return json({ error: 'family' }, 401);
     const ph = rec.piece.photos.find((x) => x.n === +parts[2]);
     if (!ph) return json({ error: 'photo' }, 400);
     const form = await req.formData();
@@ -204,9 +216,9 @@ async function handle(req, context) {
 
   // Family Moments: a print-size copy (3000px JPEG) for "Download all" and photo books. Optional: without it the web copy stands in.
   if (parts[1] === 'print') {
-    if (!family) return json({ error: 'family' }, 401);
     const rec = await pend.get('p/' + id, { type: 'json' });
     if (!rec) return json({ error: 'unknown' }, 404);
+    if (!family && rec.piece.by !== saver) return json({ error: 'family' }, 401);
     const ph = rec.piece.photos.find((x) => x.n === +parts[2]);
     if (!ph || sectionOf(rec.piece) !== 'moments') return json({ error: 'photo' }, 400);
     const file = (await req.formData()).get('print');
@@ -224,7 +236,7 @@ async function handle(req, context) {
       return done ? json({ ok: true, piece: short(done) }) : json({ error: 'unknown' }, 404);
     }
     const p = rec.piece;
-    if (me.role === 'kid' && p.by !== me.kid) return json({ error: 'family' }, 401);
+    if (!family && p.by !== saver) return json({ error: 'family' }, 401);
     if (p.photos.some((ph) => !ph.web)) return json({ error: 'photos-missing' }, 400);
     await writeDetails(context, p);
     await savePiece(context, p);

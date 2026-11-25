@@ -42,12 +42,14 @@ export function baseId(kid, iso, caption) {
 }
 // Sections: art (the galleries), photos (a girl's own "My photos", from her tablet), moments (Family Moments:
 // photos of a special day added from the app (Jesse, 2026-11-25), and photos the girls add when a parent allows it).
-export const SECTIONS = ['art', 'photos', 'moments'];
+// house: a household's own photos (Grandma's photos), on the More family page.
+export const SECTIONS = ['art', 'photos', 'moments', 'house'];
 export const sectionOf = (p) => (SECTIONS.includes(p.section) ? p.section : 'art');
 // A special day: its key, and its Drive folder (the same one the day's videos use): Family Moments / 2026-06-14 Wedding /
 export const dayKey = (date, title) => `${date}-${slug(title, 6)}`;
 export const dayFolder = (date, title) => ['Family Moments', `${date} ${String(title).replace(/[\\/:*?"<>|]+/g, ' ').slice(0, 60).trim()}`];
-export const folderParts = (p) => sectionOf(p) === 'photos' ? [KIDS[p.kid], 'My photos', p.schoolYear]
+export const folderParts = (p) => sectionOf(p) === 'house' ? ['Family', `${String(p.from || 'Family').replace(/[\\/:*?"<>|]+/g, ' ').trim()}'s photos`, p.schoolYear]
+  : sectionOf(p) === 'photos' ? [KIDS[p.kid], 'My photos', p.schoolYear]
   : sectionOf(p) === 'moments' && p.event ? dayFolder(p.eventDate, p.eventTitle)
   : sectionOf(p) === 'moments' ? ['Family Moments', 'From ' + (KIDS[p.kid] || 'the girls'), p.schoolYear]
   : [p.kid === 'both' ? 'Both' : KIDS[p.kid], p.schoolYear, SEASON_LABEL[p.season]];
@@ -57,7 +59,7 @@ export const webName = (id, n, small) => `${id}-${n}${small ? '-sm' : ''}`;
 export const printName = (id, n) => `${id}-${n}-print`;   // Family Moments: a 3000px JPEG for "Download all" and photo books
 export const extOf = (type) => (type === 'image/webp' ? 'webp' : type === 'image/png' ? 'png' : 'jpg');
 
-const dayOf = (p) => (p.event ? { event: p.event, eventTitle: p.eventTitle, eventDate: p.eventDate } : {});
+const dayOf = (p) => ({ ...(p.event ? { event: p.event, eventTitle: p.eventTitle, eventDate: p.eventDate } : {}), ...(p.house ? { house: p.house, from: p.from || '' } : {}) });
 // The details file: everything needed to show the piece again, nothing about Netlify.
 export function details(p) {
   return {
