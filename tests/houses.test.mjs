@@ -131,13 +131,16 @@ test('they can add a video to a special day, not change one', async () => {
   assert.equal((await videos(post('/api/videos/' + s.id + '/delete', gma, {}), {})).status, 401);
 });
 
-test('an iPhone Home Screen app: pasting the invite link on the login page logs it in', async () => {
+test('an iPhone Home Screen app: pasting the invite link on the login page goes to the link, which logs it in', async () => {
   const f = new FormData(); f.set('password', grandma.url); f.set('next', '/upload/');
   const res = await login(new Request('https://twosistersstudio.com/api/login', { method: 'POST', body: f }), { ip: '2.2.2.2' });
-  assert.equal(res.headers.get('location'), '/upload/');
-  assert.equal((await auth.who(req('/', loginOf(res)), {})).role, 'house');
+  const to = res.headers.get('location');
+  assert.equal(to, new URL(grandma.url).pathname);
+  const tapped = await houses(req(to, ''), {});
+  assert.equal((await auth.who(req('/', loginOf(tapped)), {})).role, 'house');
   const bad = new FormData(); bad.set('password', 'https://twosistersstudio.com/i/' + 'x'.repeat(24));
-  assert.match((await login(new Request('https://twosistersstudio.com/api/login', { method: 'POST', body: bad }), { ip: '2.2.2.3' })).headers.get('location'), /e=invite/);
+  const badTo = (await login(new Request('https://twosistersstudio.com/api/login', { method: 'POST', body: bad }), { ip: '2.2.2.3' })).headers.get('location');
+  assert.match((await houses(req(badTo, ''), {})).headers.get('location'), /e=invite/);
 });
 
 test('turning it off logs their phones out; on again lets them back; a new link stops the old one', async () => {

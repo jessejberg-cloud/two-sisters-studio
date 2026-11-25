@@ -14,7 +14,8 @@
 // The pieces live in Netlify Blobs (store "video") and play from there, so videos keep playing even if
 // Google Drive is ever disconnected. Right after, the site copies the whole file into Google Drive by itself
 // (functions/video-drive-background.mjs): Two Sisters Studio / Family Moments / <2026-06-14 Wedding> /.
-import { who, byOf } from '../lib/auth.mjs';
+import { who, byOf, mayView, deviceKey } from '../lib/auth.mjs';
+import { MAIN } from '../lib/studios.mjs';
 import { store } from '../lib/store.mjs';
 import { slug } from '../lib/pieces.mjs';
 
@@ -63,7 +64,8 @@ async function handle(req, context) {
   const me = await who(req, context);
   if (!me) return json({ error: 'login' }, 401);
   const family = me.role === 'family';
-  const mayWatch = family || (me.pages || []).includes('family-moments');
+  // A phone holding Jesse's studio's View link or Invite (build spec, 2026-11-25) may watch too.
+  const mayWatch = family || (me.pages || []).includes('family-moments') || (me.role === 'guest' && mayView(me, MAIN));
   if (!mayWatch) return json({ error: 'page' }, 401);
 
   // ----- watching -----
@@ -86,7 +88,9 @@ async function handle(req, context) {
   }
 
   // A household's phone may add a video to a special day (start, its pieces, poster, finish), as itself, nothing else.
-  const saver = me.role === 'house' ? byOf(me) : null;
+  // A phone added with the studio's Invite does the same, as that phone ('d:<device id>').
+  const dk = me.role === 'guest' ? deviceKey(me, MAIN) : null;
+  const saver = me.role === 'house' ? byOf(me) : dk ? 'd:' + dk.d : null;
   if (!family && !(saver && req.method === 'POST' && (parts[0] === 'start' || ['part', 'poster', 'finish'].includes(parts[1])))) return json({ error: 'family' }, 401);
   if (req.method !== 'POST') return json({ error: 'method' }, 405);
 
@@ -110,7 +114,7 @@ async function handle(req, context) {
     const v = { id, event, eventTitle, eventDate, caption: clean(b.caption, 200), date, type, size,
       seconds: Math.max(0, Math.round(+b.seconds || 0)) || null, w: Math.round(+b.w || 0) || null, h: Math.round(+b.h || 0) || null,
       hevc: !!b.hevc, chunkSize: CHUNK, chunks: Math.ceil(size / CHUNK), received: [], poster: null,
-      ready: false, deleted: null, created: now(), drive: null, by: saver, from: saver ? me.name : null };
+      ready: false, deleted: null, created: now(), drive: null, by: saver, from: saver ? (dk ? dk.name || null : me.name) : null };
     await saveVideo(context, v);
     return json({ id, chunkSize: CHUNK, chunks: v.chunks });
   }

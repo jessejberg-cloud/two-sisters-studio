@@ -7,7 +7,7 @@
 //   GET  /api/links/password          the friends password as text, for the "Send password" button
 //   POST /api/admin/password          { level: family|friends|pin|kid-leora|kid-amaya, password } -> change it; logs out every other device on it
 //   GET|POST /api/admin/kids          { kid, moments } -> the girls' tablets: password set?, Family Moments switch
-import { checkLevel, kidLevel, GIRLS, setKidMoments, config as authConfig, generation, who, isParent, getLink, forgetLink, linkOpen, makeLogin, makeParent, changeLevel, isSetUp, friendsPasswordText, secret } from '../lib/auth.mjs';
+import { isOwner, makeParentFor, checkLevel, kidLevel, GIRLS, setKidMoments, config as authConfig, generation, who, isParent, getLink, forgetLink, linkOpen, makeLogin, makeParent, changeLevel, isSetUp, friendsPasswordText, secret } from '../lib/auth.mjs';
 import { sign, randomId, setCookie, COOKIE, DAY, PAGES, LOGIN_DAYS, PARENT_MINUTES } from '../lib/core.mjs';
 import { store } from '../lib/store.mjs';
 
@@ -39,7 +39,10 @@ export default async (req, context) => {
 
   const me = await who(req, context);
   if (me?.role !== 'family') return json({ error: 'login' }, { status: 401 });
-  if (!(await isParent(req, context))) return json({ error: 'pin' });
+  // "Share this page" (build spec, 2026-11-25): anyone in the family may share, with no PIN, and links never end.
+  // The list of links and turning one off stay behind the parent PIN (For parents).
+  const quick = req.method === 'POST' && parts[1] === 'links' && !parts[2];
+  if (!quick && !(await isParent(req, context))) return json({ error: 'pin' });
   const links = store('links', context);
 
   // ----- passwords -----
@@ -47,9 +50,11 @@ export default async (req, context) => {
     const { level, password } = await req.json();
     const pw = String(password || '').trim();
     const kidLevels = GIRLS.map(kidLevel);
-    if (!['family', 'friends', 'pin', ...kidLevels].includes(level)) return json({ error: 'level' }, { status: 400 });
+    if (!['family', 'friends', 'pin', 'owner', ...kidLevels].includes(level)) return json({ error: 'level' }, { status: 400 });
+    // Jesse's own owner PIN (opens For parents in every studio): only the owner may set it (answer 1, 2026-11-25).
+    if (level === 'owner' && !(await isOwner(req, context))) return json({ ok: false, error: 'pin' });
     const isKid = kidLevels.includes(level);
-    if (level === 'pin' ? !/^\d{4,8}$/.test(pw) : pw.length < (isKid ? 4 : 6)) return json({ ok: false, error: 'short' });
+    if (level === 'pin' || level === 'owner' ? !/^\d{4,8}$/.test(pw) : pw.length < (isKid ? 4 : 6)) return json({ ok: false, error: 'short' });
     // The login page tells logins apart by password alone, so the family and tablet passwords must all differ.
     if (level === 'family' || isKid) {
       for (const other of ['family', ...kidLevels]) {
@@ -60,6 +65,7 @@ export default async (req, context) => {
     // This device stays in: give it fresh cookies on the new password. Every other device is logged out.
     const h = new Headers();
     if (level === 'family') h.append('set-cookie', setCookie(COOKIE.login, await makeLogin('family', context), { maxAge: LOGIN_DAYS * 86400 }));
+    if (level === 'owner') h.append('set-cookie', setCookie(COOKIE.parent, await makeParentFor('*', context, PARENT_MINUTES), { maxAge: PARENT_MINUTES * 60 }));
     if (level === 'pin' || level === 'family') h.append('set-cookie', setCookie(COOKIE.parent, await makeParent(context, PARENT_MINUTES), { maxAge: PARENT_MINUTES * 60 }));
     return json({ ok: true }, { headers: h });
   }
@@ -98,9 +104,9 @@ export default async (req, context) => {
     const b = await req.json();
     const pages = (Array.isArray(b.pages) ? b.pages : []).filter((p) => PAGES.includes(p));
     if (!pages.length) return json({ ok: false, error: 'pages' });
-    if (!(b.expiry in EXPIRY)) return json({ ok: false, error: 'expiry' });
-    const days = EXPIRY[b.expiry];
-    const link = { id: randomId(12), pages: [...new Set(pages)], expiry: b.expiry, expires: days ? Date.now() + days * DAY : null,
+    const expiry = b.expiry in EXPIRY && (await isParent(req, context)) ? b.expiry : 'never';   // only old For parents cards still pick an end
+    const days = EXPIRY[expiry];
+    const link = { id: randomId(12), pages: [...new Set(pages)], expiry, expires: days ? Date.now() + days * DAY : null,
       created: new Date().toISOString(), off: false, note: String(b.note || '').slice(0, 60) };
     await links.setJSON('link/' + link.id, link);
     return json({ ok: true, link: { ...link, open: true, url: url.origin + '/s/' + link.id, names: link.pages.map((p) => LABEL[p]) } });

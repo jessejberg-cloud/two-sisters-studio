@@ -121,7 +121,7 @@ const homeGuide = () => `<dialog class="guide" id="guide" aria-label="Add to Hom
   <p><button type="button" class="btn-big guide-skip">Skip</button></p>
 </dialog>`;
 
-function page({ key, title, body, section, bodyClass, csp = CSP_STRICT, tabs = true, scripts = [] }) {
+function page({ key, title, body, section, bodyClass, csp = CSP_SELF, tabs = true, scripts = [] }) {
   const fullTitle = title ? `${title} · ${site.siteName}` : site.siteName;
   const current = section || key;
   // The small ＋ on every page (Jesse, 2026-11-25): opens the app on the right screen for this page. main.js shows it
@@ -543,21 +543,18 @@ pages['households/index.html'] = page({
 pages['login/index.html'] = page({
   key: 'login', title: 'Log in', csp: CSP_LOGIN, tabs: false,
   body: `<section class="login wobbly">
-  <h1>Welcome!</h1>
-  <p class="login-lead" data-family>Type the family password to come in.</p>
-  <p class="login-lead" data-friend hidden>Someone shared part of the site with you. Type the password they sent you.</p>
+  <!-- One box (build spec, 2026-11-25): paste the link you were sent. Old passwords (the girls' tablets) still work here too. -->
   <form class="login-form" method="post" action="/api/login">
-    <label for="pw">Password</label>
-    <input id="pw" name="password" type="password" autocomplete="current-password" required autofocus>
+    <label for="pw">Your link</label>
+    <input id="pw" name="password" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" inputmode="url" required autofocus>
     <input type="hidden" name="next" value="/">
     <input type="hidden" name="kind" value="family">
-    <button type="submit" class="btn-big">Come in</button>
-    <p class="login-error" data-e="pw" hidden>That password did not work. Try again?</p>
+    <button type="submit" class="btn-big">Open</button>
+    <p class="login-error" data-e="pw" hidden>That did not work. Paste the whole link?</p>
     <p class="login-error" data-e="wait" hidden>Too many tries. Please wait 15 minutes and try again.</p>
-    <p class="login-error" data-e="link" hidden>This link has ended or was turned off. Ask for a new one.</p>
-    <p class="login-error" data-e="invite" hidden>This invite link has ended or was turned off. Ask Jesse for a new one.</p>
+    <p class="login-error" data-e="link" hidden>This link was turned off. Ask for a new one.</p>
+    <p class="login-error" data-e="invite" hidden>This link was turned off. Ask for a new one.</p>
   </form>
-  <p class="login-invite">Got an invite link? Paste it in the box and tap Come in.</p>
 </section>`,
 });
 
@@ -571,6 +568,29 @@ pages['parent/index.html'] = page({
   <p class="login-error" id="pin-msg" hidden></p>
 </section>
 <div id="parent-tools" hidden>
+  <section class="parent-card wobbly" id="studio-links">
+    <h2>Links</h2>
+    <div class="slink" data-link="view">
+      <h3>👀 View</h3>
+      <p class="share-help">To look. Nobody can add with it.</p>
+      <p class="link-url" data-url></p>
+      <div class="send-row"><button type="button" class="btn-big" data-act="share">📤 Send</button><button type="button" class="chip" data-act="copy">📋 Copy</button><button type="button" class="linkish" data-act="reset">New link</button></div>
+      <p class="share-help" data-note role="status"></p>
+    </div>
+    <div class="slink" data-link="invite">
+      <h3>📷 Invite</h3>
+      <p class="share-help">For a phone that adds pictures. It opens the app.</p>
+      <p class="link-url" data-url></p>
+      <div class="send-row"><button type="button" class="btn-big" data-act="share">📤 Send</button><button type="button" class="chip" data-act="copy">📋 Copy</button><button type="button" class="linkish" data-act="reset">New link</button></div>
+      <p class="share-help" data-note role="status"></p>
+    </div>
+    <p class="share-help">Links never end. New link stops the old one; the other link keeps working.</p>
+  </section>
+  <section class="parent-card wobbly" id="phones-card">
+    <h2>Phones</h2>
+    <p class="share-help">Phones that add pictures with the Invite. A kid's name hides Put away and For parents on that phone.</p>
+    <ul class="link-list" id="phone-list"><li class="muted">None yet.</li></ul>
+  </section>
   <section class="parent-card wobbly" id="waiting-card">
     <h2>Photos waiting for your OK</h2>
     <p>Photos from the girls' tablets show on the site after you tap OK.</p>
@@ -596,8 +616,10 @@ pages['parent/index.html'] = page({
     <p id="g-status">Checking…</p>
     <p><a class="btn-big" id="g-connect" href="/api/google/start">Connect Google Drive</a></p>
   </section>
-  <section class="parent-card wobbly" id="houses-card">
-    <h2>Family who add photos</h2>
+  <section class="parent-card wobbly" id="houses-card" hidden>
+    <h2>Family who add photos (older invites)</h2>
+    <p class="share-help">These invites still work. New family members now get the Invite link above, or their own studio.</p>
+    <div class="old-make" hidden>
     <p>Give Grandma, an aunt or a cousin their own invite link. They tap it once on their phone and they are in, with no password, for as long as they keep visiting. They get their own page (for example "Grandma's photos") and can add photos and videos to the special days on Family Moments. Their photos show right away. You can put any of them away from Recent uploads in the app.</p>
     <label class="house-name">Who is it for? <input type="text" id="house-name" maxlength="40" autocomplete="off" placeholder="Grandma"></label>
     <fieldset class="ticks"><legend>What else they can see</legend>
@@ -606,13 +628,15 @@ pages['parent/index.html'] = page({
     </fieldset>
     <p><button type="button" class="btn-big" id="house-make">Make an invite link</button></p>
     <p class="login-error" id="house-msg" hidden></p>
+    </div>
     <h3>Invites</h3>
     <ul class="link-list house-list" id="house-list"><li class="muted">None yet.</li></ul>
     <p class="share-help">On an iPhone: after tapping the link, they can tap Share, then Add to Home Screen, to get an app button. If that app ever asks for a password, they paste the invite link into the box.</p>
   </section>
   <section class="parent-card wobbly" id="share-card">
-    <h2>Share with a friend</h2>
-    <p>Pick the pages and how long the link works. Anyone with the link can see those pages, nothing else, until it ends or you turn it off. Each page also has its own Share this page button.</p>
+    <h2>Share links</h2>
+    <p class="share-help">Links made with Share this page. Each opens one page. Turn any of them off here.</p>
+    <div class="old-make" hidden>
     <fieldset class="ticks"><legend>Pages</legend>
       ${TABS.map((n) => `<label class="tick"><input type="checkbox" name="pages" value="${n.key}"> ${esc(n.label)}</label>`).join('\n      ')}
       <label class="tick"><input type="checkbox" id="pages-all"> All of them</label>
@@ -630,14 +654,14 @@ pages['parent/index.html'] = page({
       <div class="send-row"><button type="button" class="btn-big" id="send-link">Send link</button></div>
       <p class="share-help" id="send-note"></p>
     </div>
-    <h3>Links you made</h3>
+    </div>
+    <h3>Links</h3>
     <ul class="link-list" id="link-list"><li class="muted">None yet.</li></ul>
   </section>
   <section class="parent-card wobbly">
-    <h2>Passwords and PIN</h2>
-    <p>Changing one logs out every other phone and computer that uses it. This one stays in.</p>
-    <div class="pw-row"><label>Family password <input type="text" id="pw-family" autocomplete="off" spellcheck="false"></label><button type="button" class="chip" data-change="family">Change</button></div>
+    <h2>Parent PIN</h2>
     <div class="pw-row"><label>Parent PIN (4 to 8 numbers) <input type="text" id="pw-pin" inputmode="numeric" autocomplete="off"></label><button type="button" class="chip" data-change="pin">Change</button></div>
+    <div class="pw-row"><label>Owner PIN: yours only, opens For parents in every family's studio (4 to 8 numbers) <input type="text" id="pw-owner" inputmode="numeric" autocomplete="off"></label><button type="button" class="chip" data-change="owner">Set</button></div>
     <p class="share-help" id="pw-msg" role="status"></p>
   </section>
   <section class="parent-card wobbly">
@@ -685,10 +709,9 @@ pages['upload/index.html'] = `<!doctype html>
     <h1 class="up-h">${logo(false)}</h1>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
     <div class="outbox wobbly waiting-bar" id="waiting-bar" hidden><p id="waiting-text"></p><button type="button" class="chip" id="waiting-ok">✓ OK all</button> <a class="linkish" href="/parent/">Look first</a></div>
-    <!-- Home (build spec, 2026-11-25): one big button per kid, then Family Moment. Drawn by app.js from the studio. -->
+    <!-- Home (build spec, 2026-11-25): one big button per kid, then Family Moments. Drawn by app.js from the studio. -->
     <div class="up-kids up-what" id="home-buttons">
       ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-home="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
-      <button type="button" class="big-button wobbly c-yellow" data-home="moment"><span class="big-icon">${ICONS.heart}</span><span class="big-label">Family Moment</span></button>
     </div>
     <p class="up-extra" id="home-extra"><button type="button" class="chip" data-what="both">🤝 Both</button> <button type="button" class="chip" data-what="episode">🎙️ Podcast</button></p>
     <p class="up-more"><a class="chip" id="home-site" href="/">🏠 Site</a> <button type="button" class="chip" id="recent">🕘 Recent</button> <a class="chip" id="home-parents" href="/parent/">🔒 Parents<span class="dot-heads" id="heads-dot" hidden></span></a></p>
@@ -698,8 +721,10 @@ pages['upload/index.html'] = `<!doctype html>
     <p><button type="button" class="linkish" id="pick-back">← Back</button></p>
     <h1 class="up-h2" id="pick-who"></h1>
     <div class="up-kids up-what">
-      <button type="button" class="big-button wobbly c-coral" data-pick="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">My art</span></button>
+      <button type="button" class="big-button wobbly c-coral" data-pick="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Artwork</span></button>
       <button type="button" class="big-button wobbly c-mint" data-pick="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot</span></button>
+      <button type="button" class="big-button wobbly c-yellow" data-pick="moment"><span class="big-icon">${ICONS.heart}</span><span class="big-label">Family Moments</span></button>
+      <button type="button" class="big-button wobbly c-sky vid-only" data-pick="video"><span class="big-icon" aria-hidden="true">🎬</span><span class="big-label">A video</span></button>
     </div>
   </section>
 
@@ -813,7 +838,7 @@ pages['upload/index.html'] = `<!doctype html>
     </div>
     <div class="up-add day-add">
       <label class="big-pick wobbly pick-choose"><input type="file" id="day-photos" accept="image/*" multiple><span>🖼️ Choose photos</span></label>
-      <label class="big-pick wobbly pick-take"><input type="file" id="vid-file" accept="video/*"><span id="vid-label">🎬 Choose a video</span></label>
+      <label class="big-pick wobbly pick-take vid-only"><input type="file" id="vid-file" accept="video/*"><span id="vid-label">🎬 Choose a video</span></label>
     </div>
     <p class="status" id="day-status" role="status" aria-live="polite"></p>
     <div id="vid-more" hidden>
@@ -827,8 +852,8 @@ pages['upload/index.html'] = `<!doctype html>
     <div class="ep-bar" id="vid-bar" hidden><span id="vid-bar-fill"></span></div>
     <p class="status" id="vid-status" role="status" aria-live="polite"></p>
     <p class="ep-done" id="vid-done" hidden><a class="chip" href="/family-moments/">❤️ See it on Family Moments</a></p>
-    <h2 class="up-h3">Videos on the site</h2>
-    <ul class="up-list ep-list" id="vid-list"><li class="muted">Checking…</li></ul>
+    <h2 class="up-h3 vid-only">Videos on the site</h2>
+    <ul class="up-list ep-list vid-only" id="vid-list"><li class="muted">Checking…</li></ul>
   </section>
 
   <section class="screen" id="s-edit" hidden>

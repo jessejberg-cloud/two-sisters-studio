@@ -130,6 +130,14 @@ window.TSS = (function () {
   if (!fab) return;
   var house = root.classList.contains('is-house'), kid = root.classList.contains('is-kid');
   if (root.classList.contains('is-friend') && !house && !kid) return;   // a friend on a share link: look only
+  // A phone with only a View link (build spec, 2026-11-25): look only, so no ＋. A phone with an Invite adds.
+  var hint = (document.cookie.match(/(?:^|;\s*)tssw=([^;]*)/) || [])[1];
+  var keys = hint ? decodeURIComponent(hint).split(',') : [];
+  var adds = keys.some(function (k) { return k.split(':')[1] === 'd'; });
+  if (keys.length && !adds) {
+    fetch('/api/whoami', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (me) { if (me.role === 'family') { fab.hidden = false; root.classList.add('has-fab'); } }).catch(function () {});
+    return;
+  }
   var add = fab.dataset.add || '';
   if (kid) fab.href = '/upload/';                                       // her tablet opens on My art / A snapshot
   if (house) fab.href = '/upload/' + (add === '?add=day' ? '?add=day' : '?add=house');
@@ -455,11 +463,7 @@ function initGallery() {
   var q = new URLSearchParams(location.search);
   var next = q.get('next');
   if (next && next.charAt(0) === '/' && next.charAt(1) !== '/') form.elements.next.value = next;
-  if (q.get('kind') === 'friend' || q.get('friend')) {
-    form.elements.kind.value = 'friend';
-    document.querySelector('[data-family]').hidden = true;
-    document.querySelector('[data-friend]').hidden = false;
-  }
+  if (q.get('kind') === 'friend' || q.get('friend')) form.elements.kind.value = 'friend';
   var e = q.get('e');
   if (e) { var m = document.querySelector('.login-error[data-e="' + e + '"]'); if (m) m.hidden = false; }
 })();
@@ -690,7 +694,7 @@ function addToDays(pieces) {
       var base = '/img/' + encodeURIComponent(p.id) + '/' + ph.n;
       var fig = make('figure', 'piece'), a = make('a', 'piece-open'), im = document.createElement('img');
       a.href = base; a.dataset.full = base; a.dataset.dl = base + '/print'; a.dataset.name = p.id + (p.photos.length > 1 ? '-' + ph.n : '');
-      a.dataset.w = ph.w; a.dataset.h = ph.h; a.dataset.caption = p.caption || ''; a.dataset.label = nice(p.date) + ' · ' + p.eventTitle + (p.from ? ' · from ' + p.from : '');
+      a.dataset.w = ph.w; a.dataset.h = ph.h; a.dataset.caption = p.caption || ''; a.dataset.label = nice(p.date) + ' · ' + p.eventTitle + (p.from || p.byName ? ' · added by ' + (p.from || p.byName) : '');
       a.setAttribute('aria-label', 'Open ' + (p.caption || 'this photo') + ' big');
       im.src = base + '/sm'; im.alt = p.caption || 'A photo from ' + p.eventTitle; im.loading = 'lazy'; im.decoding = 'async';
       if (ph.w && ph.h) { im.width = ph.w; im.height = ph.h; }
@@ -737,21 +741,11 @@ function addToDays(pieces) {
   if (!btns.length || root.classList.contains('is-friend') || root.classList.contains('is-kid')) return;
   function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
   var box = make('dialog', 'share-box'); box.setAttribute('aria-label', 'Share this page');
-  var h = make('h2', 'share-h'), note = make('p', 'share-note', 'Anyone with the link can see this page, nothing else.');
-  var how = make('p', 'share-how', 'The link works for');
-  var chips = make('div', 'chips share-chips'), expiry = 'month';
-  [['week', 'A week'], ['month', 'A month'], ['year', 'A year'], ['never', 'No end date']].forEach(function (o) {
-    var c = make('button', 'chip', o[1]); c.type = 'button'; c.dataset.v = o[0]; c.setAttribute('aria-pressed', String(o[0] === expiry));
-    c.addEventListener('click', function () { expiry = o[0]; made = null; go.textContent = '📤 Share the link'; chips.querySelectorAll('.chip').forEach(function (x) { x.setAttribute('aria-pressed', String(x === c)); }); });
-    chips.append(c);
-  });
-  var pinRow = make('label', 'share-pin'), pin = make('input');
-  pin.type = 'password'; pin.inputMode = 'numeric'; pin.autocomplete = 'off';
-  pinRow.append(make('span', '', 'Parent PIN (this phone remembers it for 30 days)'), pin); pinRow.hidden = true;
+  var h = make('h2', 'share-h'), note = make('p', 'share-note', 'Anyone with the link can see this page, nothing else. It keeps working until it is turned off on the For parents page.');
   var go = make('button', 'btn-big share-go', '📤 Share the link'); go.type = 'button';
   var msg = make('p', 'share-msg'); msg.setAttribute('role', 'status');
   var shut = make('button', 'linkish share-close', 'Close'); shut.type = 'button';
-  box.append(h, note, how, chips, pinRow, go, msg, shut);
+  box.append(h, note, go, msg, shut);
   document.body.append(box);
   shut.addEventListener('click', function () { box.close(); });
   box.addEventListener('click', function (e) { if (e.target === box) box.close(); });
@@ -784,17 +778,48 @@ function addToDays(pieces) {
     if (made) return send();
     go.disabled = true; msg.textContent = 'Making the link…';
     try {
-      if (!pinRow.hidden) {
-        if (!pin.value) { msg.textContent = 'Type the parent PIN.'; pin.focus(); go.disabled = false; return; }
-        var p = await post('/api/parent', { pin: pin.value });
-        if (!p.ok) { msg.textContent = p.error === 'wait' ? 'Too many tries. Please wait 15 minutes.' : 'That PIN did not work.'; go.disabled = false; return; }
-        pinRow.hidden = true; pin.value = '';
-      }
-      var j = await post('/api/links', { pages: [page], expiry: expiry });
-      if (j.error === 'pin') { pinRow.hidden = false; pin.focus(); msg.textContent = 'Type the parent PIN once, then tap Share the link.'; go.disabled = false; return; }
+      var j = await post('/api/links', { pages: [page] });
       if (!j.ok) throw new Error(j.error || 'no');
       made = j.link.url; go.disabled = false;
       await send();
     } catch (e) { msg.textContent = 'That did not work. Try again?'; go.disabled = false; }
   });
+})();
+
+// ---------- the home screen guide (build spec, 2026-11-25): once per phone, after a View link. A picture, no words ----------
+(function () {
+  'use strict';
+  var g = document.getElementById('guide'), q = new URLSearchParams(location.search);
+  if (!g || !q.get('hello')) return;
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  var installed = window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+  try { if (installed || localStorage.getItem('tss-guide')) return; localStorage.setItem('tss-guide', '1'); } catch (e) {}
+  var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  g.querySelector('[data-os="ios"]').hidden = !ios; g.querySelector('[data-os="android"]').hidden = ios;
+  g.querySelector('.guide-skip').addEventListener('click', function () { g.close(); });
+  if (g.showModal) g.showModal(); else g.setAttribute('open', '');
+})();
+
+// ---------- the family menu (build spec): every studio's View link, in every studio. Shows once there are two ----------
+(function () {
+  'use strict';
+  var li = document.querySelector('.tab-fam-li'), root = document.documentElement;
+  if (!li || root.classList.contains('is-friend') || root.classList.contains('is-kid')) return;
+  function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
+  fetch('/api/studios/menu', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (j) {
+    var list = j.studios || [];
+    if (list.length < 2) return;
+    var box = make('dialog', 'share-box fam-box'); box.setAttribute('aria-label', 'Family');
+    var ul = make('ul', 'fam-list');
+    list.forEach(function (st) {
+      var a = make('a', 'big-button wobbly c-' + (st.color || 'sky')); a.href = st.mine ? st.href : (st.view || st.href);
+      a.append(make('span', 'big-label', st.name)); var it = make('li'); it.append(a); ul.append(it);
+    });
+    var shut = make('button', 'linkish share-close', 'Close'); shut.type = 'button';
+    box.append(ul, shut); document.body.append(box);
+    shut.addEventListener('click', function () { box.close(); });
+    box.addEventListener('click', function (e) { if (e.target === box) box.close(); });
+    li.querySelector('button').addEventListener('click', function () { if (box.showModal) box.showModal(); else box.setAttribute('open', ''); });
+    li.hidden = false;
+  }).catch(function () {});
 })();
