@@ -3,16 +3,24 @@
 // can start it again (POST /api/videos-drive/<id>) if Drive was not connected at the time.
 // Runs in the background (up to 15 minutes). Drive:  Two Sisters Studio / Family Moments / <2026-06-14 Wedding> /
 //   <id>.mp4   the video, untouched        <id>.json   the details        <id>-poster.webp   the still picture
-import { who, byOf } from '../lib/auth.mjs';
+import { who, byOf, deviceKey } from '../lib/auth.mjs';
 import { store } from '../lib/store.mjs';
 import { folder, putSmall, uploadAddress } from '../lib/drive.mjs';
-import { getVideo, saveVideo, pub, driveFolder, fileName } from './videos.mjs';
+import { getVideo, saveVideo, pub, driveFolder, fileName, studioOfV } from './videos.mjs';
 
 export default async (req, context) => {
   const me = await who(req, context);
-  if (me?.role !== 'family' && me?.role !== 'house') return;
   const id = new URL(req.url).pathname.split('/').filter(Boolean)[2];
-  if (me.role === 'house' && (await getVideo(context, id))?.by !== byOf(me)) return;   // a household: only its own video
+  const v = await getVideo(context, id);
+  if (!v || !me) return;
+  const sid = studioOfV(v);
+  if (sid === 'main') {
+    if (me.role !== 'family' && me.role !== 'house') return;
+    if (me.role === 'house' && v.by !== byOf(me)) return;   // a household: only its own video
+  } else {
+    const dk = deviceKey(me, sid);   // a family's studio: a phone of that studio (its own Drive)
+    if (!dk) return;
+  }
   await copyToDrive(context, id, new URL(req.url).origin);
 };
 
@@ -23,8 +31,9 @@ export async function copyToDrive(context, id, origin) {
   v.drive = { state: 'copying', at: new Date().toISOString() };
   await saveVideo(context, v);
   try {
-    const parent = await folder(context, driveFolder(v));
-    const address = await uploadAddress(context, parent, fileName(v), v.type, v.size, origin);
+    const sid = studioOfV(v);   // each studio's own Google Drive
+    const parent = await folder(context, driveFolder(v), sid);
+    const address = await uploadAddress(context, parent, fileName(v), v.type, v.size, origin, sid);
     const pieces = store('video', context);
     let fileId = null;
     for (let i = 0; i < v.chunks; i++) {
@@ -44,10 +53,10 @@ export async function copyToDrive(context, id, origin) {
     const files = { video: fileId };
     if (v.poster) {
       const p = await store('images', context).get('vid-' + v.id, { type: 'arrayBuffer' });
-      if (p) files.poster = (await putSmall(context, parent, `${v.id}-poster.${v.poster.type === 'image/jpeg' ? 'jpg' : 'webp'}`, v.poster.type, p)).id;
+      if (p) files.poster = (await putSmall(context, parent, `${v.id}-poster.${v.poster.type === 'image/jpeg' ? 'jpg' : 'webp'}`, v.poster.type, p, null, undefined, sid)).id;
     }
     const details = { version: 1, kind: 'family-moments-video', ...pub(v), file: fileName(v), drive: undefined };
-    files.details = (await putSmall(context, parent, `${v.id}.json`, 'application/json', JSON.stringify(details, null, 2), null, { tss: 'video' })).id;
+    files.details = (await putSmall(context, parent, `${v.id}.json`, 'application/json', JSON.stringify(details, null, 2), null, { tss: 'video' }, sid)).id;
     const fresh = await getVideo(context, id);
     fresh.drive = { state: 'done', at: new Date().toISOString(), ...files };
     await saveVideo(context, fresh);

@@ -31,7 +31,7 @@ Priorities, in order (spec):
 | Leora (3rd grade) and Amaya (K5) | Amazon Fire tablets (tablet app, a WebView of the live site) | My art / A snapshot; waits for a parent's OK |
 | Grandma and relatives | iPhones mostly | Look; add to their own studio and to Family Moments |
 | Other families | Their own phones | Their own studio at twosistersstudio.com/name, set up alone |
-| Viewers | Any browser | Look only, through a View link |
+| Viewers | Any browser | Look only, through a View link, or a shared link (one picture, video or day) |
 
 ## 3. Rules that never change
 
@@ -57,6 +57,7 @@ Priorities, in order (spec):
 14. Nothing required except, in setup, the PIN and Google Drive (Jesse, 2026-11-25: studios need Drive). Every other
     setup step has Skip (the last step, Camera, is simply the end); skipped things show in For parents.
 15. Hand-drawn, neat, kid-friendly, not Office-looking. Gentle movement only, all off for reduced motion.
+    No subtitle line under a page title, no tip or explainer boxes, no pill boxes (Jesse 2026-11-25): things explain themselves.
 16. Website = view. App = capture. The website's design stays as it is unless Jesse asks.
 
 **How Claude works on it** (spec, "Read first")
@@ -74,6 +75,14 @@ Priorities, in order (spec):
 - Old logins still work on Jesse's studio: the family password, the girls' tablet passwords, household invites.
 - For parents needs the studio PIN; a trusted phone is remembered 30 days. Jesse's owner PIN opens every studio's For parents.
 - Share links (`/s/…`): open only what was shared; can be turned off.
+- Sharing one thing (`netlify/functions/shared.mjs`): 📤 Share in every picture viewer and under every video, and
+  ONE 📤 Share button at the top of a page (main.js "The one 📤 Share button"). It offers This page, each special day on
+  the page, or Photos (tap one or many, then 📤 Share: one link for up to 60). No other share buttons on the page. Grown-up phones that add to the studio only (not kid mode, not View links); a
+  household shares only what it may see, and a studio shares only its own things (not a day another studio tagged in). The
+  link opens `/shared/?l=…` with no login and shows just that picture, video or day (a day link shows photos added
+  later too; put-away pieces drop off). For parents → Shared pictures: opens, about how many phones, last opened, Turn
+  off / Turn back on. 20 phones on one link raises a heads-up. A studio turned off or removed takes its links with it.
+  Counting phones uses one random cookie (`tssx`, only on `/s/`, one year), kept on the server as a short hash.
 
 **Adding (the app, `/upload/`)**
 - Home: one big button per artist, then Family Moments. Then Artwork / A snapshot / the studio's categories / A video.
@@ -81,7 +90,11 @@ Priorities, in order (spec):
 - Snapshots and special-day photos: Turn only.
 - Save: kept on the phone, then the original goes to Drive and a web copy to the site. It shows on the site right away.
 - Kids' uploads from tablets wait for a parent's OK (OK all on For parents and on a parent's app home).
-- PDFs can be art (page 1 is the picture). Episodes and videos: Jesse's studio only, for now.
+- PDFs can be art (page 1 is the picture). Episodes: Jesse's studio only, for now.
+- Videos (A video, or a special day): every studio. The video plays from the site and is copied into that studio's own
+  Google Drive (`Family Moments/<date title>/`). It shows on that studio's Family Moments page. The phone that sent it can
+  put it away and bring it back from the app's video list (not a kid-mode phone); so can the studio's parents. A video
+  on a special day shows in the studios ticked for that day, like its photos.
 - Quick capture: hold the app icon (Android) for Take a picture (last artist and category) or A special day; ⚡ on the
   app home opens straight on the camera every time (useful on iPhone).
 
@@ -89,6 +102,9 @@ Priorities, in order (spec):
 - Galleries by school year (Sept to Aug), newest open; fall, winter, spring, then summer. Featured pieces large; never cropped.
 - Family Moments: one page, one section per special day, newest first; Download all per day.
 - Every picture and video: Full screen and Save.
+- For parents → Download everything (family studios): every picture as one zip made in the browser, a folder per
+  artist (Artwork, Snapshots, each category) and per special day, plus `details.json`. Shows the count and the space
+  used on the site. Videos and full-size originals stay in Google Drive.
 
 **Setup for a new family** (`/start/`, from Jesse's invite): Studio name + artists → PIN + color → Google Drive (needed) → Invite and View links → Add to Home Screen picture → Camera.
 
@@ -174,5 +190,9 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 
 | Date | What changed | PR |
 |---|---|---|
+| 2026-11-25 | Jesse's Family Moments notes: one 📤 Share button (This page, a special day, Photos: pick one or many); no subtitles under page titles and no tip boxes anywhere; day names as colored brush marks, not pill boxes; ＋ Add as a paint dab, not a pill. | (this PR) |
+| 2026-11-25 | Pick several to share (Jesse: yes): ☑ Pick several to share at the top of a page with pictures; tap to pick, one link for all. Previews stay name and logo; the phone-count cookie stays (Jesse: yes). | (this PR) |
+| 2026-11-25 | Studios batch 3b: share one picture, a video or a whole day by link (no login; opens, phones, last opened, off switch on For parents; heads-up at 20 phones) and Download everything as one zip on a studio's For parents. Tests first (`tests/studios.test.mjs`). | (this PR) |
+| 2026-11-25 | Studios batch 3b: videos for every family studio, kept in that studio's own Google Drive and shown on its Family Moments page; a View link can watch, never add. Test first (`tests/studios.test.mjs`). | (this PR) |
 | 2026-11-25 | First GitHub run (Safari's engine) found: photos could not be read where createImageBitmap is missing or refuses a file (older iPhones). App now falls back to a plain picture; a test covers it. Also: where a phone's storage will not keep photo files (Safari private browsing, WebKit), Save keeps the bytes instead; a test covers it. Look check waits for its first approved pictures instead of failing. | (this PR) |
 | 2026-11-25 | Guide started. Robot-phone tests (iPhone, Pixel, Fire tablet, computer) on a pretend site with fake Drive; intent and look checks; GitHub checks on every PR; guide check; reviewer agent; preview test with real Drive (needs Jesse's setup). Fixed: a new family's phone stuck on "Who?" after naming itself. | (this PR) |

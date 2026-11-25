@@ -22,6 +22,7 @@ globalThis.fetch = async (url, opts = {}) => {
   if (url.includes('/drive/v3/files?fields=id')) return Response.json({ id: 'F' + (++fileN) });
   if (url.includes('uploadType=resumable')) return new Response(null, { headers: { location: 'https://www.googleapis.com/upload/session/' + (++fileN) } });
   if (url.includes('uploadType=multipart')) return Response.json({ id: 'M' + (++fileN) });
+  if (url.includes('/upload/session/') && opts.method === 'PUT') return Response.json({ id: 'V' + (++fileN) });   // a video piece (the last one)
   return new Response('?', { status: 404 });
 };
 await saveGoogle({}, 'rt', {});   // Jesse's studio has Drive
@@ -264,4 +265,176 @@ test('a grown-up phone adds a category from the app; a kid-mode phone cannot', a
   assert.equal((await studios(post('/api/studio/kim/cats', t, { name: 'Lego' }), {})).status, 401);
   const bad = await (await studios(post('/api/studio/kim/cats', p, { name: 'Sports', icon: '<b>' }), {})).json();
   assert.equal(bad.cat.icon, '');
+});
+
+test('a family studio adds a video: its own Family Moments, its own Drive, never Jesse\'s', async () => {
+  const { default: videos } = await import('../netlify/functions/videos.mjs');
+  const { copyToDrive } = await import('../netlify/functions/video-drive-background.mjs');
+  const j = await (await studios(post('/api/owner', owner, { do: 'invite', name: 'Ray' }), {})).json();
+  const inv = new URL(j.creates[0].url).pathname;
+  let p = jar('', await studios(req(inv, ''), {}));
+  const made = await (await studios(post('/api/studios/create', p, { name: 'Ray', pin: '4444', kids: [{ name: 'Zed' }] }), {}));
+  p = jar(p, made); const view = (await made.json()).view;
+  p = jar(p, await studios(post('/api/studio/ray/device', p, { name: 'Dad' }), {}));
+  await saveGoogle({}, 'rt-ray', {}, 'ray');
+  const s = await (await videos(post('/api/videos/start', p, { studio: 'ray', eventTitle: 'Beach day', eventDate: '2026-11-20', size: 5, type: 'video/mp4' }), {})).json();
+  assert.ok(s.id, JSON.stringify(s));
+  assert.equal((await videos(req('/api/videos/' + s.id + '/part/0', p, { method: 'POST', body: new Uint8Array(5) }), {})).status, 200);
+  const fin = await (await videos(post('/api/videos/' + s.id + '/finish', p, {}), {})).json();
+  assert.equal(fin.video.from, 'Dad'); assert.equal(fin.video.studio, 'ray');
+  // On Ray's Family Moments, not on Jesse's.
+  const mine = await (await videos(req('/api/videos?studio=ray', p), {})).json();
+  assert.deepEqual(mine.videos.map((v) => v.id), [s.id]);
+  assert.ok(!(await (await videos(req('/api/videos', family), {})).json()).videos.some((v) => v.id === s.id), 'not on Jesse\'s page');
+  // A View link of Ray's watches it; a stranger's phone cannot.
+  const vp = jar('', await studios(req(new URL(view).pathname, ''), {}));
+  assert.equal((await videos(req('/api/videos/' + s.id + '/play', vp, { headers: { range: 'bytes=0-1' } }), {})).status, 206);
+  assert.equal((await videos(post('/api/videos/start', vp, { studio: 'ray', eventTitle: 'X', eventDate: '2026-11-26', size: 5 }), {})).status, 401, 'a View link only looks');
+  assert.equal((await videos(req('/api/videos?studio=ray', ''), {})).status, 401);
+  // Ray's Drive gets it.
+  const before = fileN;
+  await copyToDrive({}, s.id, 'https://twosistersstudio.com');
+  const after = await (await videos(req('/api/videos?studio=ray', p), {})).json();
+  assert.equal(after.videos[0].drive, 'done', JSON.stringify(after.videos[0]));
+  assert.ok(fileN > before);
+  // Dad can put his own video away and bring it back.
+  assert.equal((await videos(post('/api/videos/' + s.id + '/delete', p, {}), {})).status, 200);
+  assert.equal((await videos(post('/api/videos/' + s.id + '/restore', p, {}), {})).status, 200);
+});
+
+test('share one picture, a few, or a whole day: the link opens with no login, counts opens and phones, and can be turned off', async () => {
+  const { default: shared } = await import('../netlify/functions/shared.mjs');
+  const { default: share } = await import('../netlify/functions/share.mjs');
+  const day = await save(phone, { studio: 'smith', section: 'moments', event: { title: 'Snow day', date: '2026-11-21' } });
+  // Only grown-up phones of the studio; never a View link, never a stranger.
+  assert.equal((await shared(post('/api/shared', viewer, { studio: 'smith', ids: [art.id] }), {})).status, 401);
+  assert.equal((await shared(post('/api/shared', '', { studio: 'smith', ids: [art.id] }), {})).status, 401);
+  const one = await (await shared(post('/api/shared', phone, { studio: 'smith', ids: [art.id, 'not-a-piece'] }), {})).json();
+  assert.ok(one.ok, JSON.stringify(one));
+  assert.deepEqual(one.link.ids, [art.id], 'only real pieces of this studio');
+  assert.match(one.link.url, /\/s\/[A-Za-z0-9_-]{16}$/);
+  const dayLink = await (await shared(post('/api/shared', phone, { studio: 'smith', day: day.event }), {})).json();
+  assert.equal(dayLink.link.title, 'Snow day');
+  // Opening: no login needed, the gate lets the page and its pictures through.
+  const path = new URL(one.link.url).pathname;
+  assert.equal((await gate(req(path, ''), ctx)).status, 200);
+  let r = await share(req(path, ''), {});
+  assert.equal(r.status, 303);
+  assert.equal(r.headers.get('location'), '/shared/?l=' + one.link.id);
+  const phoneA = jar('', r);
+  await share(req(path, phoneA), {});                 // the same phone again
+  await share(req(path, ''), {});                     // a second phone
+  assert.equal((await gate(req('/shared/?l=' + one.link.id, ''), ctx)).status, 200);
+  assert.equal((await gate(req(`/api/shared/${one.link.id}/img/${art.id}/1`, ''), ctx)).status, 200);
+  const got = await (await shared(req('/api/shared/' + one.link.id, ''), {})).json();
+  assert.deepEqual(got.items.map((x) => x.id), [art.id]);
+  assert.equal((await shared(req(`/api/shared/${one.link.id}/img/${art.id}/1`, ''), {})).status, 200);
+  assert.equal((await shared(req(`/api/shared/${one.link.id}/img/${day.id}/1`, ''), {})).status, 404, 'not on this link');
+  // A day link shows the day, including photos added after it was made.
+  const later = await save(phone, { studio: 'smith', section: 'moments', event: { key: day.event, title: 'Snow day', date: '2026-11-21' } });
+  const d = await (await shared(req('/api/shared/' + dayLink.link.id, ''), {})).json();
+  assert.deepEqual(d.items.map((x) => x.id).sort(), [day.id, later.id].sort());
+  assert.equal((await shared(req(`/api/shared/${dayLink.link.id}/img/${later.id}/1/sm`, ''), {})).status, 200);
+  // The list (the studio's For parents): opens, about how many phones, last opened.
+  assert.equal((await (await shared(req('/api/shared?studio=smith', phone), {})).json()).error, 'pin');
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '5678' }), {}));
+  const list = await (await shared(req('/api/shared?studio=smith', par), {})).json();
+  const mine = list.links.find((l) => l.id === one.link.id);
+  assert.equal(mine.opens, 3); assert.equal(mine.phones, 2); assert.ok(mine.last); assert.equal(mine.open, true);
+  assert.equal(mine.by, 'Mom'); assert.equal(mine.count, 1);
+  assert.ok(!list.links.some((l) => l.studio !== 'smith'));
+  // Off: the page and the pictures stop; on again works.
+  assert.ok((await (await shared(post(`/api/shared/${one.link.id}/off`, par, {}), {})).json()).ok);
+  assert.equal((await shared(req('/api/shared/' + one.link.id, ''), {})).status, 404);
+  assert.equal((await shared(req(`/api/shared/${one.link.id}/img/${art.id}/1`, ''), {})).status, 404);
+  assert.match((await share(req(path, ''), {})).headers.get('location'), /e=link/);
+  assert.ok((await (await shared(post(`/api/shared/${one.link.id}/on`, par, {}), {})).json()).ok);
+  assert.equal((await shared(req('/api/shared/' + one.link.id, ''), {})).status, 200);
+  // Put away: a piece put away later drops off the link.
+  await api(post(`/api/pieces/${art.id}/delete`, phone, {}), {});
+  assert.equal((await (await shared(req('/api/shared/' + one.link.id, ''), {})).json()).items.length, 0);
+  await api(post(`/api/pieces/${art.id}/restore`, phone, {}), {});
+});
+
+test('Jesse\'s household shares from his studio too; a girl\'s tablet cannot', async () => {
+  const { default: shared } = await import('../netlify/functions/shared.mjs');
+  const mine = await save(family, { kid: 'leora', section: 'art', caption: 'Cat' });
+  const j = await (await shared(post('/api/shared', family, { ids: [mine.id] }), {})).json();
+  assert.ok(j.ok, JSON.stringify(j)); assert.equal(j.link.studio, 'main');
+  assert.deepEqual((await (await shared(req('/api/shared/' + j.link.id, ''), {})).json()).items.map((x) => x.id), [mine.id]);
+  const kid = `tss=${encodeURIComponent(await auth.makeLogin('kid', {}, { k: 'leora' }))}`;
+  assert.equal((await shared(post('/api/shared', kid, { ids: [mine.id] }), {})).status, 401);
+});
+
+test('a shared link opened on many phones gives the studio a heads-up', async () => {
+  const { default: shared, MANY } = await import('../netlify/functions/shared.mjs');
+  const { default: share } = await import('../netlify/functions/share.mjs');
+  const one = await (await shared(post('/api/shared', phone, { studio: 'smith', ids: [art.id] }), {})).json();
+  const path = new URL(one.link.url).pathname;
+  for (let i = 0; i < MANY; i++) await share(req(path, ''), {});
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '5678' }), {}));
+  const p = await (await studios(req('/api/studio/smith/parent', par), {})).json();
+  assert.ok(p.heads.some((h) => h.kind === 'shared' && h.ref === one.link.id), JSON.stringify(p.heads));
+});
+
+test('For parents: Download everything lists every picture of the studio with a tidy folder name, and its details', async () => {
+  assert.equal((await (await studios(req('/api/studio/smith/export', phone), {})).json()).error, 'pin');
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '5678' }), {}));
+  const j = await (await studios(req('/api/studio/smith/export', par), {})).json();
+  assert.equal(j.ok, true, JSON.stringify(j));
+  assert.equal(j.name, 'Smith');
+  const a = j.files.find((f) => f.id === art.id);
+  assert.ok(a, 'the art piece is in it');
+  assert.equal(a.path, 'Ava/Artwork/2026-11-20_a-dog');
+  assert.equal(a.url, `/img/${art.id}/1`);
+  assert.ok(j.files.some((f) => f.path.startsWith('Family Moments/2026-11-21 Snow day/')), 'a day keeps its own folder');
+  assert.ok(!j.files.some((f) => f.path.includes('Cat')), 'nothing from another studio');
+  assert.ok(Array.isArray(j.details) && j.details.some((d) => d.id === art.id && d.caption === 'A dog'));
+  assert.equal(typeof j.bytes, 'number');
+});
+
+test('review fixes: a household shares only what it may see; a removed studio takes its links; same captions both kept; a phone sees its own put-away video', async () => {
+  const { default: shared } = await import('../netlify/functions/shared.mjs');
+  const { default: share } = await import('../netlify/functions/share.mjs');
+  const { store } = await import('../netlify/lib/store.mjs');
+  // A household (Grandma): Family Moments yes, a kid page Jesse did not tick no.
+  const house = { id: 'gma1', name: 'Grandma', pages: [], gen: 'g1', invite: 'x'.repeat(24), off: false };
+  await store('links', {}).setJSON('house/gma1', house);
+  const gma = `tss=${encodeURIComponent(await auth.makeHouseLogin(house))}`;
+  const kidArt = await save(family, { kid: 'amaya', section: 'art', caption: 'Hidden' });
+  assert.equal((await (await shared(post('/api/shared', gma, { ids: [kidArt.id] }), {})).json()).error, 'items');
+  const fm = await save(family, { kid: 'both', section: 'moments', event: { title: 'Picnic', date: '2026-11-22' } });
+  assert.ok((await (await shared(post('/api/shared', gma, { ids: [fm.id] }), {})).json()).ok);
+  // Same date and caption twice: both in the zip.
+  const twin = await save(phone, { studio: 'smith', kid: 'ava', section: 'art', caption: 'A dog' });
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '5678' }), {}));
+  const ex = await (await studios(req('/api/studio/smith/export', par), {})).json();
+  const paths = ex.files.filter((f) => f.id === art.id || f.id === twin.id).map((f) => f.path);
+  assert.equal(new Set(paths).size, 2, JSON.stringify(paths));
+  // A removed studio: its links stop.
+  const one = await (await shared(post('/api/shared', phone, { studio: 'smith', ids: [art.id] }), {})).json();
+  assert.equal((await shared(req('/api/shared/' + one.link.id, ''), {})).status, 200);
+  const s = await store('studios', {}).get('s/smith', { type: 'json' });
+  assert.ok(s, 'studio record key');
+  await store('studios', {}).setJSON('s/smith', { ...s, off: true });
+  const { forget } = await import('../netlify/lib/studios.mjs'); if (forget) forget('smith');
+  assert.equal((await shared(req('/api/shared/' + one.link.id, ''), {})).status, 404);
+  assert.match((await share(req(new URL(one.link.url).pathname, ''), {})).headers.get('location'), /e=link/);
+  await store('studios', {}).setJSON('s/smith', s); if (forget) forget('smith');
+});
+
+test('a studio phone still lists its own put-away video, so it can bring it back', async () => {
+  const { default: videos } = await import('../netlify/functions/videos.mjs');
+  const inv = (await (await studios(post('/api/owner', owner, { do: 'invite', name: 'Lee' }), {})).json()).creates[0].url;
+  let p = jar('', await studios(req(new URL(inv).pathname, ''), {}));
+  const made = await studios(post('/api/studios/create', p, { name: 'Lee', pin: '7777', kids: [{ name: 'Mo' }] }), {});
+  p = jar(p, made); const mj = await made.json(); const sl = mj.studio.slug;
+  p = jar(p, await studios(post('/api/studio/' + sl + '/device', p, { name: 'Dad' }), {}));
+  const s = await (await videos(post('/api/videos/start', p, { studio: sl, eventTitle: 'Park', eventDate: '2026-11-20', size: 5, type: 'video/mp4' }), {})).json();
+  await videos(req('/api/videos/' + s.id + '/part/0', p, { method: 'POST', body: new Uint8Array(5) }), {});
+  await videos(post('/api/videos/' + s.id + '/finish', p, {}), {});
+  await videos(post('/api/videos/' + s.id + '/delete', p, {}), {});
+  const all = await (await videos(req('/api/videos?all=1&studio=' + sl, p), {})).json();
+  assert.ok(all.videos?.some((v) => v.id === s.id && v.deleted && v.mine === true), JSON.stringify([s, all]));
+  assert.ok(!(await (await videos(req('/api/videos?studio=' + sl, p), {})).json()).videos.some((v) => v.id === s.id), 'not on the page');
 });

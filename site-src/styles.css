@@ -390,7 +390,15 @@ main { max-width: var(--max); margin: 0 auto; padding: 8px 20px 40px; }
 
 /* ---------- Family Moments ---------- */
 .moment-jump ul { list-style: none; display: flex; flex-wrap: wrap; gap: 10px; padding: 0; margin: 6px 0 18px; }
-.moment-jump a { display: inline-block; font-weight: 800; padding: 8px 16px; border: 3px solid var(--ink); border-radius: 999px; background: var(--yellow-soft); color: var(--ink); text-decoration: none; min-height: 48px; line-height: 26px; }
+.moment-jump ul { gap: 6px 18px; }
+/* Day names (Jesse, 2026-11-25): no pill boxes; the words with a brush mark of color behind them, a different color each */
+.moment-jump a { position: relative; display: inline-block; font-weight: 800; padding: 10px 8px; color: var(--ink); text-decoration: none; min-height: 48px; line-height: 28px; isolation: isolate; }
+.moment-jump a::before { content: ''; position: absolute; z-index: -1; left: -4px; right: -6px; top: 22%; bottom: 18%; background: var(--brush, #ffe08a);
+  border-radius: 46% 12% 38% 18% / 60% 30% 70% 40%; transform: rotate(-1.5deg) skewX(-6deg); opacity: .85; }
+.moment-jump li:nth-child(4n+2) a::before { --brush: #bfe3d0; transform: rotate(1.2deg) skewX(5deg); border-radius: 18% 44% 14% 40% / 40% 70% 30% 60%; }
+.moment-jump li:nth-child(4n+3) a::before { --brush: #f9c6c0; transform: rotate(-0.6deg) skewX(-3deg); }
+.moment-jump li:nth-child(4n+4) a::before { --brush: #cfe0f5; transform: rotate(1.8deg) skewX(4deg); border-radius: 30% 50% 20% 45% / 55% 35% 65% 45%; }
+.moment-jump a:hover::before, .moment-jump a:focus-visible::before { opacity: 1; }
 .moment { padding: 18px 0 8px; border-top: 3px dashed rgba(0, 0, 0, .15); scroll-margin-top: 90px; }
 .moment:first-child { border-top: 0; }
 .moment-head { margin-bottom: 16px; }
@@ -713,14 +721,16 @@ html.full-open { overflow: hidden; }
 
 /* The small ＋ on every page (Jesse, 2026-11-25): bottom right, out of the way, one tap to add. */
 .add-fab { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 40;
-  display: inline-flex; align-items: center; gap: 6px; min-height: 56px; min-width: 56px; padding: 0 18px 0 14px; border-radius: 999px;
-  background: var(--yellow, #ffd166); color: var(--ink, #2b2a33); border: 3px solid var(--ink, #2b2a33); box-shadow: 3px 4px 0 var(--ink, #2b2a33);
+  display: inline-flex; align-items: center; gap: 6px; min-height: 60px; min-width: 60px; padding: 0 22px 0 18px;
+  /* a dab of paint, not a pill (Jesse, 2026-11-25) */
+  border-radius: 62% 38% 55% 45% / 48% 60% 40% 52%; transform: rotate(-3deg);
+  background: var(--yellow, #ffd166); color: var(--ink, #2b2a33); border: 0; box-shadow: 0 3px 10px rgba(43, 42, 51, .22);
   font-family: var(--hand, inherit); font-weight: 700; font-size: 1.2rem; text-decoration: none; }
 .add-fab > span:first-child { font-size: 1.7rem; line-height: 1; font-weight: 800; }
-.add-fab:hover, .add-fab:focus-visible { transform: translateY(-1px); }
+.add-fab:hover, .add-fab:focus-visible { transform: rotate(-3deg) translateY(-1px); }
 .add-fab:focus-visible { outline: 3px dashed var(--plum, #6b3fa0); outline-offset: 4px; }
 .add-fab[hidden] { display: none; }
-@media (prefers-reduced-motion: reduce) { .add-fab:hover, .add-fab:focus-visible { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .add-fab:hover, .add-fab:focus-visible { transform: rotate(-3deg); } }
 .site-footer { padding-bottom: 88px; }
 html.has-fab .tab-add-li { display: none !important; }
 
@@ -818,3 +828,24 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .start .idea { border: 0; background: rgba(0, 0, 0, 0.05); }
 .start .idea[aria-pressed="true"] { background: var(--yellow); }
 .start .st-pin { border: 0; border-bottom: 2px solid #8a8178; border-radius: 0; background: transparent; }
+
+/* Share one picture or a day (studios batch 3) */
+.shared-page { padding-top: 8px; }
+.shared-h { margin: 8px 0 2px; }
+.shared-wait { color: #5d554d; }
+.shared-what { margin: 0; font-weight: 800; }
+.lightbox .lb-share, .pb-tools .pb-share { min-height: 52px; padding: 10px 20px; margin-top: 8px; border-radius: 999px; border: 3px solid var(--ink); background: #fff; color: var(--ink); font: 800 1.05rem var(--body); cursor: pointer; }
+.lightbox .lb-share[hidden], .pb-tools .pb-share[hidden] { display: none; }
+/* Pick several to share */
+.piece-open.is-picked, .photo-tile.is-picked { outline: 5px solid var(--plum); outline-offset: 2px; }
+.piece-open.is-picked::after, .photo-tile.is-picked::after { content: '✓'; position: absolute; top: 8px; left: 8px; width: 36px; height: 36px; border-radius: 50%; background: var(--plum); color: #fff; font: 800 1.3rem/36px var(--body); text-align: center; }
+.photo-tile { position: relative; }
+.pick-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: #fdf8ef; border-top: 3px solid var(--ink); }
+.pick-bar[hidden] { display: none; }
+.pick-count { font-weight: 800; }
+.picking .add-fab { display: none; }
+/* The one Share button's choices */
+.share-choices { display: grid; gap: 12px; margin: 10px 0 4px; }
+.share-choice { min-height: 56px; padding: 10px 18px; text-align: left; font: 800 1.15rem var(--body); color: var(--ink); background: #fff;
+  border: 3px solid var(--ink); border-radius: var(--wobble); box-shadow: 4px 4px 0 var(--ink); cursor: pointer; }
+.share-choice:hover, .share-choice:focus-visible { background: var(--yellow-soft); }

@@ -161,8 +161,7 @@
     $('#home-parents').href = STUDIO.main ? '/parent/' : '/' + STUDIO.slug + '/for-parents/';
     $('#home-parents').hidden = devKid();
     document.body.classList.toggle('dev-kid', devKid());
-    // Videos go to a studio's own Google Drive; until that is built, only Jesse's studio takes videos.
-    document.querySelectorAll('.vid-only').forEach(function (x) { x.hidden = !STUDIO.main; });
+    // Videos: every studio (each to its own Google Drive; studios batch 3).
   }
   // Family Moment: the studios it shows in (build spec). This studio is picked already; tap others to add them.
   var tags = [];
@@ -618,7 +617,7 @@
     try {
       if (!vid.job || vid.job.file !== f) {
         var st = await apiJSON('/api/videos/start', { event: ev ? ev.key : '', eventTitle: evTitle, eventDate: evDate, caption: $('#vid-caption').value.trim(),
-          date: evDate, type: f.type || 'video/mp4', size: f.size, seconds: info.seconds || 0, w: info.w || 0, h: info.h || 0, hevc: !!info.hevc });
+          date: evDate, type: f.type || 'video/mp4', size: f.size, studio: STUDIO.main ? undefined : STUDIO.slug, studios: !$('#tag-chips').hidden ? tags.slice() : undefined, seconds: info.seconds || 0, w: info.w || 0, h: info.h || 0, hevc: !!info.hevc });
         vid.job = { file: f, id: st.id, chunkSize: st.chunkSize, chunks: st.chunks, sent: {}, poster: false, live: false };
       }
       var J = vid.job, t0 = Date.now(), done0 = Object.keys(J.sent).length;
@@ -655,7 +654,7 @@
   async function vidList() {
     var ul = $('#vid-list');
     try {
-      var r = await fetch('/api/videos?all=1', { credentials: 'same-origin' });
+      var r = await fetch('/api/videos?all=1' + (STUDIO.main ? '' : studioQ('&')), { credentials: 'same-origin' });
       if (!r.ok) throw new Error(r.status);
       vid.list = (await r.json()).videos || [];
       fillEvents();
@@ -671,7 +670,7 @@
           b.disabled = true;
           try { await apiJSON('/api/videos/' + x.id + '/' + (x.deleted ? 'restore' : 'delete')); vidList(); } catch (e) { vidStatus(e.message, true); b.disabled = false; }
         });
-        box.append(b);
+        if (!devKid() && x.mine !== false) box.append(b);   // a studio phone: only its own videos (the list says which)
         if (x.ready && x.drive === 'failed') {
           var d = el('button', 'chip', 'Copy to Google Drive again'); d.type = 'button';
           d.addEventListener('click', function () { fetch('/api/videos-drive/' + x.id, { method: 'POST', credentials: 'same-origin' }); d.disabled = true; d.textContent = 'Copying…'; });

@@ -8,7 +8,8 @@ import { getStudio, MAIN } from '../lib/studios.mjs';
 import site from '../../content/site.json' with { type: 'json' };
 
 const OPEN = [/^\/login\/?$/, /^\/api\/login$/, /^\/s\/[A-Za-z0-9_-]+(\/.*)?$/, /^\/i\/[A-Za-z0-9_-]+$/, /^\/v\/[A-Za-z0-9_-]+$/, /^\/styles\.css$/, /^\/main\.js$/,
-  /^\/studio\.js$/, /^\/start\.js$/, /^\/start\/?$/, /^\/api\/studios\/create$/, /^\/assets\/fonts\//, /^\/assets\/brand\//, /^\/assets\/drawings\//, /^\/robots\.txt$/, /^\/favicon\.ico$/, /^\/api\/google\/callback$/];
+  /^\/studio\.js$/, /^\/start\.js$/, /^\/start\/?$/, /^\/api\/studios\/create$/, /^\/assets\/fonts\//, /^\/assets\/brand\//, /^\/assets\/drawings\//, /^\/robots\.txt$/, /^\/favicon\.ico$/,
+  /^\/shared\/?$/, /^\/shared\.js$/, /^\/api\/shared\/[A-Za-z0-9_-]+(\/.*)?$/, /^\/api\/google\/callback$/];
 // Jesse's studio's own pages, at the root.
 const ROOT = new Set(['', ...site.kids.map((k) => k.key), 'pet-parents', 'family-moments', 'households', 'parent', 'moments']);
 const ANY = new Set(['api', 'img', 'login', 'logout', 'i', 'v', 's', 'start', 'styles.css', 'main.js', 'studio.js', 'start.js', 'parent.js', 'robots.txt', 'favicon.ico', '404.html']);
