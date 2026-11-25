@@ -75,7 +75,8 @@ Priorities, in order (spec):
 - For parents needs the studio PIN; a trusted phone is remembered 30 days. Jesse's owner PIN opens every studio's For parents.
 - Share links (`/s/…`): open only what was shared; can be turned off.
 - Sharing one thing (`netlify/functions/shared.mjs`): 📤 Share in every picture viewer and under every video, and
-  📤 Share this day on a special day. Grown-up phones that add to the studio only (not kid mode, not View links); a
+  📤 Share this day on a special day, and ☑ Pick several to share at the top of a page (tap pictures, then 📤 Share:
+  one link for up to 60). Grown-up phones that add to the studio only (not kid mode, not View links); a
   household shares only what it may see, and a studio shares only its own things (not a day another studio tagged in). The
   link opens `/shared/?l=…` with no login and shows just that picture, video or day (a day link shows photos added
   later too; put-away pieces drop off). For parents → Shared pictures: opens, about how many phones, last opened, Turn
@@ -188,6 +189,7 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 
 | Date | What changed | PR |
 |---|---|---|
+| 2026-11-25 | Pick several to share (Jesse: yes): ☑ Pick several to share at the top of a page with pictures; tap to pick, one link for all. Previews stay name and logo; the phone-count cookie stays (Jesse: yes). | (this PR) |
 | 2026-11-25 | Studios batch 3b: share one picture, a video or a whole day by link (no login; opens, phones, last opened, off switch on For parents; heads-up at 20 phones) and Download everything as one zip on a studio's For parents. Tests first (`tests/studios.test.mjs`). | (this PR) |
 | 2026-11-25 | Studios batch 3b: videos for every family studio, kept in that studio's own Google Drive and shown on its Family Moments page; a View link can watch, never add. Test first (`tests/studios.test.mjs`). | (this PR) |
 | 2026-11-25 | First GitHub run (Safari's engine) found: photos could not be read where createImageBitmap is missing or refuses a file (older iPhones). App now falls back to a plain picture; a test covers it. Also: where a phone's storage will not keep photo files (Safari private browsing, WebKit), Save keeps the bytes instead; a test covers it. Look check waits for its first approved pictures instead of failing. | (this PR) |

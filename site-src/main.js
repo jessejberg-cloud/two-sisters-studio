@@ -973,3 +973,56 @@ TSS.exportStudio = function (sid) {
     go.disabled = false;
   });
 };
+
+// ---------- Pick several to share (Jesse, 2026-11-25: "yes"): tap ☑ Pick, tap pictures, Share. One link for them all ----------
+(function () {
+  'use strict';
+  function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
+  var main = document.getElementById('main');
+  if (!main || !TSS.mayShare || document.body.classList.contains('page-shared')) return;
+  var picked = [], on = false;
+  var bar = make('div', 'pick-bar'); bar.hidden = true; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Picked pictures');
+  var count = make('span', 'pick-count'), go = make('button', 'btn-big pick-go', '📤 Share'), stop = make('button', 'linkish pick-stop', 'Cancel');
+  go.type = stop.type = 'button'; bar.append(count, go, stop);
+  var btn = make('button', 'share-page pick-start', '☑ Pick several to share'); btn.type = 'button'; btn.hidden = true;
+  function idOf(el) {
+    var im = el.querySelector('img'), src = el.getAttribute('href') || (im && im.getAttribute('src')) || '';
+    var m = /^\/img\/([^/]+)\//.exec(src); return m ? decodeURIComponent(m[1]) : null;
+  }
+  function tiles() { return Array.prototype.filter.call(document.querySelectorAll('.piece-open, .photo-tile'), function (t) { return !!idOf(t); }); }
+  function draw() {
+    count.textContent = picked.length === 1 ? '1 picked' : picked.length + ' picked';
+    go.disabled = !picked.length;
+    tiles().forEach(function (t) { var yes = picked.indexOf(idOf(t)) !== -1; t.classList.toggle('is-picked', on && yes); t.setAttribute('aria-pressed', on ? String(yes) : ''); if (!on) t.removeAttribute('aria-pressed'); });
+  }
+  function start() { on = true; picked = []; bar.hidden = false; document.documentElement.classList.add('picking'); draw(); }
+  function end() { on = false; picked = []; bar.hidden = true; document.documentElement.classList.remove('picking'); draw(); }
+  btn.addEventListener('click', function () { if (on) end(); else start(); });
+  stop.addEventListener('click', end);
+  go.addEventListener('click', function () {
+    if (!picked.length) return;
+    TSS.shareItems({ ids: picked.slice(0, 60), label: picked.length === 1 ? 'this picture' : picked.length + ' pictures' });
+    end();
+  });
+  // While picking, a tap picks (both photos of a 3D piece count as one piece).
+  document.addEventListener('click', function (e) {
+    if (!on) return;
+    var t = e.target.closest('.piece-open, .photo-tile'); if (!t) return;
+    var id = idOf(t); if (!id) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    var i = picked.indexOf(id); if (i === -1) picked.push(id); else picked.splice(i, 1);
+    draw();
+  }, true);
+  TSS.mayShare.then(function (yes) {
+    if (!yes) return;
+    // Show the button once there are real pictures on the page (they load after the page).
+    var tries = 0, look = setInterval(function () {
+      if (tiles().length) {
+        clearInterval(look);
+        var anchor = main.querySelector('.share-page:not(.pick-start)') || main.querySelector('h1');
+        if (anchor) anchor.after(btn); else main.prepend(btn);
+        btn.hidden = false; document.body.append(bar);
+      } else if (++tries > 20) clearInterval(look);
+    }, 500);
+  });
+})();

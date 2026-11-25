@@ -827,3 +827,13 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .shared-what { margin: 0; font-weight: 800; }
 .lightbox .lb-share, .pb-tools .pb-share { min-height: 52px; padding: 10px 20px; margin-top: 8px; border-radius: 999px; border: 3px solid var(--ink); background: #fff; color: var(--ink); font: 800 1.05rem var(--body); cursor: pointer; }
 .lightbox .lb-share[hidden], .pb-tools .pb-share[hidden] { display: none; }
+/* Pick several to share */
+.pick-start { margin-left: 0; }
+.share-page { margin-right: 10px; }
+.piece-open.is-picked, .photo-tile.is-picked { outline: 5px solid var(--plum); outline-offset: 2px; }
+.piece-open.is-picked::after, .photo-tile.is-picked::after { content: '✓'; position: absolute; top: 8px; left: 8px; width: 36px; height: 36px; border-radius: 50%; background: var(--plum); color: #fff; font: 800 1.3rem/36px var(--body); text-align: center; }
+.photo-tile { position: relative; }
+.pick-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: #fdf8ef; border-top: 3px solid var(--ink); }
+.pick-bar[hidden] { display: none; }
+.pick-count { font-weight: 800; }
+.picking .add-fab { display: none; }
