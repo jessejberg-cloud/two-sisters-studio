@@ -65,3 +65,24 @@ test('an older phone without createImageBitmap (old iPhones) still saves art', a
   await page.goto('/leora/');
   await expect(page.locator('img[src*="/img/"]').first()).toBeVisible();
 });
+
+test('a phone whose storage will not keep photo files (Safari private browsing) still saves and sends', async ({ page }) => {
+  await page.addInitScript(() => {
+    const hasBlob = (v) => v instanceof Blob || (Array.isArray(v) ? v.some(hasBlob) : !!v && typeof v === 'object' && !(v instanceof ArrayBuffer) && Object.values(v).some(hasBlob));
+    const put = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (v, k) {
+      if (hasBlob(v)) throw new DOMException('Error preparing Blob/File data to be stored in object store', 'DataCloneError');
+      return put.call(this, v, k);
+    };
+  });
+  await login(page);
+  await page.goto('/upload/');
+  await page.click('[data-home=leora]');
+  await page.click('[data-pick=art]');
+  await page.setInputFiles('#pick', FILES.art);
+  await expect(page.locator('#save')).toBeEnabled();
+  await page.click('#save');
+  await waitAllSent(page);
+  await page.goto('/leora/');
+  await expect(page.locator('img[src*="/img/"]').first()).toBeVisible();
+});

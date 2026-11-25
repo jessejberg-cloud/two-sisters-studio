@@ -174,5 +174,5 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 
 | Date | What changed | PR |
 |---|---|---|
-| 2026-11-25 | First GitHub run (Safari's engine) found: photos could not be read where createImageBitmap is missing or refuses a file (older iPhones). App now falls back to a plain picture; a test covers it. Look check waits for its first approved pictures instead of failing. | (this PR) |
+| 2026-11-25 | First GitHub run (Safari's engine) found: photos could not be read where createImageBitmap is missing or refuses a file (older iPhones). App now falls back to a plain picture; a test covers it. Also: where a phone's storage will not keep photo files (Safari private browsing, WebKit), Save keeps the bytes instead; a test covers it. Look check waits for its first approved pictures instead of failing. | (this PR) |
 | 2026-11-25 | Guide started. Robot-phone tests (iPhone, Pixel, Fire tablet, computer) on a pretend site with fake Drive; intent and look checks; GitHub checks on every PR; guide check; reviewer agent; preview test with real Drive (needs Jesse's setup). Fixed: a new family's phone stuck on "Who?" after naming itself. | (this PR) |

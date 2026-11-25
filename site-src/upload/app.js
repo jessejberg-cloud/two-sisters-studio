@@ -38,13 +38,35 @@
     return db().then(function (d) {
       return new Promise(function (ok, no) {
         var t = d.transaction(name, mode), s = t.objectStore(name), out = fn(s);
-        t.oncomplete = function () { ok(out && out.result !== undefined ? out.result : out); }; t.onerror = function () { no(t.error); };
+        var fail = function () { no(t.error || new Error('This phone would not keep it.')); };
+        t.oncomplete = function () { ok(out && out.result !== undefined ? out.result : out); }; t.onerror = fail; t.onabort = fail;
       });
     });
   }
-  var put = function (name, v) { return tx(name, 'readwrite', function (s) { s.put(v); }); };
+  // Some browsers will not keep a photo file in this storage (Safari's private browsing, some WebKit builds): then the
+  // photos are kept as plain bytes and turned back into files when read. Nothing changes for browsers that keep files.
+  function packBlobs(v) {
+    if (v instanceof Blob) return v.arrayBuffer().then(function (b) { return { __blob: b, type: v.type, name: v.name || null }; });
+    if (Array.isArray(v)) return Promise.all(v.map(packBlobs));
+    if (v && typeof v === 'object' && !(v instanceof ArrayBuffer)) {
+      var keys = Object.keys(v);
+      return Promise.all(keys.map(function (k) { return packBlobs(v[k]); })).then(function (vals) { var o = {}; keys.forEach(function (k, i) { o[k] = vals[i]; }); return o; });
+    }
+    return Promise.resolve(v);
+  }
+  function unpackBlobs(v) {
+    if (v && v.__blob instanceof ArrayBuffer) return v.name ? new File([v.__blob], v.name, { type: v.type }) : new Blob([v.__blob], { type: v.type });
+    if (Array.isArray(v)) return v.map(unpackBlobs);
+    if (v && typeof v === 'object' && !(v instanceof Blob) && !(v instanceof ArrayBuffer)) { Object.keys(v).forEach(function (k) { v[k] = unpackBlobs(v[k]); }); }
+    return v;
+  }
+  var put = function (name, v) {
+    return tx(name, 'readwrite', function (s) { s.put(v); }).catch(function () {
+      return packBlobs(v).then(function (packed) { return tx(name, 'readwrite', function (s) { s.put(packed); }); });
+    });
+  };
   var del = function (name, id) { return tx(name, 'readwrite', function (s) { s.delete(id); }); };
-  var all = function (name) { return tx(name, 'readonly', function (s) { return s.getAll(); }); };
+  var all = function (name) { return tx(name, 'readonly', function (s) { return s.getAll(); }).then(unpackBlobs); };
 
   // ---------- screens ----------
   function show(id) { document.querySelectorAll('.screen').forEach(function (s) { s.hidden = s.id !== id; }); window.scrollTo(0, 0); }
@@ -1091,14 +1113,19 @@
   // Pictures turn by their EXIF on their own, like imageOrientation 'from-image'.
   async function decode(blob) {
     try { if (window.createImageBitmap) return await createImageBitmap(blob, { imageOrientation: 'from-image' }); } catch (e) {}
-    var url = URL.createObjectURL(blob);
-    try {
-      return await new Promise(function (ok, no) {
+    var load = function (src) {
+      return new Promise(function (ok, no) {
         var img = new Image();
         img.onload = function () { ok(img); };
         img.onerror = function () { no(new Error('This phone could not open that picture.')); };
-        img.src = url;
+        img.src = src;
       });
+    };
+    var url = URL.createObjectURL(blob);
+    try { return await load(url); }
+    catch (e) {   // last way: the picture's bytes written into the address itself
+      var data = await new Promise(function (ok, no) { var r = new FileReader(); r.onload = function () { ok(r.result); }; r.onerror = function () { no(r.error); }; r.readAsDataURL(blob); });
+      return await load(data);
     } finally { setTimeout(function () { URL.revokeObjectURL(url); }, 0); }
   }
   // ---------- web copies (made on the phone) ----------
