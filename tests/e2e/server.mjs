@@ -7,7 +7,8 @@
 //     so every browser engine (Safari's too) behaves as it would on the real site.
 //   - Pages and files come from dist/ (run `node tools/build.cjs` first), with netlify.toml's headers and studio fallback.
 // Start: node tests/e2e/server.mjs [port]   (Playwright starts it by itself, see playwright.config.mjs)
-// Test-only addresses: GET /__test/drive (what the fake Drive holds), POST /__test/reset (empty everything).
+// Test-only addresses: GET /__test/drive (what the fake Drive holds), POST /__test/reset (empty everything),
+// POST /__test/signal?on=0|1 (no signal: every other request is cut off, the way a phone in a dead zone sees it).
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -141,7 +142,7 @@ async function handle(req) {
   if (url.pathname === '/__test/drive') return Response.json({ ...drive, paths: drivePaths() });
   if (url.pathname === '/__test/reset' && req.method === 'POST') {
     for (const k of Object.keys(stores)) delete stores[k];
-    drive.files = []; drive.n = 0;
+    drive.files = []; drive.n = 0; signal = true;
     await connectDrive();
     return Response.json({ ok: true });
   }
@@ -166,7 +167,10 @@ async function handle(req) {
   return res;
 }
 
+let signal = true;
 http.createServer(async (nreq, nres) => {
+  if (nreq.url.startsWith('/__test/signal')) { signal = !nreq.url.includes('on=0'); nres.end('ok'); return; }
+  if (!signal && !nreq.url.startsWith('/__test/')) { nreq.socket.destroy(); return; }
   try {
     const url = `http://localhost:${PORT}${nreq.url}`;
     const hasBody = !['GET', 'HEAD'].includes(nreq.method);

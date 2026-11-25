@@ -14,9 +14,10 @@ const MIN_TAP = 44;   // Apple and WCAG 2.5.5 minimum; the app's own aim is 48 (
 
 for (const path of PAGES) {
   test(`intent: ${path}`, async ({ page }) => {
-    await login(page, undefined, path);
-    const res = await page.goto(path);
+    await login(page, undefined, path);   // the login sends the phone on to this page
+    await expect(page).toHaveURL(new RegExp(path.replace(/\//g, '\\/') + '$'));
     await settled(page);
+    const res = await page.request.get(path, { headers: { accept: 'text/html' } });
 
     // Private: never in Google (GUIDE: Privacy 1-2).
     expect(res.headers()['x-robots-tag'] || '', 'X-Robots-Tag header').toMatch(/noindex/);
