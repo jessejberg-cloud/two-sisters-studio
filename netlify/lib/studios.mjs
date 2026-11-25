@@ -25,7 +25,7 @@ export const GRADES = ['Pre-K', 'K4', 'K5', '1st grade', '2nd grade', '3rd grade
 // Addresses a studio can never take: every page and function of the site, and the root studio's own pages.
 export const RESERVED = new Set(['', MAIN, 'api', 's', 'i', 'v', 'img', 'assets', 'upload', 'login', 'logout', 'parent', 'for-parents',
   'studio', 'start', 'moments', 'family-moments', 'family-moment', 'households', 'pet-parents', 'robots', 'robots.txt',
-  'favicon.ico', 'styles.css', 'main.js', 'parent.js', 'studio.js', '404', 'new', 'admin', 'www', 'app', 'help', 'site', 'share',
+  'favicon.ico', 'styles.css', 'main.js', 'parent.js', 'studio.js', '404', 'new', 'admin', 'www', 'app', 'help', 'site', 'share', 'shared', 'shared.js', 'start.js',
   ...site.kids.map((k) => k.key)]);
 // Pages inside a studio, after /<slug>/: its kids, its Family Moment page, its For parents page.
 export const STUDIO_PAGES = ['family-moment', 'for-parents'];

@@ -392,3 +392,49 @@ test('For parents: Download everything lists every picture of the studio with a 
   assert.ok(Array.isArray(j.details) && j.details.some((d) => d.id === art.id && d.caption === 'A dog'));
   assert.equal(typeof j.bytes, 'number');
 });
+
+test('review fixes: a household shares only what it may see; a removed studio takes its links; same captions both kept; a phone sees its own put-away video', async () => {
+  const { default: shared } = await import('../netlify/functions/shared.mjs');
+  const { default: share } = await import('../netlify/functions/share.mjs');
+  const { store } = await import('../netlify/lib/store.mjs');
+  // A household (Grandma): Family Moments yes, a kid page Jesse did not tick no.
+  const house = { id: 'gma1', name: 'Grandma', pages: [], gen: 'g1', invite: 'x'.repeat(24), off: false };
+  await store('links', {}).setJSON('house/gma1', house);
+  const gma = `tss=${encodeURIComponent(await auth.makeHouseLogin(house))}`;
+  const kidArt = await save(family, { kid: 'amaya', section: 'art', caption: 'Hidden' });
+  assert.equal((await (await shared(post('/api/shared', gma, { ids: [kidArt.id] }), {})).json()).error, 'items');
+  const fm = await save(family, { kid: 'both', section: 'moments', event: { title: 'Picnic', date: '2026-11-22' } });
+  assert.ok((await (await shared(post('/api/shared', gma, { ids: [fm.id] }), {})).json()).ok);
+  // Same date and caption twice: both in the zip.
+  const twin = await save(phone, { studio: 'smith', kid: 'ava', section: 'art', caption: 'A dog' });
+  const par = jar(phone, await studios(post('/api/studio/smith/pin', phone, { pin: '5678' }), {}));
+  const ex = await (await studios(req('/api/studio/smith/export', par), {})).json();
+  const paths = ex.files.filter((f) => f.id === art.id || f.id === twin.id).map((f) => f.path);
+  assert.equal(new Set(paths).size, 2, JSON.stringify(paths));
+  // A removed studio: its links stop.
+  const one = await (await shared(post('/api/shared', phone, { studio: 'smith', ids: [art.id] }), {})).json();
+  assert.equal((await shared(req('/api/shared/' + one.link.id, ''), {})).status, 200);
+  const s = await store('studios', {}).get('s/smith', { type: 'json' });
+  assert.ok(s, 'studio record key');
+  await store('studios', {}).setJSON('s/smith', { ...s, off: true });
+  const { forget } = await import('../netlify/lib/studios.mjs'); if (forget) forget('smith');
+  assert.equal((await shared(req('/api/shared/' + one.link.id, ''), {})).status, 404);
+  assert.match((await share(req(new URL(one.link.url).pathname, ''), {})).headers.get('location'), /e=link/);
+  await store('studios', {}).setJSON('s/smith', s); if (forget) forget('smith');
+});
+
+test('a studio phone still lists its own put-away video, so it can bring it back', async () => {
+  const { default: videos } = await import('../netlify/functions/videos.mjs');
+  const inv = (await (await studios(post('/api/owner', owner, { do: 'invite', name: 'Lee' }), {})).json()).creates[0].url;
+  let p = jar('', await studios(req(new URL(inv).pathname, ''), {}));
+  const made = await studios(post('/api/studios/create', p, { name: 'Lee', pin: '7777', kids: [{ name: 'Mo' }] }), {});
+  p = jar(p, made); const mj = await made.json(); const sl = mj.studio.slug;
+  p = jar(p, await studios(post('/api/studio/' + sl + '/device', p, { name: 'Dad' }), {}));
+  const s = await (await videos(post('/api/videos/start', p, { studio: sl, eventTitle: 'Park', eventDate: '2026-11-20', size: 5, type: 'video/mp4' }), {})).json();
+  await videos(req('/api/videos/' + s.id + '/part/0', p, { method: 'POST', body: new Uint8Array(5) }), {});
+  await videos(post('/api/videos/' + s.id + '/finish', p, {}), {});
+  await videos(post('/api/videos/' + s.id + '/delete', p, {}), {});
+  const all = await (await videos(req('/api/videos?all=1&studio=' + sl, p), {})).json();
+  assert.ok(all.videos?.some((v) => v.id === s.id && v.deleted && v.mine === true), JSON.stringify([s, all]));
+  assert.ok(!(await (await videos(req('/api/videos?studio=' + sl, p), {})).json()).videos.some((v) => v.id === s.id), 'not on the page');
+});

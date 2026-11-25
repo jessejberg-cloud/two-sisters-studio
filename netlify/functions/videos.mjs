@@ -32,7 +32,7 @@ const TYPES = { 'video/mp4': 'mp4', 'video/quicktime': 'mov', 'video/webm': 'web
 export const pub = (v) => ({ id: v.id, event: v.event, eventTitle: v.eventTitle, eventDate: v.eventDate, caption: v.caption,
   date: v.date, type: v.type, size: v.size, seconds: v.seconds, w: v.w, h: v.h, hevc: !!v.hevc,
   poster: v.poster ? { w: v.poster.w, h: v.poster.h } : null, ready: !!v.ready, deleted: v.deleted || null, created: v.created,
-  drive: v.drive ? v.drive.state : null, from: v.from || null, ...(v.studio ? { studio: v.studio } : {}), ...(v.studios ? { studios: v.studios } : {}) });
+  drive: v.drive ? v.drive.state : null, from: v.from || null, by: v.by || null, ...(v.studio ? { studio: v.studio } : {}), ...(v.studios ? { studios: v.studios } : {}) });
 // A video's studio ('main' for Jesse's: older videos have none), and the studios whose Family Moments page shows it.
 export const studioOfV = (v) => v.studio || MAIN;
 export const tagsOfV = (v) => (Array.isArray(v.studios) && v.studios.length ? v.studios : [studioOfV(v)]);
@@ -82,7 +82,8 @@ async function handle(req, context) {
       const all = url.searchParams.get('all') && (family || mineKey);
       const list = (await readIndex(context)).filter((v) => tagsOfV(v).includes(askStudio))
         .filter((v) => (v.ready && !v.deleted) || (all && (family || v.by === 'd:' + mineKey.d)))
-        .sort((a, b) => (b.eventDate + b.date + b.created).localeCompare(a.eventDate + a.date + a.created));
+        .sort((a, b) => (b.eventDate + b.date + b.created).localeCompare(a.eventDate + a.date + a.created))
+        .map((v) => (mineKey && !owner ? { ...v, mine: v.by === 'd:' + mineKey.d } : v));   // the app shows Put away on this phone's own only
       return json({ videos: list });
     }
     const v = await getVideo(context, parts[0]);

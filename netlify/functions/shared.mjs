@@ -13,8 +13,8 @@ import { who, isParent, deviceKey, mayAdd } from '../lib/auth.mjs';
 import { randomId, sha256 } from '../lib/core.mjs';
 import { store } from '../lib/store.mjs';
 import { getStudio, getDevice, MAIN } from '../lib/studios.mjs';
-import { getPiece, readIndex, tagsOf, webName, printName } from '../lib/pieces.mjs';
-import { getVideo, tagsOfV, play } from './videos.mjs';
+import { getPiece, readIndex, studioOf, sectionOf, webName, printName } from '../lib/pieces.mjs';
+import { getVideo, studioOfV, play } from './videos.mjs';
 import { heads } from './studios.mjs';
 
 const json = (o, status = 200) => Response.json(o, { status, headers: { 'cache-control': 'no-store' } });
@@ -25,6 +25,13 @@ export const MANY = 20;   // phones on one link before a heads-up   // a selecti
 
 export const getShare = async (id, context) => (ID.test(id || '') ? store('links', context).get(KEY(id), { type: 'json' }) : null);
 export const shareOpen = (l) => !!l && !l.off;
+// Open, and its studio is still on (a studio Jesse turned off or removed takes its links with it).
+export async function shareLive(l, context) {
+  if (!shareOpen(l)) return false;
+  if (l.studio === MAIN) return true;
+  const st = await getStudio(l.studio, context);
+  return !!st && !st.off && !st.removed;
+}
 const putShare = (l, context) => store('links', context).setJSON(KEY(l.id), l);
 
 // Someone opened the link: one more open, this phone counted once (a random cookie, kept only as a short hash).
@@ -40,8 +47,14 @@ export async function countOpen(l, phoneId, context) {
   if (isNew && l.phones.length === MANY) await heads(l.studio, 'shared', { ref: l.id, n: MANY, title: l.title || '' }, context);
 }
 
-const pieceOk = (p, sid) => p && !p.deleted && !p.waiting && !p.purged && tagsOf(p).includes(sid);
-const videoOk = (v, sid) => v && v.ready && !v.deleted && tagsOfV(v).includes(sid);
+// Only the studio's own things: a Family Moment another studio tagged in stays that studio's to share.
+const pieceOk = (p, sid) => p && !p.deleted && !p.waiting && !p.purged && studioOf(p) === sid;
+const videoOk = (v, sid) => v && v.ready && !v.deleted && studioOfV(v) === sid;
+// A household on Jesse's studio shares only what it may see: Family Moments, its own photos, the pages Jesse ticked.
+const houseSees = (me, p) => me.role !== 'house' || sectionOf(p) === 'moments' || (sectionOf(p) === 'house' && p.house === me.house)
+  || (sectionOf(p) !== 'house' && (p.kid === 'both' ? ['leora', 'amaya'] : [p.kid]).some((k) => (me.pages || []).includes(k)));
+// Is this one piece or video on the link? (Checked for each picture, without rebuilding the whole link.)
+const onLink = (l, id, sec, event, isVideo) => (l.day ? event === l.day && (isVideo || sec === 'moments') : (l.ids || []).includes(isVideo ? 'v:' + id : id));
 const videoIndex = async (context) => (await store('videos', context).get('index', { type: 'json' })) || [];
 
 // What the link shows now: pieces (short form) and videos.
@@ -75,7 +88,7 @@ const videoOut = (v) => ({ kind: 'video', id: v.id, caption: v.caption || '', da
 async function sharer(me, sid, context) {
   if (!me || !mayAdd(me, sid) || me.role === 'kid') return null;
   if (sid === MAIN && me.role === 'family') return { by: 'Family' };
-  if (sid === MAIN && me.role === 'house') return { by: me.name || '' };
+  if (sid === MAIN && me.role === 'house') return { by: me.name || '', me };
   const dk = deviceKey(me, sid);
   if (!dk) return null;
   const d = await getDevice(dk.d, context);
@@ -98,8 +111,8 @@ export default async (req, context) => {
     const link = { id: randomId(12), kind: 'items', studio: sid, ids: [], day: null, title: String(b.title || '').slice(0, 80),
       created: new Date().toISOString(), by: s.by, device: s.device || null, opens: 0, phones: [], last: null, off: false };
     if (typeof b.day === 'string' && b.day) {
-      const hit = (await readIndex(context)).find((p) => p.event === b.day && p.section === 'moments' && !p.deleted)
-        || (await videoIndex(context)).find((v) => v.event === b.day && !v.deleted);
+      const hit = (await readIndex(context)).find((p) => p.event === b.day && p.section === 'moments' && !p.deleted && studioOf(p) === sid)
+        || (await videoIndex(context)).find((v) => v.event === b.day && !v.deleted && studioOfV(v) === sid);
       if (!hit) return json({ ok: false, error: 'day' });
       link.day = b.day;
       link.title = link.title || hit.eventTitle || '';
@@ -107,7 +120,9 @@ export default async (req, context) => {
     } else {
       for (const id of (Array.isArray(b.ids) ? b.ids : []).slice(0, MAX)) {
         if (typeof id !== 'string' || link.ids.includes(id)) continue;
-        const ok = id.startsWith('v:') ? videoOk(await getVideo(context, id.slice(2)), sid) : pieceOk(await getPiece(context, id), sid);
+        let ok;
+        if (id.startsWith('v:')) ok = videoOk(await getVideo(context, id.slice(2)), sid);
+        else { const p = await getPiece(context, id); ok = pieceOk(p, sid) && (!s.me || houseSees(s.me, p)); }
         if (ok) link.ids.push(id);
       }
       if (!link.ids.length) return json({ ok: false, error: 'items' });
@@ -139,23 +154,23 @@ export default async (req, context) => {
   if (req.method !== 'GET') return json({ error: 'method' }, 405);
 
   // ----- looking (no login: the link is the key) -----
-  if (!shareOpen(link)) return json({ error: 'off' }, 404);
-  const items = await itemsOf(link, context);
+  if (!(await shareLive(link, context))) return json({ error: 'off' }, 404);
   if (parts.length === 1) {
     const st = link.studio === MAIN ? null : await getStudio(link.studio, context);
-    return json({ title: link.title, date: link.date || '', studio: st ? st.name : '', items });
+    return json({ title: link.title, date: link.date || '', studio: st ? st.name : '', items: await itemsOf(link, context) });
   }
-  const item = items.find((x) => x.id === parts[2] && x.kind === (parts[1] === 'img' ? 'photo' : 'video'));
-  if (!item) return new Response('Not found', { status: 404 });
   if (parts[1] === 'img' && /^\d+$/.test(parts[3] || '')) {
+    const p = await getPiece(context, parts[2] || '');
+    if (!pieceOk(p, link.studio) || !onLink(link, p.id, sectionOf(p), p.event, false)) return new Response('Not found', { status: 404 });
     const n = +parts[3], images = store('images', context);
-    const got = (parts[4] === 'print' && (await images.getWithMetadata(printName(item.id, n), { type: 'arrayBuffer' })))
-      || (await images.getWithMetadata(webName(item.id, n, parts[4] === 'sm'), { type: 'arrayBuffer' }));
+    const got = (parts[4] === 'print' && (await images.getWithMetadata(printName(p.id, n), { type: 'arrayBuffer' })))
+      || (await images.getWithMetadata(webName(p.id, n, parts[4] === 'sm'), { type: 'arrayBuffer' }));
     if (!got) return new Response('Not found', { status: 404 });
     return new Response(got.data, { headers: { 'content-type': got.metadata?.type || 'image/webp', 'cache-control': 'private, max-age=3600' } });
   }
   if (parts[1] === 'video') {
-    const v = await getVideo(context, item.id);
+    const v = await getVideo(context, parts[2] || '');
+    if (!videoOk(v, link.studio) || !onLink(link, v.id, 'moments', v.event, true)) return new Response('Not found', { status: 404 });
     if (parts[3] === 'poster') {
       const got = v.poster && (await store('images', context).getWithMetadata('vid-' + v.id, { type: 'arrayBuffer' }));
       if (!got) return new Response('Not found', { status: 404 });

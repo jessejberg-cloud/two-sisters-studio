@@ -10,7 +10,7 @@
 import { isOwner, makeParentFor, checkLevel, kidLevel, GIRLS, setKidMoments, config as authConfig, generation, who, isParent, getLink, forgetLink, linkOpen, makeLogin, makeParent, changeLevel, isSetUp, friendsPasswordText, secret } from '../lib/auth.mjs';
 import { sign, randomId, setCookie, cookies, COOKIE, DAY, PAGES, LOGIN_DAYS, PARENT_MINUTES } from '../lib/core.mjs';
 import { store } from '../lib/store.mjs';
-import { getShare, shareOpen, countOpen } from './shared.mjs';
+import { getShare, shareLive, countOpen } from './shared.mjs';
 
 const json = (o, init = {}) => {
   const headers = new Headers(init.headers || {});
@@ -30,10 +30,10 @@ export default async (req, context) => {
     // A link to a few pictures or one day (shared.mjs): count the open, then the page that shows them. No login.
     const items = await getShare(parts[1], context);
     if (items) {
-      if (!shareOpen(items)) return Response.redirect(new URL('/login/?e=link', url), 303);
+      if (!(await shareLive(items, context))) return Response.redirect(new URL('/login/?e=link', url), 303);
       let phone = cookies(req)[PHONE];
       const h = new Headers({ location: '/shared/?l=' + items.id, 'cache-control': 'no-store' });
-      if (!/^[A-Za-z0-9_-]{16,30}$/.test(phone || '')) { phone = randomId(16); h.append('set-cookie', setCookie(PHONE, phone, { maxAge: 2 * 366 * 86400 })); }
+      if (!/^[A-Za-z0-9_-]{16,30}$/.test(phone || '')) { phone = randomId(16); h.append('set-cookie', setCookie(PHONE, phone, { maxAge: 366 * 86400, path: '/s/' })); }
       await countOpen(items, phone, context);
       return new Response(null, { status: 303, headers: h });
     }

@@ -31,7 +31,7 @@ Priorities, in order (spec):
 | Leora (3rd grade) and Amaya (K5) | Amazon Fire tablets (tablet app, a WebView of the live site) | My art / A snapshot; waits for a parent's OK |
 | Grandma and relatives | iPhones mostly | Look; add to their own studio and to Family Moments |
 | Other families | Their own phones | Their own studio at twosistersstudio.com/name, set up alone |
-| Viewers | Any browser | Look only, through a View link |
+| Viewers | Any browser | Look only, through a View link, or a shared link (one picture, video or day) |
 
 ## 3. Rules that never change
 
@@ -75,10 +75,12 @@ Priorities, in order (spec):
 - For parents needs the studio PIN; a trusted phone is remembered 30 days. Jesse's owner PIN opens every studio's For parents.
 - Share links (`/s/…`): open only what was shared; can be turned off.
 - Sharing one thing (`netlify/functions/shared.mjs`): 📤 Share in every picture viewer and under every video, and
-  📤 Share this day on a special day. Grown-up phones that add to the studio only (not kid mode, not View links). The
+  📤 Share this day on a special day. Grown-up phones that add to the studio only (not kid mode, not View links); a
+  household shares only what it may see, and a studio shares only its own things (not a day another studio tagged in). The
   link opens `/shared/?l=…` with no login and shows just that picture, video or day (a day link shows photos added
   later too; put-away pieces drop off). For parents → Shared pictures: opens, about how many phones, last opened, Turn
-  off / Turn back on. 20 phones on one link raises a heads-up.
+  off / Turn back on. 20 phones on one link raises a heads-up. A studio turned off or removed takes its links with it.
+  Counting phones uses one random cookie (`tssx`, only on `/s/`, one year), kept on the server as a short hash.
 
 **Adding (the app, `/upload/`)**
 - Home: one big button per artist, then Family Moments. Then Artwork / A snapshot / the studio's categories / A video.
@@ -89,7 +91,8 @@ Priorities, in order (spec):
 - PDFs can be art (page 1 is the picture). Episodes: Jesse's studio only, for now.
 - Videos (A video, or a special day): every studio. The video plays from the site and is copied into that studio's own
   Google Drive (`Family Moments/<date title>/`). It shows on that studio's Family Moments page. The phone that sent it can
-  put it away (not a kid-mode phone); so can the studio's parents.
+  put it away and bring it back from the app's video list (not a kid-mode phone); so can the studio's parents. A video
+  on a special day shows in the studios ticked for that day, like its photos.
 - Quick capture: hold the app icon (Android) for Take a picture (last artist and category) or A special day; ⚡ on the
   app home opens straight on the camera every time (useful on iPhone).
 

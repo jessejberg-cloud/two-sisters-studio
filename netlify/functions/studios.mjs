@@ -276,7 +276,7 @@ async function handle(req, context) {
     const names = Object.fromEntries((s.main ? [] : s.kids || []).map((k) => [k.key, k.name]));
     const nameOf = (k) => names[k] || KIDS[k] || (k === 'both' ? 'Together' : k);
     const safe = (x) => String(x || '').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
-    const files = [], details = [];
+    const files = [], details = [], used = new Set();
     for (const p of await readIndex(context)) {
       if (p.deleted || p.waiting || p.purged || !tagsOf(p).includes(s.slug)) continue;
       const sec = sectionOf(p);
@@ -284,7 +284,13 @@ async function handle(req, context) {
         : sec === 'house' ? `Family/${safe(p.from || 'Family')}`
         : `${safe(nameOf(p.kid))}/${sec === 'photos' ? 'Snapshots' : sec === 'cat' ? safe(p.catName || 'Other') : 'Artwork'}`;
       const base = `${p.date}_${slug(p.caption, 6) === 'untitled' ? p.id : slug(p.caption, 6)}`;
-      p.photos.forEach((ph) => files.push({ id: p.id, n: ph.n, path: `${folder}/${base}${p.photos.length > 1 ? '-' + ph.n : ''}`, url: `/img/${p.id}/${ph.n}${ph.print ? '/print' : ''}` }));
+      p.photos.forEach((ph) => {
+        const one = `${folder}/${base}${p.photos.length > 1 ? '-' + ph.n : ''}`;
+        let path = one;
+        for (let k = 2; used.has(path); k++) path = `${one}-${k}`;   // the same day and caption twice: both kept
+        used.add(path);
+        files.push({ id: p.id, n: ph.n, path, url: `/img/${p.id}/${ph.n}${ph.print ? '/print' : ''}` });
+      });
       details.push({ id: p.id, artist: sec === 'moments' || sec === 'house' ? null : nameOf(p.kid), section: sec, category: p.catName || null, date: p.date,
         caption: p.caption || '', grade: p.grade || null, day: p.event ? { title: p.eventTitle, date: p.eventDate } : null, by: p.byName || p.from || null });
     }

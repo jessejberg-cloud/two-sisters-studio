@@ -16,7 +16,7 @@
     $('#shared-wait').hidden = true;
     var title = j.title || (j.studio ? j.studio : 'Pictures');
     $('#shared-h').textContent = title;
-    document.title = title + ' · Two Sisters Studio';
+    document.title = title + ' · ' + (j.studio || 'Two Sisters Studio');
     $('#shared-date').textContent = j.title && j.date ? nice(j.date) : '';
     var grid = $('#shared-grid'), vids = $('#shared-videos'), slides = [];
     if (!j.items.length) { $('#shared-off').textContent = 'Nothing here right now.'; $('#shared-off').hidden = false; }

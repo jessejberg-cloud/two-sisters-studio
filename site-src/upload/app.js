@@ -617,7 +617,7 @@
     try {
       if (!vid.job || vid.job.file !== f) {
         var st = await apiJSON('/api/videos/start', { event: ev ? ev.key : '', eventTitle: evTitle, eventDate: evDate, caption: $('#vid-caption').value.trim(),
-          date: evDate, type: f.type || 'video/mp4', size: f.size, studio: STUDIO.main ? undefined : STUDIO.slug, seconds: info.seconds || 0, w: info.w || 0, h: info.h || 0, hevc: !!info.hevc });
+          date: evDate, type: f.type || 'video/mp4', size: f.size, studio: STUDIO.main ? undefined : STUDIO.slug, studios: !$('#tag-chips').hidden ? tags.slice() : undefined, seconds: info.seconds || 0, w: info.w || 0, h: info.h || 0, hevc: !!info.hevc });
         vid.job = { file: f, id: st.id, chunkSize: st.chunkSize, chunks: st.chunks, sent: {}, poster: false, live: false };
       }
       var J = vid.job, t0 = Date.now(), done0 = Object.keys(J.sent).length;
@@ -670,7 +670,7 @@
           b.disabled = true;
           try { await apiJSON('/api/videos/' + x.id + '/' + (x.deleted ? 'restore' : 'delete')); vidList(); } catch (e) { vidStatus(e.message, true); b.disabled = false; }
         });
-        if (!devKid()) box.append(b);
+        if (!devKid() && x.mine !== false) box.append(b);   // a studio phone: only its own videos (the list says which)
         if (x.ready && x.drive === 'failed') {
           var d = el('button', 'chip', 'Copy to Google Drive again'); d.type = 'button';
           d.addEventListener('click', function () { fetch('/api/videos-drive/' + x.id, { method: 'POST', credentials: 'same-origin' }); d.disabled = true; d.textContent = 'Copying…'; });
