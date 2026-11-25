@@ -7,3 +7,6 @@ incoming/
 tablet-app/.gradle/
 tablet-app/build/
 tablet-app/app/build/
+screens/
+test-results/
+playwright-report/

@@ -38,13 +38,35 @@
     return db().then(function (d) {
       return new Promise(function (ok, no) {
         var t = d.transaction(name, mode), s = t.objectStore(name), out = fn(s);
-        t.oncomplete = function () { ok(out && out.result !== undefined ? out.result : out); }; t.onerror = function () { no(t.error); };
+        var fail = function () { no(t.error || new Error('This phone would not keep it.')); };
+        t.oncomplete = function () { ok(out && out.result !== undefined ? out.result : out); }; t.onerror = fail; t.onabort = fail;
       });
     });
   }
-  var put = function (name, v) { return tx(name, 'readwrite', function (s) { s.put(v); }); };
+  // Some browsers will not keep a photo file in this storage (Safari's private browsing, some WebKit builds): then the
+  // photos are kept as plain bytes and turned back into files when read. Nothing changes for browsers that keep files.
+  function packBlobs(v) {
+    if (v instanceof Blob) return v.arrayBuffer().then(function (b) { return { __blob: b, type: v.type, name: v.name || null }; });
+    if (Array.isArray(v)) return Promise.all(v.map(packBlobs));
+    if (v && typeof v === 'object' && !(v instanceof ArrayBuffer)) {
+      var keys = Object.keys(v);
+      return Promise.all(keys.map(function (k) { return packBlobs(v[k]); })).then(function (vals) { var o = {}; keys.forEach(function (k, i) { o[k] = vals[i]; }); return o; });
+    }
+    return Promise.resolve(v);
+  }
+  function unpackBlobs(v) {
+    if (v && v.__blob instanceof ArrayBuffer) return v.name ? new File([v.__blob], v.name, { type: v.type }) : new Blob([v.__blob], { type: v.type });
+    if (Array.isArray(v)) return v.map(unpackBlobs);
+    if (v && typeof v === 'object' && !(v instanceof Blob) && !(v instanceof ArrayBuffer)) { Object.keys(v).forEach(function (k) { v[k] = unpackBlobs(v[k]); }); }
+    return v;
+  }
+  var put = function (name, v) {
+    return tx(name, 'readwrite', function (s) { s.put(v); }).catch(function () {
+      return packBlobs(v).then(function (packed) { return tx(name, 'readwrite', function (s) { s.put(packed); }); });
+    });
+  };
   var del = function (name, id) { return tx(name, 'readwrite', function (s) { s.delete(id); }); };
-  var all = function (name) { return tx(name, 'readonly', function (s) { return s.getAll(); }); };
+  var all = function (name) { return tx(name, 'readonly', function (s) { return s.getAll(); }).then(unpackBlobs); };
 
   // ---------- screens ----------
   function show(id) { document.querySelectorAll('.screen').forEach(function (s) { s.hidden = s.id !== id; }); window.scrollTo(0, 0); }
@@ -772,7 +794,7 @@
 
   // A small picture fingerprint (difference hash, 64 bits): the same photo picked twice gives nearly the same one.
   async function fingerprint(blob) {
-    var b = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    var b = await decode(blob);
     var c = document.createElement('canvas'); c.width = 9; c.height = 8;
     var g = c.getContext('2d'); g.drawImage(b, 0, 0, 9, 8); b.close && b.close();
     var d = g.getImageData(0, 0, 9, 8).data, bits = '', hex = '';
@@ -1012,7 +1034,7 @@
   async function render(ph) {
     var e = ph.edit, quad = e.orig ? null : e.quad, light = !e.orig && e.light;   // Use the original keeps only the turn
     if (!quad && !light && !e.rot) { ph.edited = null; URL.revokeObjectURL(ph.url); ph.url = URL.createObjectURL(ph.file); return; }
-    var bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' }), cv;
+    var bmp = await decode(ph.file), cv;
     if (quad) cv = straighten(bmp, quad);
     else {
       var s = Math.min(1, 4000 / Math.max(bmp.width, bmp.height)); cv = document.createElement('canvas');
@@ -1032,7 +1054,7 @@
   async function autoScan(ph) {
     ph.working = true; renderList();
     try {
-      var bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' });
+      var bmp = await decode(ph.file);
       var found = findPaper(bmp); bmp.close && bmp.close();
       if (found && !ph.edit.quad && !ph.edit.rot) { ph.edit.quad = found.quad; ph.edit.light = found.light; ph.fixed = true; await render(ph); }
     } catch (e) { /* stays as taken */ }
@@ -1062,7 +1084,7 @@
   }
   async function openEditor(ph) {
     ed.ph = ph; ed.quad = (ph.edit.quad || FULL()).map(function (p) { return p.slice(); });
-    try { ed.bmp = await createImageBitmap(ph.file, { imageOrientation: 'from-image' }); }
+    try { ed.bmp = await decode(ph.file); }
     catch (e) { status('This photo can’t be fixed up here, but it can still be saved.', true); return; }
     show('s-edit'); edDraw();
   }
@@ -1086,10 +1108,30 @@
   });
   window.addEventListener('resize', function () { if (!$('#s-edit').hidden && ed.bmp) edDraw(); });
 
+  // A photo as something a canvas can draw. createImageBitmap first; where a browser cannot read the file that way
+  // (older iPhones have no createImageBitmap; some WebKit builds refuse a Blob), a plain picture does the same job.
+  // Pictures turn by their EXIF on their own, like imageOrientation 'from-image'.
+  async function decode(blob) {
+    try { if (window.createImageBitmap) return await createImageBitmap(blob, { imageOrientation: 'from-image' }); } catch (e) {}
+    var load = function (src) {
+      return new Promise(function (ok, no) {
+        var img = new Image();
+        img.onload = function () { ok(img); };
+        img.onerror = function () { no(new Error('This phone could not open that picture.')); };
+        img.src = src;
+      });
+    };
+    var url = URL.createObjectURL(blob);
+    try { return await load(url); }
+    catch (e) {   // last way: the picture's bytes written into the address itself
+      var data = await new Promise(function (ok, no) { var r = new FileReader(); r.onload = function () { ok(r.result); }; r.onerror = function () { no(r.error); }; r.readAsDataURL(blob); });
+      return await load(data);
+    } finally { setTimeout(function () { URL.revokeObjectURL(url); }, 0); }
+  }
   // ---------- web copies (made on the phone) ----------
   function toBlob(c, type, q) { return new Promise(function (ok) { c.toBlob(ok, type, q); }); }
   async function webCopies(blob) {
-    var b = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    var b = await decode(blob);
     var out = {};
     for (var size of [1600, 640]) {
       var s = Math.min(1, size / Math.max(b.width, b.height)), c = document.createElement('canvas');
@@ -1105,7 +1147,7 @@
 
   // Family Moments: a print-size copy (3000px JPEG) for "Download all" and photo books.
   async function printCopy(blob) {
-    var b = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    var b = await decode(blob);
     var s = Math.min(1, 3000 / Math.max(b.width, b.height)), c = document.createElement('canvas');
     c.width = Math.round(b.width * s); c.height = Math.round(b.height * s);
     var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height); g.drawImage(b, 0, 0, c.width, c.height);
@@ -1136,7 +1178,7 @@
       clearPieces(); renderList();
       status('Saved ' + n + (kidMode() || state.day ? ' photo' : ' piece') + (n > 1 ? 's' : '') + ' on this ' + (kidMode() ? 'tablet' : 'phone') + '.' + (navigator.onLine ? ' Sending…' : ' They will go up next time there is signal.'));
       sendOutbox();
-    } catch (e) { status('Could not save on this phone: ' + e.message, true); }
+    } catch (e) { status('Could not save on this phone: ' + ((e && e.message) || 'something went wrong'), true); }
     btn.disabled = !state.pieces.length;
   });
 
@@ -1252,8 +1294,8 @@
         : 'All sent! ' + (done === 1 ? 'It is' : 'They are') + (state.day ? ' on the Family Moments page now.' : ' on the site now.'));
       outboxErr = '';
     } catch (e) {
-      outboxErr = e.message;
-      status((done ? done + ' sent. ' : '') + e.message + ' The rest are still saved on this phone.', true);
+      outboxErr = (e && e.message) || 'Something went wrong.';
+      status((done ? done + ' sent. ' : '') + outboxErr + ' The rest are still saved on this phone.', true);
     }
     sending = false; refreshOutbox();
   }

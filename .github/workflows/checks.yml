@@ -1,0 +1,68 @@
+# Checks every pull request (and main) before anything can go live. A red X means: do not merge yet.
+#   1. Server tests (npm test), the privacy audit, the file-metadata check, the guide check.
+#   2. Robot phones (Playwright): iPhone (Safari's engine), Pixel, Fire tablet, computer, on a pretend site with
+#      fake Google Drive and fake storage (tests/e2e/server.mjs). The look is compared with the approved pictures.
+# The report (with pictures of anything that failed) is under the run's "Artifacts".
+name: Checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  tests:
+    name: Tests, audit and guide
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - run: npm ci
+      - name: Server tests
+        run: npm test
+      - name: Build and privacy audit
+        run: node tools/build.cjs && node tools/audit.cjs
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: No hidden data in pictures and audio
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+          python -m pip install -q pillow
+          python tools/add.py check
+      - name: The guide was kept up to date
+        if: github.event_name == 'pull_request'
+        run: node tools/check-guide.mjs origin/${{ github.base_ref }}
+
+  phones:
+    name: Robot phones
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - run: npm ci
+      - name: Browsers
+        run: npx playwright install --with-deps chromium webkit
+      - name: Build
+        run: node tools/build.cjs
+      - name: Phones, intent and look
+        run: npx playwright test
+        env: { VISUAL: '1' }
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phone-report
+          path: |
+            playwright-report/
+            test-results/
+            tests/e2e/approved/
+          retention-days: 14
