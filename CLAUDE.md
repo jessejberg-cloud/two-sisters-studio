@@ -194,3 +194,9 @@ python3 -m http.server 5190 --directory dist     # local preview
   or a Family Moments day (shared, labelled "from Grandma"); videos to a day too. They cannot edit, delete or see Recent uploads.
 - iPhone: no Share-into-app on iOS. A Home Screen app may not share Safari's login, so the login page accepts the pasted invite link.
 - Tests: tests/houses.test.mjs. Screenshots: /mnt/project-files/two-sisters-studio/batch4/.
+
+## The small + on every page (Jesse, 2026-11-25)
+- A round **＋ Add** button at the bottom right of every site page (not For parents, not login), for family phones, households and the
+  girls' tablets; never for friends on a share link (main.js). It opens the app on that page's screen: `/upload/?add=art&kid=leora`,
+  `?add=day` (Family Moments), `?add=episode` (Pet Parents), `?add=house` (More family); `jumpTo()` in app.js. Households: My photos or
+  the special day; a girl's tablet: her My art / A snapshot screen. Where it shows, the Add art tab is hidden (top row stays roomy).

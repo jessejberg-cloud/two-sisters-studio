@@ -124,6 +124,22 @@ window.TSS = (function () {
   document.documentElement.classList.add('is-friend');
 })();
 
+// ---------- the small ＋ on every page (Jesse, 2026-11-25): family phones, households and the girls' tablets ----------
+(function () {
+  var fab = document.querySelector('.add-fab'), root = document.documentElement;
+  if (!fab) return;
+  var house = root.classList.contains('is-house'), kid = root.classList.contains('is-kid');
+  if (root.classList.contains('is-friend') && !house && !kid) return;   // a friend on a share link: look only
+  var add = fab.dataset.add || '';
+  if (kid) fab.href = '/upload/';                                       // her tablet opens on My art / A snapshot
+  if (house) fab.href = '/upload/' + (add === '?add=day' ? '?add=day' : '?add=house');
+  if (house) fab.querySelector('.add-fab-label').textContent = 'Add photos';
+  fab.setAttribute('aria-label', house ? 'Add photos' : kid ? 'Add a picture' : add === '?add=day' ? 'Add photos or a video to a special day'
+    : add === '?add=episode' ? 'Add a podcast episode' : /kid=/.test(add) ? 'Add art for this page' : 'Add something');
+  fab.hidden = false;
+  root.classList.add('has-fab');   // the ＋ replaces the Add art tab, so the top row stays roomy
+})();
+
 // ---------- More family: the tab, and the page of each household's own photos (Jesse, 2026-11-25) ----------
 // A household's phone: the tab is "<name>'s photos". A family phone: "More family", once there is a household.
 (function () {

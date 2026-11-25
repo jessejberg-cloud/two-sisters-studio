@@ -710,3 +710,16 @@ html.full-open { overflow: hidden; }
 .ed-lines polygon { fill: rgba(255, 214, 102, .18); stroke: #fff; stroke-width: 3; paint-order: stroke; filter: drop-shadow(0 0 1.5px #1d1a24); }
 .ed-dot { position: absolute; width: 44px; height: 44px; margin: -22px 0 0 -22px; border: 3px solid var(--ink); border-radius: 50%; background: rgba(255, 214, 102, .85); touch-action: none; cursor: grab; box-sizing: border-box; }
 .ed-dot::after { content: ""; position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--ink); }
+
+/* The small ＋ on every page (Jesse, 2026-11-25): bottom right, out of the way, one tap to add. */
+.add-fab { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 40;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 56px; min-width: 56px; padding: 0 18px 0 14px; border-radius: 999px;
+  background: var(--yellow, #ffd166); color: var(--ink, #2b2a33); border: 3px solid var(--ink, #2b2a33); box-shadow: 3px 4px 0 var(--ink, #2b2a33);
+  font-family: var(--hand, inherit); font-weight: 700; font-size: 1.2rem; text-decoration: none; }
+.add-fab > span:first-child { font-size: 1.7rem; line-height: 1; font-weight: 800; }
+.add-fab:hover, .add-fab:focus-visible { transform: translateY(-1px); }
+.add-fab:focus-visible { outline: 3px dashed var(--plum, #6b3fa0); outline-offset: 4px; }
+.add-fab[hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { .add-fab:hover, .add-fab:focus-visible { transform: none; } }
+.site-footer { padding-bottom: 88px; }
+html.has-fab .tab-add-li { display: none !important; }

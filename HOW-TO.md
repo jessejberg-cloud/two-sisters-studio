@@ -11,6 +11,9 @@ Plain steps for Jesse. The site is **twosistersstudio.com**. Claude does the tec
   They see only the pages on their link, and never the Add art app.
 
 ## Add art
+Shortcut: every page has a small **＋ Add** button at the bottom right. It opens the app on the right screen for that page
+(Leora's art on Leora's page, a special day on Family Moments, an episode on Pet Parents).
+
 1. On your phone, open the **Add art** app (twosistersstudio.com/upload/, or its home-screen icon).
 2. Tap **Art** (or **A snapshot** for a photo one of the girls took), then **Leora**, **Amaya**, or **Both, made together**.
 3. Tap **Take a photo** or **Choose photos** (several at once). Or start in **Google Photos**: open a picture,

@@ -1170,7 +1170,17 @@
 
   // ---------- start ----------
   show('s-kid');
-  startKidMode().then(function (kid) { if (!kid) showWaitingBar(); });
+  startKidMode().then(function (kid) { if (!kid) showWaitingBar(); jumpTo(); });
+  // The ＋ on a site page (Jesse, 2026-11-25) opens the app straight on that page's screen: ?add=art&kid=leora, day, episode, house.
+  function jumpTo() {
+    var q = new URLSearchParams(location.search), add = q.get('add'), k = q.get('kid');
+    if (!add || kidMode()) return;
+    try { history.replaceState(null, '', '/upload/' + (q.get('welcome') ? '?welcome=1' : '')); } catch (e) {}
+    if (houseMode()) { var hb = document.querySelector('[data-housewhat="' + (add === 'day' ? 'day' : 'house') + '"]'); if (hb) hb.click(); return; }
+    if (add === 'day') openVideo();
+    else if (add === 'episode') openEpisode();
+    else if (add === 'art' && cfg.kids[k]) { state.section = 'art'; setKid(k); }
+  }
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/upload/sw.js', { scope: '/upload/' }).catch(function () {});
   takeShared().then(moveOldOutbox).then(refreshOutbox).then(sendOutbox);
 })();
