@@ -61,6 +61,37 @@
   var IN_APP = / TwoSistersApp\//.test(navigator.userAgent);
   if (IN_APP) document.body.classList.add('in-app');
   function kidMode() { return !!(state.me && state.me.role === 'kid'); }
+  // A household's phone (Grandma's, from an invite link; Jesse, 2026-11-25): My photos (their own page) or A special day.
+  function houseMode() { return !!(state.me && state.me.role === 'house'); }
+  var HM = function () { return houseMode() ? ' house-mode' : ''; };
+  function startHouseMode() {
+    var name = state.me.name || 'Family', q = new URLSearchParams(location.search), inv = (/[#&]i=([A-Za-z0-9_-]+)/.exec(location.hash) || [])[1];
+    document.body.className = 'up c-sky house-mode' + (IN_APP ? ' in-app' : '');
+    $('#house-own').textContent = name + '’s photos';
+    if (q.get('welcome')) {
+      $('#welcome').hidden = false; $('#welcome-name').textContent = ', ' + name;
+      var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      var installed = window.navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+      $('#ios-tip').hidden = !(ios && !installed);
+      $('#copy-invite').hidden = !inv;
+      $('#copy-invite').addEventListener('click', function () {
+        var b = this, link = location.origin + '/i/' + inv;
+        (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(function () { b.textContent = '✓ Copied'; }, function () { b.textContent = link; });
+      });
+      try { history.replaceState(null, '', '/upload/'); } catch (e) {}
+    }
+    show('s-househome');
+  }
+  document.querySelectorAll('[data-housewhat]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      if (b.dataset.housewhat === 'day') { openVideo(); return; }
+      state.kid = 'both'; state.section = 'house'; state.day = null;
+      $('#who').textContent = (state.me.name || 'Family') + '’s photos';
+      $('#date').value = today();
+      document.body.className = 'up c-sky day-mode house-mode house-own' + (IN_APP ? ' in-app' : '');
+      status(''); renderList(); show('s-photos');
+    });
+  });
   function setWhere(w) {
     state.section = w;
     document.querySelectorAll('[data-where]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.where === w)); });
@@ -68,6 +99,7 @@
   document.querySelectorAll('[data-where]').forEach(function (b) { b.addEventListener('click', function () { setWhere(b.dataset.where); }); });
   async function startKidMode() {
     try { state.me = await (await fetch('/api/whoami', { credentials: 'same-origin' })).json(); } catch (e) { state.me = null; }
+    if (houseMode()) { startHouseMode(); return true; }
     if (!kidMode() || !cfg.kids[state.me.kid]) return false;
     $('#kid-page').href = '/' + state.me.kid + '/';
     document.querySelectorAll('.kid-page').forEach(function (a) { a.href = '/' + state.me.kid + '/'; });
@@ -250,7 +282,7 @@
   $('#vid-event').addEventListener('change', function () { vid.picked = true; $('#vid-new').hidden = $('#vid-event').value !== ''; });
   function openVideo() {
     if (!$('#vid-event-date').value) $('#vid-event-date').value = today();
-    document.body.className = 'up c-yellow' + (IN_APP ? ' in-app' : '');
+    document.body.className = 'up c-yellow' + HM() + (IN_APP ? ' in-app' : '');
     vidStatus(''); dayStatus(''); fillEvents(); show('s-video'); vidList(); dayList();
   }
   // The special days that already have photos from the app, so new photos and videos can join them.
@@ -287,13 +319,13 @@
     state.kid = 'both'; state.section = 'moments'; state.day = day;
     $('#who').textContent = '❤️ ' + day.title;
     $('#date').value = day.date;
-    document.body.className = 'up c-yellow day-mode' + (IN_APP ? ' in-app' : '');
+    document.body.className = 'up c-yellow day-mode' + HM() + (IN_APP ? ' in-app' : '');
     status(''); show('s-photos');
     addFiles(files);
   });
   $('#vid-back').addEventListener('click', function () {
     if (vid.busy && !confirm('The video is still sending. Leave anyway? You can send it again later.')) return;
-    show('s-kid');
+    if (houseMode()) { document.body.className = 'up c-sky house-mode' + (IN_APP ? ' in-app' : ''); show('s-househome'); } else show('s-kid');
   });
   // Videos in the newer "high efficiency" (HEVC) format play on most phones but may not play on the Fire tablets.
   async function isHevc(f) {
@@ -427,7 +459,7 @@
     if (state.pieces.length && !confirm('Leave without saving these pictures?')) return;
     var wasDay = !!state.day;
     clearPieces(); state.day = null;
-    if (wasDay) openVideo(); else if (kidMode()) show('s-kidhome'); else { show('s-kid'); refreshOutbox(); }
+    if (wasDay) openVideo(); else if (kidMode()) show('s-kidhome'); else if (houseMode()) show('s-househome'); else { show('s-kid'); refreshOutbox(); }
   });
   function clearPieces() {
     state.pieces.forEach(function (p) { p.photos.forEach(function (ph) { URL.revokeObjectURL(ph.url); }); });
@@ -616,7 +648,7 @@
       var inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment');
       inp.addEventListener('change', function () { addFiles(inp.files, p); inp.value = ''; });
       more.append(inp, el('span', null, '＋ Another photo of this piece'));
-      var cap = el('input'); cap.type = 'text'; cap.placeholder = state.day ? 'A few words (optional)' : kidMode() ? 'What is it? (you can skip this)' : 'Caption, in their own words (optional)';
+      var cap = el('input'); cap.type = 'text'; cap.placeholder = state.day || houseMode() ? 'A few words (optional)' : kidMode() ? 'What is it? (you can skip this)' : 'Caption, in their own words (optional)';
       cap.value = p.caption; cap.maxLength = 140; cap.setAttribute('aria-label', 'Caption for piece ' + (i + 1));
       cap.addEventListener('input', function () { p.caption = cap.value; });
       var star = el('button', 'star', p.starred ? '★ Show big' : '☆ Show big'); star.type = 'button';

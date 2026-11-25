@@ -55,6 +55,21 @@ Google Drive are never touched.
 Her login cannot delete or change anything, and never sees the parent page. Setting a new tablet password logs that
 tablet out.
 
+## Family who add photos (Grandma, an aunt, a cousin)
+1. On your phone, open **For parents**, type the PIN, and find **Family who add photos**.
+2. Type who it is for (for example **Grandma**), tick anything else they may see (Leora, Amaya, Pet Parents), and tap
+   **Make an invite link**. Then tap **Send Grandma the link** and pick her in Messages.
+3. She taps the link once. Her phone is in, with no password, for a year, and stays in as long as she visits.
+   On an iPhone she can tap **Share**, then **Add to Home Screen**, for an app button. If that button ever asks for a
+   password, she pastes her invite link into the box (the welcome screen has **Copy my invite link** for this).
+4. She sees **Grandma's photos** (her own page, which everyone in the family sees under **More family**), Family Moments,
+   and the pages you ticked. In the app she taps **Grandma's photos** or **A special day** (photos and videos for a
+   Family Moments day). Everything shows right away. The originals go into your Google Drive (**Family / Grandma's photos**,
+   or the day's Family Moments folder).
+5. Put any photo away from **Recent uploads** in your app. She cannot change or delete anything.
+6. Each invite has **Turn off** (her phone is logged out until you turn it back on) and **New link** (the old link stops
+   working; send her the new one). Ticking pages on or off takes effect within a minute.
+
 ## Share with a friend
 **Quickest:** on the page you want to share (Leora, Amaya, Pet Parents or Family Moments), tap **📤 Share this page**,
 pick how long it works (a month is already picked), tap **Share the link**, then pick who gets it. The first time,

@@ -25,7 +25,62 @@
       $('#g-connect').textContent = 'Connect again';
     } else $('#g-status').textContent = 'Not connected yet. Uploads need this once.';
     if (q.get('connected')) $('#g-status').textContent = 'Connected! ' + $('#g-status').textContent;
-    showRebuild(); showLinks(); showWaiting(); showTablets();
+    showRebuild(); showLinks(); showWaiting(); showTablets(); showHouses();
+  }
+
+  // ---------- family who add photos: one invite link per household (Jesse, 2026-11-25) ----------
+  var LBL = { leora: 'Leora', amaya: 'Amaya', 'pet-parents': 'Pet Parents' };
+  function inviteText(h) { return h.name + ', tap this link to see the girls’ pictures and add your own photos. No password needed.'; }
+  async function houseCall(url, body) {
+    var j = {}; try { j = await (await post(url, body)).json(); } catch (e) {}
+    if (j.error === 'pin') location.reload();
+    return j;
+  }
+  $('#house-make').addEventListener('click', async function () {
+    var msg = $('#house-msg'); msg.hidden = true;
+    var name = $('#house-name').value.trim();
+    if (!name) { msg.textContent = 'Type who it is for first, like Grandma.'; msg.hidden = false; $('#house-name').focus(); return; }
+    var pages = Array.prototype.filter.call(document.querySelectorAll('input[name="house-pages"]'), function (b) { return b.checked; }).map(function (b) { return b.value; });
+    var j = await houseCall('/api/houses', { name: name, pages: pages });
+    if (!j.ok) { msg.textContent = 'That did not work. Try again?'; msg.hidden = false; return; }
+    $('#house-name').value = '';
+    await showHouses(j.house.id);
+  });
+  async function showHouses(fresh) {
+    var ul = $('#house-list');
+    var j = {}; try { j = await (await fetch('/api/houses', { credentials: 'same-origin' })).json(); } catch (e) {}
+    ul.textContent = '';
+    if (!j.houses || !j.houses.length) { var none = document.createElement('li'); none.className = 'muted'; none.textContent = 'None yet.'; ul.append(none); return; }
+    j.houses.forEach(function (h) {
+      var li = document.createElement('li'); li.className = 'house-row' + (h.off ? ' off' : '');
+      var head = document.createElement('p'); head.innerHTML = '<strong></strong> <span class="muted"></span>';
+      head.querySelector('strong').textContent = h.name;
+      head.querySelector('span').textContent = h.off ? '(turned off)' : 'sees ' + (h.names.length > 1 ? h.names.slice(0, -1).join(', ') + ' and ' + h.names[h.names.length - 1] : h.names[0]);
+      var ticks = document.createElement('div'); ticks.className = 'house-pages';
+      Object.keys(LBL).forEach(function (k) {
+        var l = document.createElement('label'); l.className = 'tick'; var c = document.createElement('input'); c.type = 'checkbox'; c.value = k; c.checked = h.pages.indexOf(k) !== -1;
+        c.addEventListener('change', async function () {
+          var pages = Array.prototype.filter.call(ticks.querySelectorAll('input'), function (x) { return x.checked; }).map(function (x) { return x.value; });
+          await houseCall('/api/houses/' + h.id, { pages: pages }); showHouses();
+        });
+        l.append(c, ' ' + LBL[k]); ticks.append(l);
+      });
+      var row = document.createElement('div'); row.className = 'send-row';
+      var note = document.createElement('p'); note.className = 'share-help';
+      function btn(text, cls, fn) { var b = document.createElement('button'); b.type = 'button'; b.className = cls; b.textContent = text; b.addEventListener('click', fn); row.append(b); return b; }
+      if (!h.off) btn('Send ' + h.name + ' the link', 'btn-big', function () { send({ text: inviteText(h), url: h.url }, note); });
+      btn(h.off ? 'Turn back on' : 'Turn off', 'chip', async function () {
+        if (!h.off && !confirm('Turn off ' + h.name + '’s invite? Their phones are logged out until you turn it back on. Their photos stay.')) return;
+        await houseCall('/api/houses/' + h.id, { off: !h.off }); showHouses();
+      });
+      btn('New link', 'chip', async function () {
+        if (!confirm('Make a new link for ' + h.name + '? The old link stops working and their phones are logged out until they tap the new one.')) return;
+        await houseCall('/api/houses/' + h.id, { newLink: true }); showHouses(h.id);
+      });
+      li.append(head, ticks, row, note);
+      if (fresh === h.id) note.textContent = 'Ready. Tap Send ' + h.name + ' the link and pick them in Messages.';
+      ul.append(li);
+    });
   }
 
   // ---------- share links ----------

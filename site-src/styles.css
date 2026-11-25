@@ -533,7 +533,32 @@ body.kid-mode.in-app .pick-take { grid-column: 1 / -1; min-height: 140px; font-s
 .kid-look.kid-look-home { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 24px; }
 .waiting-bar[hidden] { display: none; }
 body.kid-mode .kid-look { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 24px; }
-.is-kid .foot-parent { display: none; }
+.is-kid .foot-parent, .is-house .foot-parent { display: none; }
+
+/* A household's phone (Grandma's, from an invite link; Jesse, 2026-11-25): no star, date or Drive fallback; their own
+   photos link to their page; the special-day screen skips the list of videos with its edit buttons. */
+body.house-mode #share, body.house-mode .star, body.house-mode .up-date { display: none !important; }
+body.house-mode #s-video .up-h3, body.house-mode #vid-list { display: none; }
+.house-look { display: none; }
+body.house-own .day-look { display: none !important; }
+body.house-own .house-look { display: flex; justify-content: center; margin-top: 24px; }
+body.house-mode .kid-look.kid-look-home .chip { font-size: 1.1rem; }
+.welcome-box { display: block; }
+.welcome-box[hidden] { display: none; }
+.welcome-h { font-weight: 800; font-size: 1.25rem; margin: 0 0 6px; }
+.ios-tip p { margin: 6px 0; }
+.ios-tip[hidden] { display: none; }
+.tab-houses-li[hidden] { display: none !important; }
+.login-invite { margin-top: 18px; color: var(--muted, #555); font-size: 1rem; }
+.houses-lead { margin-top: -6px; }
+.houses-add, .houses-mine { margin: 10px 0 0; }
+.houses-add[hidden], .houses-mine[hidden] { display: none; }
+#houses-area .live-photos { margin-top: 28px; }
+.house-list .house-row { display: grid; gap: 8px; }
+.house-row .house-pages { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.house-row .send-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.house-name { display: block; font-weight: 700; margin: 10px 0; }
+.house-name input { display: block; width: 100%; max-width: 360px; margin-top: 6px; font: inherit; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--ink, #333); }
 
 /* Photos of a special day (Jesse, 2026-11-25): the day is already chosen; no date, star, looks or crop to think about.
    Turn stays for the odd sideways photo. */

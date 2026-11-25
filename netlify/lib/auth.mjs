@@ -87,6 +87,11 @@ export async function who(req, context) {
     if (!linkOpen(link)) return null;
     return { role: 'friend', link: link.id, pages: link.pages, iat: p.iat };
   }
+  if (p.r === 'house') {
+    const house = await getHouse(p.h, context);
+    if (!house || house.off || p.g !== house.gen) return null;
+    return { role: 'house', house: house.id, name: house.name, pages: housePages(house), iat: p.iat };
+  }
   if (p.r === 'kid') {
     if (!p.k || p.g !== (await generation(kidLevel(p.k), context))) return null;
     const moments = await kidMayMoments(p.k, context);
@@ -111,6 +116,39 @@ export function kidMayOpen(me, pathname) {
   if (first === 'api') return ['logout', 'pieces', 'whoami', 'episodes', 'videos'].includes(pathname.split('/')[2]);
   return friendMayOpen(me.pages, pathname);
 }
+
+// ---- households (Jesse, 2026-11-25): Grandma's, an aunt's... Each has an invite link: one tap and that phone is in
+// for a year, no password. They get their own page (households/), can add photos and videos to Family Moments days
+// (shown right away), and see the pages a parent ticked. Store 'links': house/<id> and invite/<secret> -> id.
+// The household's id is shown on pages; the invite secret never is. A new link or turning it off logs their phones out.
+export const HOUSE_PAGE = 'households';
+const houseCache = new Map();
+export async function getHouse(id, context) {
+  if (!id || typeof id !== 'string') return null;
+  const hit = houseCache.get(id);
+  if (hit && Date.now() - hit.at < 15000) return hit.house;
+  const house = await store('links', context).get('house/' + id, { type: 'json' });
+  houseCache.set(id, { at: Date.now(), house });
+  return house;
+}
+export function forgetHouse(id) { houseCache.delete(id); }
+export async function houseByInvite(secretPart, context) {
+  if (!/^[A-Za-z0-9_-]{20,40}$/.test(secretPart || '')) return null;
+  const ref = await store('links', context).get('invite/' + secretPart, { type: 'json' });
+  const house = ref && (await getHouse(ref.id, context));
+  return house && !house.off && house.invite === secretPart ? house : null;
+}
+export const housePages = (house) => [...new Set([...(house.pages || []).filter((p) => PAGES.includes(p)), 'family-moments', HOUSE_PAGE])];
+export async function makeHouseLogin(house) { return sign({ r: 'house', h: house.id, g: house.gen, iat: Date.now() }, secret()); }
+// What a household's phone may open: their pages, the app, and the APIs the app and pages use.
+export function houseMayOpen(me, pathname) {
+  const first = pathname.split('/')[1] || '';
+  if (first === 'upload') return true;
+  if (first === 'api') return ['logout', 'pieces', 'whoami', 'episodes', 'videos', 'videos-drive'].includes(pathname.split('/')[2]);
+  return friendMayOpen(me.pages, pathname);
+}
+// Who saved a piece or video: a girl's key, or h:<household id>. Family pieces have none.
+export const byOf = (me) => (me?.role === 'kid' ? me.kid : me?.role === 'house' ? 'h:' + me.house : null);
 
 export async function isParent(req, context) {
   const fam = await who(req, context);
@@ -145,7 +183,8 @@ export function friendMayOpen(pages, pathname) {
     return true;                                       // fonts, drawings, brand
   }
   if (first === 'moments') return pages.includes('family-moments');
-  if (first === 'img') return true;                    // live art: the function checks the piece's kid
+  if (first === 'img') return true;
+  if (first === HOUSE_PAGE) return pages.includes(HOUSE_PAGE);                    // live art: the function checks the piece's kid
   if (first === 'api') return ['logout', 'pieces', 'whoami', 'episodes', 'videos'].includes(pathname.split('/')[2]);
   return PAGES.includes(first) && pages.includes(first);
 }

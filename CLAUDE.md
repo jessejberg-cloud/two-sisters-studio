@@ -182,3 +182,15 @@ python3 -m http.server 5190 --directory dist     # local preview
   Snapshots and special-day photos: Turn only.
 - The girls' tablets open on **My art** / **A snapshot**. Her art is section `art`, waiting for a parent's OK, then in her gallery.
 - **OK all**: on For parents, and on the app's first screen for a parent's phone (shows when `/api/pieces/waiting` answers).
+
+## Households: invite links (Jesse, 2026-11-25; after the audit, batch 4)
+- For Jesse's mom and sister (iPhones) and other relatives: one invite link per household, no password. `netlify/functions/houses.mjs`:
+  `/i/<invite>` logs the phone in as role `house` for a year (renewed weekly by the gate) and opens `/upload/?welcome=1`; `/api/houses`
+  (parent PIN) makes, lists and changes them (name, pages, off, newLink). Store `links`: `house/<id>` {id, name, pages, invite, gen, off}
+  and `invite/<secret>`. The id shows on pages; the invite secret never does. Turning off or a new link logs their phones out.
+- A household sees: the pages Jesse ticked, Family Moments (always), and its own page `/households/` ("Grandma's photos").
+  Family logins see every household there (tab **More family**, shown once a household exists). Households never see each other's.
+- Their uploads show RIGHT AWAY (Jesse, 2026-11-25), no OK: section `house` (kid `both`, `house`/`from` fields, Drive `Family/<Name>'s photos/<year>`)
+  or a Family Moments day (shared, labelled "from Grandma"); videos to a day too. They cannot edit, delete or see Recent uploads.
+- iPhone: no Share-into-app on iOS. A Home Screen app may not share Safari's login, so the login page accepts the pasted invite link.
+- Tests: tests/houses.test.mjs. Screenshots: /mnt/project-files/two-sisters-studio/batch4/.
