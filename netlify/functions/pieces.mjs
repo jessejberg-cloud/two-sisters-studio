@@ -206,6 +206,12 @@ async function handle(req, context) {
     const piece = { id, kid: p.kid, date: p.date, season: seasonOf(p.date), schoolYear: schoolYearOf(p.date), caption: String(b.caption || '').slice(0, 200),
       starred: !!b.starred, created: now(), updated: now(), deleted: null, photos: p.photos.map((ph) => ({ n: ph.n })),
       section, waiting: kidMe, by: saver, ...(day || {}), ...who_ };
+    // Family Moment from Jesse's household: it can show in other studios too (the studio chips). His own by default.
+    if (section === 'moments' && family && Array.isArray(b.studios)) {
+      const tags = [];
+      for (const x of [...new Set(b.studios.filter((y) => typeof y === 'string'))].slice(0, 30)) { const o = await getStudio(x, context); if (o && !o.off && !o.removed) tags.push(o.slug); }
+      if (tags.length && !(tags.length === 1 && tags[0] === MAIN)) piece.studios = tags;
+    }
     piece.grade = p.kid === 'both' ? '' : gradeFor(p.kid, p.date);
     const parent = await folder(context, folderParts(piece));
     const origin = url.origin, uploads = [];

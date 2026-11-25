@@ -19,7 +19,7 @@ import { store } from './store.mjs';
 import { randomId, hashPassword, checkPassword } from './core.mjs';
 
 export const MAIN = 'main';
-export const COLORS = ['coral', 'lav', 'mint', 'yellow', 'sky', 'peach'];
+export const COLORS = ['coral', 'lav', 'mint', 'yellow', 'sky'];
 export const GRADES = ['Pre-K', 'K4', 'K5', '1st grade', '2nd grade', '3rd grade', '4th grade', '5th grade', '6th grade',
   '7th grade', '8th grade', '9th grade', '10th grade', '11th grade', '12th grade'];
 // Addresses a studio can never take: every page and function of the site, and the root studio's own pages.

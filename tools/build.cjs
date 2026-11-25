@@ -94,6 +94,33 @@ const ICONS = {
   mic: '<svg viewBox="0 0 40 40" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><rect x="14" y="4" width="12" height="20" rx="6"/><path d="M9,18 Q9,29 20,29 Q31,29 31,18"/><path d="M20,29 L20,36 M14,36 L26,36"/></g></svg>',
 };
 
+
+// The home screen guide (build spec, 2026-11-25): a phone picture with the spot to tap circled, iPhone or Android, no words.
+// main.js and app.js show it once per device, when someone arrives from a View link or an Invite.
+const RING = '#e4572e';
+function guidePic(os) {
+  const phone = (x, inner) => `<g transform="translate(${x} 0)"><rect x="4" y="4" width="132" height="252" rx="20" fill="#fff" stroke="#2b2a33" stroke-width="5"/>`
+    + `<rect x="16" y="30" width="108" height="196" rx="6" fill="#fdf8ef" stroke="#2b2a33" stroke-width="2"/>${inner}</g>`;
+  const arrow = '<path d="M150 130 L182 130 M170 118 L184 130 L170 142" fill="none" stroke="#2b2a33" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>';
+  const rows = (y0) => [0, 1, 2, 3].map((i) => `<rect x="28" y="${y0 + i * 30}" width="84" height="20" rx="5" fill="#ece4f7"/>`).join('');
+  const ring = (cx, cy, r) => `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${RING}" stroke-width="6"/>`;
+  if (os === 'ios') {
+    const share = '<g transform="translate(58 202)" fill="none" stroke="#2b6fd6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10 L4 22 L20 22 L20 10"/><path d="M12 2 L12 16 M6 8 L12 2 L18 8"/></g>';
+    const add = '<g transform="translate(36 147)" fill="none" stroke="#2b2a33" stroke-width="3.5" stroke-linecap="round"><rect x="0" y="0" width="18" height="18" rx="4"/><path d="M9 4 L9 14 M4 9 L14 9"/></g>';
+    return `<svg viewBox="0 0 330 260" role="img" aria-label="On iPhone: tap Share, then Add to Home Screen">${phone(0, `<rect x="16" y="196" width="108" height="30" fill="#ddeefa"/>${share}${ring(70, 212, 20)}`)}${arrow}`
+      + `${phone(190, `${rows(54)}<rect x="28" y="144" width="84" height="24" rx="5" fill="#fff1c9"/>${add}${ring(45, 156, 20)}`)}</svg>`;
+  }
+  const dots = '<g fill="#2b2a33"><circle cx="112" cy="40" r="3.5"/><circle cx="112" cy="50" r="3.5"/><circle cx="112" cy="60" r="3.5"/></g>';
+  const add = '<g transform="translate(34 115)" fill="none" stroke="#2b2a33" stroke-width="3.5" stroke-linecap="round"><rect x="2" y="0" width="14" height="22" rx="3"/><path d="M9 6 L9 16 M4 11 L14 11"/></g>';
+  return `<svg viewBox="0 0 330 260" role="img" aria-label="On Android: tap the three dots, then Add to Home screen">${phone(0, `<rect x="16" y="30" width="108" height="40" fill="#ddeefa"/>${dots}${ring(112, 50, 18)}`)}${arrow}`
+    + `${phone(190, `<rect x="28" y="54" width="84" height="20" rx="5" fill="#ece4f7"/><rect x="28" y="84" width="84" height="20" rx="5" fill="#ece4f7"/><rect x="28" y="114" width="84" height="26" rx="5" fill="#fff1c9"/>${add}${ring(44, 127, 20)}<rect x="28" y="150" width="84" height="20" rx="5" fill="#ece4f7"/>`)}</svg>`;
+}
+const homeGuide = () => `<dialog class="guide" id="guide" aria-label="Add to Home Screen">
+  <div class="guide-pic" data-os="ios">${guidePic('ios')}</div>
+  <div class="guide-pic" data-os="android" hidden>${guidePic('android')}</div>
+  <p><button type="button" class="btn-big guide-skip">Skip</button></p>
+</dialog>`;
+
 function page({ key, title, body, section, bodyClass, csp = CSP_STRICT, tabs = true, scripts = [] }) {
   const fullTitle = title ? `${title} · ${site.siteName}` : site.siteName;
   const current = section || key;
@@ -137,12 +164,13 @@ ${scripts.map((f) => `<script src="/${f}?v=${fileHash(f)}" defer></script>`).joi
 <a class="skip" href="#main">Skip to the main part</a>
 <header class="site-header">
   <a class="brand" href="/">${logo(false)}</a>
-  ${tabs ? '' : '<!--'}<nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-houses-li" hidden><a class="tab c-sky tab-houses" href="/households/"${current === 'households' ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS.home}</span><span class="tab-label">More family</span></a></li><li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li></ul></nav>${tabs ? '' : '-->'}
+  ${tabs ? '' : '<!--'}<nav aria-label="Main"><ul class="tabs">${nav}<li class="tab-houses-li" hidden><a class="tab c-sky tab-houses" href="/households/"${current === 'households' ? ' aria-current="page"' : ''}><span class="tab-icon">${ICONS.home}</span><span class="tab-label">More family</span></a></li><li class="tab-add-li"><a class="tab tab-add" href="/upload/"><span class="tab-icon" aria-hidden="true">＋</span><span class="tab-label">Add art</span></a></li><li class="tab-fam-li" hidden><button type="button" class="tab tab-fam c-sky" aria-haspopup="dialog"><span class="tab-icon">${ICONS.home}</span><span class="tab-label">Family</span></button></li></ul></nav>${tabs ? '' : '-->'}
 </header>
 <main id="main">
 ${body}
 </main>
 ${fab}
+${tabs ? homeGuide() : ''}
 <footer class="site-footer">
   <div class="paw-trail" aria-hidden="true">${ICONS.paw.repeat(5)}</div>
   <p>Made with love (and crayons) by the ${esc(site.siteName)} crew.</p>
@@ -655,19 +683,31 @@ pages['upload/index.html'] = `<!doctype html>
 <main id="main" class="up-main">
   <section class="screen" id="s-kid">
     <h1 class="up-h">${logo(false)}</h1>
-    <p class="up-lead" id="kid-lead">What do you want to add?</p>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
     <div class="outbox wobbly waiting-bar" id="waiting-bar" hidden><p id="waiting-text"></p><button type="button" class="chip" id="waiting-ok">✓ OK all</button> <a class="linkish" href="/parent/">Look first</a></div>
-    <div class="up-kids up-what">
-      <button type="button" class="big-button wobbly c-coral" data-what="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">Art<small>A drawing, painting or something they made</small></span></button>
-      <button type="button" class="big-button wobbly c-mint" data-what="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot<small>A photo one of the girls took</small></span></button>
-      <button type="button" class="big-button wobbly c-yellow" data-what="video"><span class="big-icon" aria-hidden="true">❤️</span><span class="big-label">A special day<small>Photos and videos for Family Moments</small></span></button>
-      <button type="button" class="big-button wobbly c-lav" data-what="episode"><span class="big-icon">${ICONS.mic}</span><span class="big-label">A podcast episode<small>Pet Parents audio</small></span></button>
+    <!-- Home (build spec, 2026-11-25): one big button per kid, then Family Moment. Drawn by app.js from the studio. -->
+    <div class="up-kids up-what" id="home-buttons">
+      ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-home="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
+      <button type="button" class="big-button wobbly c-yellow" data-home="moment"><span class="big-icon">${ICONS.heart}</span><span class="big-label">Family Moment</span></button>
     </div>
-    <p class="up-more"><button type="button" class="chip" id="recent">Recent uploads</button> <a class="linkish" href="/parent/">For parents</a></p>
-    <nav class="up-look" aria-label="Look at the site"><p class="up-look-h">Look at the site</p>
-      <ul>${TABS.map((n) => `<li><a class="tab c-${n.color}" href="${n.href}"><span class="tab-icon">${ICONS[n.icon]}</span><span class="tab-label">${esc(n.label)}</span></a></li>`).join('')}</ul>
-    </nav>
+    <p class="up-extra" id="home-extra"><button type="button" class="chip" data-what="both">🤝 Both</button> <button type="button" class="chip" data-what="episode">🎙️ Podcast</button></p>
+    <p class="up-more"><a class="chip" id="home-site" href="/">🏠 Site</a> <button type="button" class="chip" id="recent">🕘 Recent</button> <a class="chip" id="home-parents" href="/parent/">🔒 Parents<span class="dot-heads" id="heads-dot" hidden></span></a></p>
+  </section>
+
+  <section class="screen" id="s-pick" hidden>
+    <p><button type="button" class="linkish" id="pick-back">← Back</button></p>
+    <h1 class="up-h2" id="pick-who"></h1>
+    <div class="up-kids up-what">
+      <button type="button" class="big-button wobbly c-coral" data-pick="art"><span class="big-icon">${ICONS.palette}</span><span class="big-label">My art</span></button>
+      <button type="button" class="big-button wobbly c-mint" data-pick="photos"><span class="big-icon" aria-hidden="true">📷</span><span class="big-label">A snapshot</span></button>
+    </div>
+  </section>
+
+  <section class="screen" id="s-name" hidden>
+    <h1 class="up-h">${logo(false)}</h1>
+    <p class="up-lead">Who?</p>
+    <div class="up-kids name-faces" id="name-faces"></div>
+    <div class="name-own"><label>Name <input type="text" id="name-own" maxlength="30" autocomplete="given-name" enterkeyhint="done"></label><button type="button" class="btn-big" id="name-ok">OK</button></div>
   </section>
 
   <section class="screen" id="s-kidhome" hidden>
@@ -719,6 +759,7 @@ pages['upload/index.html'] = `<!doctype html>
       <button type="button" class="chip" data-where="photos" aria-pressed="true">📷 My snapshots</button>
       <button type="button" class="chip" data-where="moments" aria-pressed="false">❤️ Family Moments</button>
     </div>
+    <div class="tag-chips" id="tag-chips" hidden></div>
     <label class="up-date">Date it was made <input type="date" id="date"></label>
     <p class="count" id="count"></p>
     <ul class="up-list" id="list"></ul>
@@ -816,6 +857,7 @@ pages['upload/index.html'] = `<!doctype html>
     </div>
   </section>
 
+  ${homeGuide()}
   <section class="screen" id="s-recent" hidden>
     <p><button type="button" class="linkish" id="recent-back">← Back</button></p>
     <h1 class="up-h2">Recent uploads</h1>
