@@ -40,7 +40,7 @@ const TABS = [
 ];
 const PP = '/pet-parents';
 // "Share this page": family logins only (main.js shows it). Makes a link to this one page and opens the phone's Share list.
-const shareBtn = (key, label) => `<button type="button" class="share-page" data-share="${esc(key)}" data-label="${esc(label)}" hidden>📤 Share this page</button>`;
+const shareBtn = (key, label) => `<button type="button" class="share-page" data-share="${esc(key)}" data-label="${esc(label)}" hidden>📤 Share</button>`;
 // Content-Security-Policy is set per page (a meta tag), so the upload app can talk to Google Drive
 // while every other page can reach nothing outside this site.  (The upload app talks to Google Drive.)
 const CSP_STRICT = "default-src 'self'; img-src 'self' data:; media-src 'self'; style-src 'self'; script-src 'self'; font-src 'self'; connect-src 'none'; form-action 'none'; base-uri 'self'; object-src 'none'";
@@ -302,7 +302,7 @@ function artGallery(kid, items) {
   <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-more"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><a class="lb-pdf" href="#" target="_blank" rel="noopener" hidden>📄 Open the PDF</a><button type="button" class="lb-save">⬇ Save this picture</button><button type="button" class="lb-share" hidden>📤 Share</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next picture">›</button>
 </dialog>
-${livePhotos(`/api/pieces?kid=${kid.key}&section=photos`, `${kid.name}'s snapshots`, 'Photos she took.', 'snapshots')}`;
+${livePhotos(`/api/pieces?kid=${kid.key}&section=photos`, `${kid.name}'s snapshots`, '', 'snapshots')}`;
 }
 
 // Photos from the girls' tablets (shown after a parent says OK). Drawn by main.js; stays hidden while empty.
@@ -329,7 +329,6 @@ pages['index.html'] = page({
   title: '',
   body: `<section class="welcome">
   <h1 class="hero-logo">${logo(true)}</h1>
-  <p class="hero-tag">Art by ${esc(listWords(KIDS.map((k) => k.name)))}, our podcast, and family moments.</p>
   <ul class="big-buttons">
     ${TABS.map((n) => `<li><a class="big-button wobbly c-${n.color}" href="${n.href}"><span class="big-icon">${ICONS[n.icon]}</span><span class="big-label">${esc(n.label)}</span></a></li>`).join('\n    ')}
   </ul>
@@ -360,7 +359,6 @@ pages['pet-parents/index.html'] = page({
   body: `${podcastNav('episodes')}
 <section class="hero">
   <h1 class="hero-logo">${podcastMark()}</h1>
-  <p class="hero-tag">A podcast about pets and the people who love them.</p>
   ${shareBtn('pet-parents', site.podcastName)}
   <div class="hero-art">${drawing('hero')}</div>
 </section>
@@ -505,9 +503,8 @@ function momentPhoto(ev, ph) {
     bodyClass: 'c-yellow',
     title: 'Family Moments',
     csp: CSP_SELF,   // the girls' photos and the videos load from this site's own functions
-    body: `<div class="page-head"><h1>Family Moments</h1><p>Photos and videos from our special days.</p>${shareBtn('family-moments', 'Family Moments')}</div>
-${livePhotos('/api/pieces?section=moments', `From ${listWords(KIDS.map((k) => k.name))}`, 'Photos the girls took.')}
-${events.some((ev) => ev.sample) ? '<p class="sample-note">These are sample pictures, so you can see how the page will look. Real photos are coming soon!</p>' : ''}
+    body: `<div class="page-head"><h1>Family Moments</h1>${shareBtn('family-moments', 'Family Moments')}</div>
+${livePhotos('/api/pieces?section=moments', `From ${listWords(KIDS.map((k) => k.name))}`, '')}
 ${events.length ? `${jump}
 <div class="gallery-area" data-videos="/api/videos">
 ${blocks}

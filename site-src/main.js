@@ -422,7 +422,6 @@ function initGallery() {
       area.innerHTML = '<div class="empty wobbly"><p>' + esc(live.dataset.empty) + '</p></div>';
       return;
     }
-    if (items.some(function (x) { return x.sample; })) live.innerHTML = '<p class="sample-note">These are sample pictures, so you can see how the page will look. Real art is coming soon!</p>';
     var years = items.map(function (x) { return x.schoolYear; }).filter(function (y, i, a) { return a.indexOf(y) === i; }).sort().reverse();
     area.innerHTML = years.map(function (y, i) {
       var inYear = items.filter(function (x) { return x.schoolYear === y; });
@@ -744,7 +743,7 @@ function addToDays(pieces) {
   if (!btns.length || root.classList.contains('is-friend') || root.classList.contains('is-kid')) return;
   function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
   var box = make('dialog', 'share-box'); box.setAttribute('aria-label', 'Share this page');
-  var h = make('h2', 'share-h'), note = make('p', 'share-note', 'Anyone with the link can see this page, nothing else. It keeps working until it is turned off on the For parents page.');
+  var h = make('h2', 'share-h'), note = make('p', 'share-note', 'Anyone with the link sees this page, nothing else.');
   var go = make('button', 'btn-big share-go', '📤 Share the link'); go.type = 'button';
   var msg = make('p', 'share-msg'); msg.setAttribute('role', 'status');
   var shut = make('button', 'linkish share-close', 'Close'); shut.type = 'button';
@@ -753,14 +752,12 @@ function addToDays(pieces) {
   shut.addEventListener('click', function () { box.close(); });
   box.addEventListener('click', function (e) { if (e.target === box) box.close(); });
   var page = null, label = '', made = null;
-  btns.forEach(function (b) {
-    b.hidden = false;
-    b.addEventListener('click', function () {
-      page = b.dataset.share; label = b.dataset.label; made = null;
-      h.textContent = 'Share ' + label; msg.textContent = ''; go.textContent = '📤 Share the link'; go.disabled = false;
-      if (typeof box.showModal === 'function') box.showModal(); else box.setAttribute('open', '');
-    });
-  });
+  // The one 📤 Share button (below) offers "This page" among its choices; this opens that box.
+  TSS.sharePage = function (pg, lb) {
+    page = pg; label = lb; made = null;
+    h.textContent = 'Share ' + label; msg.textContent = ''; go.textContent = '📤 Share the link'; go.disabled = false;
+    if (typeof box.showModal === 'function') box.showModal(); else box.setAttribute('open', '');
+  };
   async function post(url, body) {
     var r = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     var j = {}; try { j = await r.json(); } catch (e) {}
@@ -860,7 +857,7 @@ TSS.famMenu();
     what = w; made = null;
     if (!box.isConnected) document.body.append(box);
     h.textContent = 'Share ' + w.label;
-    note.textContent = 'Anyone with the link sees ' + (w.day ? 'the pictures of this day' : w.label) + ', nothing else. It works until it is turned off on For parents.';
+    note.textContent = 'Anyone with the link sees ' + (w.day ? 'this day' : w.label) + ', nothing else.';
     msg.textContent = ''; go.textContent = '📤 Share the link'; go.disabled = false;
     var open = document.querySelector('dialog[open]');
     if (open && open !== box) open.close();
@@ -896,15 +893,9 @@ TSS.famMenu();
     var id = pieceOf(b.closest('dialog')); if (id) TSS.shareItems({ ids: [id], label: 'this picture' });
   });
   // A special day: 📤 Share this day, beside Download all. A video: 📤 Share beside Save.
-  TSS.dayShare = function (sec, key, title) {
-    TSS.mayShare.then(function (yes) {
-      var head = sec.querySelector('.moment-head');
-      if (!yes || !head || head.querySelector('.day-share')) return;
-      var b = make('button', 'btn-download day-share', '📤 Share this day'); b.type = 'button';
-      b.addEventListener('click', function () { TSS.shareItems({ day: key, label: title }); });
-      head.append(b);
-    });
-  };
+  // Special days the 📤 Share button can offer (days added from the app; hand-added sample days have no link).
+  TSS.shareDays = {};
+  TSS.dayShare = function (sec, key, title) { TSS.shareDays[key] = title; };
   TSS.videoShare = function (tools, id) {
     TSS.mayShare.then(function (yes) {
       if (!yes) return;
@@ -974,37 +965,37 @@ TSS.exportStudio = function (sid) {
   });
 };
 
-// ---------- Pick several to share (Jesse, 2026-11-25: "yes"): tap ☑ Pick, tap pictures, Share. One link for them all ----------
+// ---------- The one 📤 Share button (Jesse, 2026-11-25: "it should just be Share") ----------
+// Tap Share: This page, a special day, or Photos. Photos: tap one or as many as you like, then Share. One link for them all.
 (function () {
   'use strict';
   function make(tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; }
-  var main = document.getElementById('main');
+  var main = document.getElementById('main'), root = document.documentElement;
   if (!main || !TSS.mayShare || document.body.classList.contains('page-shared')) return;
+  var pageBtn = main.querySelector('.share-page');
+  var pageOk = !!pageBtn && !root.classList.contains('is-friend') && !root.classList.contains('is-kid');   // a family login on Jesse's pages
   var picked = [], on = false;
-  var bar = make('div', 'pick-bar'); bar.hidden = true; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Picked pictures');
+  var bar = make('div', 'pick-bar'); bar.hidden = true; bar.setAttribute('role', 'region'); bar.setAttribute('aria-label', 'Picked photos');
   var count = make('span', 'pick-count'), go = make('button', 'btn-big pick-go', '📤 Share'), stop = make('button', 'linkish pick-stop', 'Cancel');
   go.type = stop.type = 'button'; bar.append(count, go, stop);
-  var btn = make('button', 'pick-start', '☑ Pick several');   // rarely used (Jesse): small and quiet, still a button btn.type = 'button'; btn.hidden = true;
   function idOf(el) {
     var im = el.querySelector('img'), src = el.getAttribute('href') || (im && im.getAttribute('src')) || '';
     var m = /^\/img\/([^/]+)\//.exec(src); return m ? decodeURIComponent(m[1]) : null;
   }
   function tiles() { return Array.prototype.filter.call(document.querySelectorAll('.piece-open, .photo-tile'), function (t) { return !!idOf(t); }); }
   function draw() {
-    count.textContent = picked.length === 1 ? '1 picked' : picked.length + ' picked';
+    count.textContent = picked.length === 1 ? '1 photo' : picked.length + ' photos';
     go.disabled = !picked.length;
-    tiles().forEach(function (t) { var yes = picked.indexOf(idOf(t)) !== -1; t.classList.toggle('is-picked', on && yes); t.setAttribute('aria-pressed', on ? String(yes) : ''); if (!on) t.removeAttribute('aria-pressed'); });
+    tiles().forEach(function (t) { var yes = picked.indexOf(idOf(t)) !== -1; t.classList.toggle('is-picked', on && yes); if (on) t.setAttribute('aria-pressed', String(yes)); else t.removeAttribute('aria-pressed'); });
   }
-  function start() { on = true; picked = []; bar.hidden = false; document.documentElement.classList.add('picking'); draw(); }
-  function end() { on = false; picked = []; bar.hidden = true; document.documentElement.classList.remove('picking'); draw(); }
-  btn.addEventListener('click', function () { if (on) end(); else start(); });
+  function start() { on = true; picked = []; bar.hidden = false; root.classList.add('picking'); draw(); }
+  function end() { on = false; picked = []; bar.hidden = true; root.classList.remove('picking'); draw(); }
   stop.addEventListener('click', end);
   go.addEventListener('click', function () {
     if (!picked.length) return;
-    TSS.shareItems({ ids: picked.slice(0, 60), label: picked.length === 1 ? 'this picture' : picked.length + ' pictures' });
+    TSS.shareItems({ ids: picked.slice(0, 60), label: picked.length === 1 ? 'this photo' : picked.length + ' photos' });
     end();
   });
-  // While picking, a tap picks (both photos of a 3D piece count as one piece).
   document.addEventListener('click', function (e) {
     if (!on) return;
     var t = e.target.closest('.piece-open, .photo-tile'); if (!t) return;
@@ -1013,16 +1004,34 @@ TSS.exportStudio = function (sid) {
     var i = picked.indexOf(id); if (i === -1) picked.push(id); else picked.splice(i, 1);
     draw();
   }, true);
+  // The choices
+  var menu = make('dialog', 'share-box share-menu'); menu.setAttribute('aria-label', 'Share');
+  var list = make('div', 'share-choices'), shut = make('button', 'linkish share-close', 'Close'); shut.type = 'button';
+  menu.append(make('h2', 'share-h', 'Share'), list, shut);
+  shut.addEventListener('click', function () { menu.close(); });
+  menu.addEventListener('click', function (e) { if (e.target === menu) menu.close(); });
+  function choice(text, fn) { var b = make('button', 'share-choice', text); b.type = 'button'; b.addEventListener('click', function () { menu.close(); fn(); }); list.append(b); }
+  function open(canItems) {
+    list.textContent = '';
+    if (pageOk) choice('📄 This page', function () { TSS.sharePage(pageBtn.dataset.share, pageBtn.dataset.label); });
+    if (canItems) {
+      Object.keys(TSS.shareDays).forEach(function (k) { choice('❤️ ' + TSS.shareDays[k], function () { TSS.shareItems({ day: k, label: TSS.shareDays[k] }); }); });
+      if (tiles().length) choice('🖼️ Photos', start);
+    }
+    if (!list.children.length) return;
+    if (!menu.isConnected) document.body.append(menu);
+    if (menu.showModal) menu.showModal(); else menu.setAttribute('open', '');
+  }
   TSS.mayShare.then(function (yes) {
-    if (!yes) return;
-    // Show the button once there are real pictures on the page (they load after the page).
-    var tries = 0, look = setInterval(function () {
-      if (tiles().length) {
-        clearInterval(look);
-        var anchor = main.querySelector('.share-page:not(.pick-start)') || main.querySelector('h1');
-        if (anchor) anchor.after(btn); else main.prepend(btn);
-        btn.hidden = false; document.body.append(bar);
-      } else if (++tries > 20) clearInterval(look);
-    }, 500);
+    var btn = pageBtn;
+    if (!btn && yes) {   // a family's studio page: the same button, after the title
+      btn = make('button', 'share-page', '📤 Share'); btn.type = 'button';
+      var h1 = main.querySelector('h1'); if (h1) h1.after(btn); else main.prepend(btn);
+    }
+    if (!btn || (!yes && !pageOk)) return;
+    btn.textContent = '📤 Share'; btn.hidden = false;
+    btn.addEventListener('click', function () { if (on) end(); else open(yes); });
+    document.body.append(bar);
   });
 })();
+

@@ -57,6 +57,7 @@ Priorities, in order (spec):
 14. Nothing required except, in setup, the PIN and Google Drive (Jesse, 2026-11-25: studios need Drive). Every other
     setup step has Skip (the last step, Camera, is simply the end); skipped things show in For parents.
 15. Hand-drawn, neat, kid-friendly, not Office-looking. Gentle movement only, all off for reduced motion.
+    No subtitle line under a page title, no tip or explainer boxes, no pill boxes (Jesse 2026-11-25): things explain themselves.
 16. Website = view. App = capture. The website's design stays as it is unless Jesse asks.
 
 **How Claude works on it** (spec, "Read first")
@@ -75,8 +76,8 @@ Priorities, in order (spec):
 - For parents needs the studio PIN; a trusted phone is remembered 30 days. Jesse's owner PIN opens every studio's For parents.
 - Share links (`/s/…`): open only what was shared; can be turned off.
 - Sharing one thing (`netlify/functions/shared.mjs`): 📤 Share in every picture viewer and under every video, and
-  📤 Share this day on a special day, and a small ☑ Pick several link at the top of a page (tap pictures, then 📤 Share:
-  one link for up to 60). Grown-up phones that add to the studio only (not kid mode, not View links); a
+  ONE 📤 Share button at the top of a page (main.js "The one 📤 Share button"). It offers This page, each special day on
+  the page, or Photos (tap one or many, then 📤 Share: one link for up to 60). No other share buttons on the page. Grown-up phones that add to the studio only (not kid mode, not View links); a
   household shares only what it may see, and a studio shares only its own things (not a day another studio tagged in). The
   link opens `/shared/?l=…` with no login and shows just that picture, video or day (a day link shows photos added
   later too; put-away pieces drop off). For parents → Shared pictures: opens, about how many phones, last opened, Turn
@@ -189,6 +190,7 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 
 | Date | What changed | PR |
 |---|---|---|
+| 2026-11-25 | Jesse's Family Moments notes: one 📤 Share button (This page, a special day, Photos: pick one or many); no subtitles under page titles and no tip boxes anywhere; day names as colored brush marks, not pill boxes; ＋ Add as a paint dab, not a pill. | (this PR) |
 | 2026-11-25 | Pick several to share (Jesse: yes): ☑ Pick several to share at the top of a page with pictures; tap to pick, one link for all. Previews stay name and logo; the phone-count cookie stays (Jesse: yes). | (this PR) |
 | 2026-11-25 | Studios batch 3b: share one picture, a video or a whole day by link (no login; opens, phones, last opened, off switch on For parents; heads-up at 20 phones) and Download everything as one zip on a studio's For parents. Tests first (`tests/studios.test.mjs`). | (this PR) |
 | 2026-11-25 | Studios batch 3b: videos for every family studio, kept in that studio's own Google Drive and shown on its Family Moments page; a View link can watch, never add. Test first (`tests/studios.test.mjs`). | (this PR) |
