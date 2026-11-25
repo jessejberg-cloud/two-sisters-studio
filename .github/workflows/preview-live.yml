@@ -1,0 +1,29 @@
+# The one real-Google test (tests/live): when Netlify says a PR's preview is ready, a robot phone adds one piece
+# on that preview with the spare test Google Drive, checks it shows, and puts it away. Never touches the live site.
+# Needs repository secrets PREVIEW_FAMILY_PASSWORD, PREVIEW_PARENT_PIN, PREVIEW_DRIVE_EMAIL (docs/GUIDE.md, "Testing").
+name: Preview with real Drive
+on: status
+permissions:
+  contents: read
+jobs:
+  live:
+    if: >-
+      github.event.state == 'success' &&
+      github.event.context == 'netlify/two-sisters-studio/deploy-preview' &&
+      startsWith(github.event.target_url, 'https://deploy-preview-')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ github.event.sha }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: One real trip on the preview
+        run: npx playwright test -c playwright.live.config.mjs
+        env:
+          PREVIEW_URL: ${{ github.event.target_url }}
+          PREVIEW_FAMILY_PASSWORD: ${{ secrets.PREVIEW_FAMILY_PASSWORD }}
+          PREVIEW_PARENT_PIN: ${{ secrets.PREVIEW_PARENT_PIN }}
+          PREVIEW_DRIVE_EMAIL: ${{ secrets.PREVIEW_DRIVE_EMAIL }}

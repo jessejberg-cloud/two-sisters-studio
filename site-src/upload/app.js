@@ -109,7 +109,7 @@
       var who = document.querySelector('#s-who .up-kids'), both = who.querySelector('[data-kid="both"]');
       who.querySelectorAll('[data-kid]:not([data-kid="both"])').forEach(function (b) { b.remove(); });
       STUDIO.kids.forEach(function (k, i) { var b = kidButton(k, i, 'data-kid'); b.addEventListener('click', function () { setKid(k.key); }); who.insertBefore(b, both); });
-      both.remove();
+      if (both) both.remove();   // drawHome runs again after the phone names itself; "Both" is gone by then
       bindHome();
       drawCats();
     }

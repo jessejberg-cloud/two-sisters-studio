@@ -1,5 +1,18 @@
 # Two Sisters Studio: notes for Claude
 
+## Every build (Jesse, 2026-11-25: "a guiding doc that is updated and correct and used for every build")
+- **Read [docs/GUIDE.md](docs/GUIDE.md) first.** It is the current truth: purpose, rules, how it works, the checklist.
+  The dated sections below are the history behind it. If they disagree, the guide wins; if the guide is wrong, fix it in the PR.
+- **Test first.** Write the test for the new behaviour (`tests/*.test.mjs` server, `tests/e2e/*.spec.mjs` screens), see it fail, then build.
+- **`npm run check` before every push** (server tests, build, audit, guide check, robot phones at iPhone, Pixel, Fire tablet and
+  computer sizes on a pretend site with fake Google Drive). A Stop hook (`tools/stop-check.mjs`) blocks "done" while tests fail.
+- **Look before showing:** `npm run screens`, then Read the pictures in `screens/<size>/` for every changed screen.
+- **Second Claude:** run the `guide-reviewer` agent on the diff before opening or updating a PR; fix or answer its findings.
+- **Update the guide** in the same PR: section 4 if how it works changed, section 5 if a check changed, a Build log row always
+  (GitHub fails the PR without it).
+- **PR:** screenshots, the GUIDE checklist with each line ticked or explained, what was not done. GitHub runs the same checks on every PR.
+- Never point tests at twosistersstudio.com. Real Google is tested only on PR previews with the spare test account (GUIDE section 6).
+
 A private family site for Leora and Amaya, behind one family password, not indexed. Its main job is to
 display and archive the girls' artwork over many years, to be passed down to them. The Pet Parents podcast is
 one section. Built by `tools/build.cjs` (no dependencies) into `dist/`; Netlify runs the build and the audit

@@ -1,0 +1,34 @@
+# "Approve the look": after Jesse approves a new look, this remakes the approved pictures (tests/e2e/approved/)
+# on the PR's branch, so later changes are compared with what he approved. Run it from the Actions tab
+# (or Claude runs it), naming the branch.
+name: Approve the look
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: Branch whose look Jesse approved
+        required: true
+permissions:
+  contents: write
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ inputs.branch }}' }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium webkit
+      - run: node tools/build.cjs
+      - name: Remake the approved pictures
+        run: npx playwright test look --update-snapshots=all
+        env: { VISUAL: '1', CI: '1' }
+      - name: Save them on the branch
+        run: |
+          git config user.name "approve-the-look"
+          git config user.email "actions@users.noreply.github.com"
+          git add tests/e2e/approved
+          git diff --cached --quiet || git commit -m "Approved look: new pictures for the look checks"
+          git push origin HEAD:${{ inputs.branch }}
