@@ -12,7 +12,8 @@ test('first screen: a block per artist, All under them, icons for Recent, Podcas
   await expect(blocks.last()).toHaveText(/All/);
   for (const name of ['Recent', 'Podcast', 'Site', 'Parents']) await expect(page.locator('.up-icons').getByText(name)).toBeVisible();
   await expect(page.locator('#quick-toggle')).toHaveCount(0);
-  await expect(page.locator('#s-kid')).not.toContainText(/Family Moments/);
+  await expect(page.locator('#home-buttons')).not.toContainText(/Family Moments/);
+  await expect(page.locator('#shared-tray')).toBeHidden();   // only when photos are shared in
 });
 
 test('All: every artist ticked; untick one and it is just the other\'s; Recent can change Whose and Where', async ({ page }) => {
