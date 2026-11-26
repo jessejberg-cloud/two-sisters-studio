@@ -701,6 +701,48 @@ pages['login/index.html'] = page({
     <p class="login-error" data-e="link" hidden>This link was turned off. Ask for a new one.</p>
     <p class="login-error" data-e="invite" hidden>This link was turned off. Ask for a new one.</p>
   </form>
+</section>
+<p class="privacy-link"><a href="/privacy/">Privacy</a></p>`,
+});
+
+// ---------- privacy (Jesse, 2026-11-25): Google needs a public privacy page before other families can connect Drive.
+// Open with no login (gate OPEN + excludedPath), still noindex like every page. Plain words, no outside links.
+pages['privacy/index.html'] = page({
+  key: 'privacy', title: 'Privacy', csp: CSP_STRICT, tabs: false,
+  body: `<section class="privacy wobbly">
+  <h1>Privacy</h1>
+  <p>Two Sisters Studio is a private site where families keep their children's art and family photos.</p>
+  <h2>What it keeps</h2>
+  <ul>
+    <li>The pictures, videos, names and words a family adds.</li>
+    <li>The name each phone picks, so a picture says who added it.</li>
+  </ul>
+  <h2>Where it is kept</h2>
+  <ul>
+    <li>The original of each picture goes to the family's own Google Drive.</li>
+    <li>A smaller copy is kept on this site, so the family can look at it.</li>
+    <li>Only people with the family's link can see it. It is not on Google search.</li>
+  </ul>
+  <h2>Google Drive</h2>
+  <ul>
+    <li>The site asks for one thing: to add files to your Google Drive and open the files it added (drive.file).</li>
+    <li>It cannot see any other file in your Drive.</li>
+    <li>It uses this only to save your family's pictures. It never sells, shares or shows your Google data to anyone else, and never uses it for ads.</li>
+    <li>Two Sisters Studio's use of information received from Google APIs will adhere to the Google API Services User Data Policy, including the Limited Use requirements.</li>
+    <li>To stop it at any time: in your Google Account, open Security, then Third-party connections, and remove Two Sisters Studio.</li>
+  </ul>
+  <h2>What it never does</h2>
+  <ul>
+    <li>No ads. Nothing that follows you or counts your visits.</li>
+    <li>Nothing is sold or given to anyone.</li>
+  </ul>
+  <h2>Taking things off</h2>
+  <ul>
+    <li>A parent can put any picture away. It is gone from the site after 30 days.</li>
+    <li>The originals stay in your Google Drive until you delete them there.</li>
+    <li>To have a whole studio taken off, ask the person who sent you your link.</li>
+  </ul>
+  <p class="privacy-date">Updated November 25, 2026.</p>
 </section>`,
 });
 

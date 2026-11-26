@@ -3,7 +3,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { test, expect, login, ownerInvite, newPhone, settled } from './helpers.mjs';
 
-const PAGES = ['/', '/leora/', '/amaya/', '/pet-parents/', '/family-moments/', '/upload/', '/parent/'];
+const PAGES = ['/', '/leora/', '/amaya/', '/pet-parents/', '/family-moments/', '/upload/', '/parent/', '/privacy/'];
 // Problems that were already on the site when these checks started (2026-11-25). Each is in docs/GUIDE.md "Known issues".
 // Fix one, then delete its line here, so it can never come back. Never add a line to make a new change pass.
 const KNOWN = {
@@ -53,6 +53,22 @@ test('intent: a stranger with no link sees only the login page', async ({ page }
     await expect(page, path).toHaveURL(/\/login\//);
   }
   expect((await page.request.get('/api/pieces?kid=leora')).status()).toBe(401);
+});
+
+// Google asks for a public privacy page before other families can connect their Drive (Jesse, 2026-11-25).
+test('intent: the privacy page opens with no login, is not on Google, and the login page links to it', async ({ page }) => {
+  await page.goto('/login/');
+  await page.click('a[href="/privacy/"]');
+  await expect(page).toHaveURL(/\/privacy\/$/);
+  await expect(page.locator('h1')).toHaveText('Privacy');
+  await expect(page.locator('main')).toContainText('Google Drive');
+  await expect(page.locator('main')).toContainText('Limited Use');
+  const res = await page.request.get('/privacy/', { headers: { accept: 'text/html' } });
+  expect(res.status()).toBe(200);
+  expect(res.headers()['x-robots-tag'] || '').toContain('noindex');
+  await expect(page.locator('meta[name=robots]')).toHaveAttribute('content', /noindex/);
+  const wide = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
+  expect(wide, 'no sideways scroll').toBe(false);
 });
 
 test('intent: a new family setup has few words; only the PIN and Google Drive cannot be skipped', async ({ page, browser }, info) => {
