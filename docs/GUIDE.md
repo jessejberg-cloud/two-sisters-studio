@@ -74,6 +74,7 @@ Priorities, in order (spec):
 - A new phone picks its name once ("added by"). Picking a kid's name turns on kid mode (no Put away, no Parents, no Share).
 - Old logins still work on Jesse's studio: the family password, the girls' tablet passwords, household invites.
 - For parents needs the studio PIN; a trusted phone is remembered 30 days. Jesse's owner PIN opens every studio's For parents.
+- **Privacy page** (`/privacy/`): open with no login (Google needs it to publish the app), still noindex. The login page links to it.
 - Share links (`/s/…`): open only what was shared; can be turned off.
 - Sharing one thing (`netlify/functions/shared.mjs`): 📤 Share in every picture viewer and under every video, and
   ONE 📤 Share button at the top of a page (main.js "The one 📤 Share button"). It offers This page, each special day on
@@ -171,25 +172,22 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 
 ## 9. Waiting on Jesse
 
-- **Preview test with real Drive (one time):**
-  1. Make a spare Google account (or use one you already have) that holds nothing private.
-  2. In Netlify, Deploy Previews: give FAMILY_PASSWORD and PARENT_PIN their own test values (not the real ones).
-  3. In GitHub, the repo's Settings → Secrets → Actions: add PREVIEW_FAMILY_PASSWORD, PREVIEW_PARENT_PIN (the same test
-     values) and PREVIEW_DRIVE_EMAIL (the spare account's address).
-  4. Google Cloud console (project two-sisters-studio): while the app is in Testing, add the spare account as a test user.
-  5. Connect the spare account once, on a preview address Google already knows (deploy-preview-1, or add one more
-     redirect address in Google Cloud). All previews share one storage, so every later preview uses that connection.
-  - Good to know: in Testing mode Google ends the connection after 7 days, so the preview test turns red weekly
-    ("invalid_grant") until the app is In production. If Netlify's own visitor password covers previews, the robot
-    cannot get in; turn it off for previews. The test starts working once this PR is merged (GitHub runs it from main).
+- **Preview test with real Drive:** set up by Jesse 2026-11-25 (spare Google account, Netlify preview values, GitHub
+  secrets PREVIEW_FAMILY_PASSWORD / PREVIEW_PARENT_PIN / PREVIEW_DRIVE_EMAIL, redirect addresses for previews 15 and 16).
+  Left: connect the spare account's Drive once on deploy-preview-15 (For parents → Connect Google Drive). All previews
+  share one storage, so every later preview uses that connection.
+  - Previews are public (no Netlify visitor password), so the robot can get in. A new preview address needs its own
+    redirect address in Google Cloud only for connecting; the robot test itself never connects.
   - Safety: before sending anything, the robot checks that the preview's Drive is the spare account. If previews are
-    connected to the family Drive now, it stops instead.
-- Google Cloud app "In production" (other families cannot connect Drive until then).
+    connected to the family Drive, it stops instead.
+- Google Cloud app "In production" (other families cannot connect Drive until then). Needs the privacy page live first
+  (https://twosistersstudio.com/privacy/), then Publish app.
 
 ## Build log
 
 | Date | What changed | PR |
 |---|---|---|
+| 2026-11-25 | Preview test set up by Jesse (guide section 9 updated); it now says why when the preview will not take the test password. Public privacy page at /privacy/ (no login, noindex, plain words, Google's Limited Use sentence), linked from the login page; "privacy" can't be a studio name. Google asks for it before the app can go In production. A test covers it. | (this PR) |
 | 2026-11-25 | Jesse's Family Moments notes: one 📤 Share button (This page, a special day, Photos: pick one or many); no subtitles under page titles and no tip boxes anywhere; day names as colored brush marks, not pill boxes; ＋ Add as a paint dab, not a pill. | (this PR) |
 | 2026-11-25 | Pick several to share (Jesse: yes): ☑ Pick several to share at the top of a page with pictures; tap to pick, one link for all. Previews stay name and logo; the phone-count cookie stays (Jesse: yes). | (this PR) |
 | 2026-11-25 | Studios batch 3b: share one picture, a video or a whole day by link (no login; opens, phones, last opened, off switch on For parents; heads-up at 20 phones) and Download everything as one zip on a studio's For parents. Tests first (`tests/studios.test.mjs`). | (this PR) |
