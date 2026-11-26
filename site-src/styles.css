@@ -886,7 +886,19 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .icon-link svg { width: 44px; height: 44px; }
 .icon-link[hidden] { display: none; }
 .icon-link .dot-heads { position: absolute; top: 4px; right: 12px; }
-.shared-note { font: 700 1.3rem var(--hand); text-align: center; margin: 0 0 10px; }
+.shared-note { font: 700 1.3rem var(--hand); text-align: center; margin: 0 0 6px; }
+/* Shared in from Google Photos (2026-11-26): the pictures, small, then where they go. */
+.shared-tray { display: grid; justify-items: center; gap: 4px; margin: 0 0 14px; }
+.shared-tray[hidden], .shared-pics[hidden], .day-choices[hidden], #shared-day[hidden] { display: none; }
+.shared-pics { list-style: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 0; margin: 4px 0 8px; }
+.shared-pics img { display: block; width: 64px; height: 64px; object-fit: cover; border: 3px solid var(--ink); border-radius: var(--wobble); background: #fff; }
+#shared-day { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; font-size: 1.3rem; }
+#shared-day svg { width: 34px; height: 34px; }
+.shared-more { align-self: center; font: 700 1.2rem var(--hand); }
+.day-choices { display: grid; gap: 12px; margin: 6px 0 14px; }
+.day-choices .day-choice { min-height: 72px; width: 100%; border: 3px solid var(--ink); color: var(--ink); grid-auto-flow: row; gap: 0; }
+.day-choices .day-when { font-size: 1.05rem; font-weight: 400; }
+.day-choices .day-new { background: transparent; border: 3px dashed var(--ink); }
 #s-kid .waiting-bar { display: block; }
 .wait-list { list-style: none; display: flex; flex-wrap: wrap; gap: 12px; padding: 0; margin: 8px 0; }
 .wait-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
@@ -910,6 +922,7 @@ body.kid-mode #cam-open, body.kid-mode .more-photo, body.kid-mode .item-text inp
 .wait-mark { position: relative; isolation: isolate; font: 700 1.05rem var(--hand); padding: 2px 8px; margin-top: 4px; }
 .wait-mark::before { content: ''; position: absolute; z-index: -1; inset: 18% -2px 10% 0; background: #ffe08a; border-radius: 46% 12% 38% 18% / 60% 30% 70% 40%; transform: rotate(-2deg) skewX(-6deg); }
 body.kid-mode .vid-only { display: none !important; }
+body.shared-mode .vid-only { display: none !important; }   /* placing shared photos: no video controls */
 .wait-mark.wait-on { position: absolute; left: 8px; bottom: 8px; z-index: 1; }
 .art-look { display: flex; justify-content: center; margin-top: 18px; }
 .whose-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 8px; }

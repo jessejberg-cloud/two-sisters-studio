@@ -908,7 +908,8 @@ ${artistIconsJson}
     <h1 class="up-h">${logo(false)}</h1>
     <div class="outbox wobbly" id="outbox" hidden><p id="outbox-text"></p><button type="button" class="chip" id="outbox-send">Send now</button></div>
     <div class="outbox wobbly waiting-bar" id="waiting-bar" hidden><p id="waiting-text"></p><ul class="wait-list" id="wait-list"></ul><button type="button" class="mark" id="waiting-ok">✓ OK all</button></div>
-    <p class="shared-note" id="shared-note" hidden></p>
+    <!-- Shared in from Google Photos (Jesse, 2026-11-26): the pictures show here; an artist, All or Family Moments takes them. -->
+    <div class="shared-tray" id="shared-tray" hidden><p class="shared-note" id="shared-note"></p><ul class="shared-pics" id="shared-pics"></ul><button type="button" class="mark" id="shared-day">${ICONS.heart}<span>Family Moments</span></button></div>
     <!-- Home (build spec, 2026-11-25): one big button per kid, then Family Moments. Drawn by app.js from the studio. -->
     <div class="up-kids up-what" id="home-buttons">
       ${KIDS.map((k) => `<button type="button" class="big-button wobbly c-${k.color}" data-home="${k.key}"><span class="big-icon">${ICONS[k.icon]}</span><span class="big-label">${esc(k.name)}</span></button>`).join('\n      ')}
@@ -1042,6 +1043,8 @@ ${artistIconsJson}
   <section class="screen c-yellow" id="s-video" hidden>
     <p><button type="button" class="linkish" id="vid-back">← Back</button></p>
     <h1 class="up-h2">A special day</h1>
+    <ul class="shared-pics" id="day-shared-pics" hidden></ul>
+    <div class="day-choices" id="day-choices" hidden></div>
     <div class="ep-form">
       <label id="vid-event-pick">Which special day? <select id="vid-event"></select></label>
       <div class="vid-new" id="vid-new">

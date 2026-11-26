@@ -1,6 +1,7 @@
 // Shared steps for the robot-phone tests.
 import { test as base, expect } from '@playwright/test';
 import { TEST } from './values.mjs';
+import fs from 'node:fs';
 export { expect, TEST };
 
 export const FILES = { art: 'tests/e2e/files/art.jpg', photo: 'tests/e2e/files/photo.jpg' };
@@ -78,4 +79,34 @@ export async function ownerInvite(page, name) {
 // Waits for the app's status line to say everything went.
 export async function waitAllSent(page) {
   await expect(page.locator('#status')).toContainText(/All sent|on the site/i, { timeout: 30_000 });
+}
+
+// Photos shared in from Google Photos, and special days that already exist (tests/e2e/share.spec.mjs, look).
+export async function addDay(page, title, date) {   // a special day that already has one photo from the app
+  const s = await (await page.request.post('/api/pieces/start', { data: { kid: 'both', section: 'moments', event: { title, date }, caption: '', photos: [{ originalType: 'image/jpeg', originalSize: 10 }] } })).json();
+  expect(s.id, JSON.stringify(s)).toBeTruthy();
+  const web = fs.readFileSync(FILES.photo);
+  expect((await page.request.post(`/api/pieces/${s.id}/photo/1`, { multipart: {
+    meta: JSON.stringify({ w: 1600, h: 1200, fp: '0123456789abcdef', original: 'O1' }),
+    web: { name: 'w.webp', mimeType: 'image/webp', buffer: web }, thumb: { name: 't.webp', mimeType: 'image/webp', buffer: web } } })).ok()).toBeTruthy();
+  expect((await (await page.request.post(`/api/pieces/${s.id}/finish`)).json()).ok).toBeTruthy();
+}
+
+export async function shareIn(page, n) {   // what the service worker does with a share from Google Photos
+  const b64 = fs.readFileSync(FILES.photo).toString('base64');
+  await page.evaluate(async ({ b64, n }) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const db = await new Promise((ok, no) => { const r = indexedDB.open('two-sisters-studio', 2); r.onsuccess = () => ok(r.result); r.onerror = no; });
+    // Android Chrome keeps the File itself. Where storage refuses files (Safari's engine in the tests), keep the bytes,
+    // the same packed form the app falls back to (unpackBlobs in app.js). iPhones have no share target, so only the test needs this.
+    const save = (file) => new Promise((ok, no) => {
+      const t = db.transaction('shared', 'readwrite');
+      for (let i = 0; i < n; i++) t.objectStore('shared').put({ id: 's' + i, file: file(i) });
+      t.oncomplete = ok; t.onerror = no; t.onabort = no;
+    });
+    try { await save((i) => new File([bytes], 'shared-' + i + '.jpg', { type: 'image/jpeg' })); }
+    catch (e) { await save((i) => ({ __blob: bytes.buffer.slice(0), name: 'shared-' + i + '.jpg', type: 'image/jpeg' })); }
+    db.close();
+  }, { b64, n });
+  await page.goto('/upload/?shared=1');
 }

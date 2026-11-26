@@ -86,7 +86,19 @@
     useShared();
   }
   // Pictures shared in from Google Photos wait on the first screen until a place is picked, then join it.
-  function useShared() { if (state.shared && state.shared.length) { var f = state.shared; state.shared = null; $('#shared-note').hidden = true; addFiles(f); } }
+  function useShared() { if (sharedIn()) { var f = state.shared; sharedDone(); addFiles(f); } }
+  function sharedIn() { return !!(state.shared && state.shared.length); }
+  function sharedDone() {
+    state.shared = null; $('#shared-tray').hidden = true; $('#day-shared-pics').hidden = true; $('#day-choices').hidden = true;
+    document.body.classList.remove('shared-mode'); sharedPics($('#shared-pics')); sharedPics($('#day-shared-pics'));
+  }
+  function sharedPics(ul) {   // the shared pictures, small, so it is clear which ones are being placed
+    ul.querySelectorAll('img').forEach(function (i) { URL.revokeObjectURL(i.src); });
+    ul.textContent = ''; ul.hidden = !sharedIn();
+    var fs = state.shared || [];
+    fs.slice(0, 12).forEach(function (f) { var li = el('li'), img = el('img'); img.alt = ''; img.src = URL.createObjectURL(f); li.append(img); ul.append(li); });
+    if (fs.length > 12) ul.append(el('li', 'shared-more', '+' + (fs.length - 12)));
+  }
   // ---------- quick capture (Jesse, 2026-11-25): straight to Take a photo for the last artist and category on this phone ----------
   // From the app icon's shortcut (Android: hold the icon). The ⚡ Quick switch is gone (Jesse, 2026-11-25).
   function quick() {
@@ -523,26 +535,54 @@
     sel.value = Array.prototype.some.call(sel.options, function (o) { return o.value === was; }) ? was : (sel.options[0] ? sel.options[0].value : '');
     $('#vid-new').hidden = sel.value !== '';
     $('#vid-event-pick').hidden = !kidMode() && sel.options.length < 2;   // no days yet: just ask for the name
+    if (sharedIn()) dayChoices();
   }
+  // Shared-in photos (Jesse, 2026-11-26: "save it in the right spot"): every day is a button, nothing is picked for him.
+  // Tapping a day adds them to it; A new special day asks for the name and date first.
+  function dayChoices() {
+    var box = $('#day-choices'), list = events(), none = !list.length && !kidMode() && vid.daysLoaded;   // the name only once the list is known
+    box.textContent = ''; box.hidden = false;
+    $('#vid-event-pick').hidden = true;
+    if (!kidMode() && list.length) {   // first, so it never ends up far down a long list
+      var n = el('button', 'big-pick wobbly day-choice day-new'); n.type = 'button'; n.id = 'day-new';
+      n.append(el('span', '', '➕ A new special day'));
+      n.addEventListener('click', function () { vid.newShared = true; dayChoices(); $('#vid-event-title').focus(); });
+      box.append(n);
+    }
+    list.forEach(function (e) {
+      var b = el('button', 'big-pick wobbly day-choice'); b.type = 'button'; b.dataset.day = e.key;
+      b.append(el('span', '', '❤️ ' + e.title), el('span', 'day-when', niceDate(e.date)));
+      b.addEventListener('click', function () { $('#vid-event').value = e.key; addSharedToDay(); });
+      box.append(b);
+    });
+    var asking = none || !!vid.newShared;
+    if (asking) $('#vid-event').value = '';
+    $('#vid-new').hidden = !asking; $('#day-shared').hidden = !asking;
+  }
+  function addSharedToDay() { if (sharedIn() && dayAdd(state.shared)) { vid.newShared = false; sharedDone(); } }
   $('#vid-event').addEventListener('change', function () { vid.picked = true; $('#vid-new').hidden = $('#vid-event').value !== ''; });
   function openVideo() {
     if (!$('#vid-event-date').value) $('#vid-event-date').value = today();
     document.body.className = 'up c-yellow' + HM() + (kidMode() ? ' kid-mode' : '') + (IN_APP ? ' in-app' : '');
-    var sh = !!(state.shared && state.shared.length);   // shared in from Google Photos: one button adds them to the day
-    $('#day-shared').hidden = !sh; $('#day-photos-pick').hidden = sh;
-    if (sh) $('#day-shared span').textContent = '❤️ Add the ' + state.shared.length + ' shared photo' + (state.shared.length > 1 ? 's' : '');
+    var sh = sharedIn();   // shared in from Google Photos: they wait above the days until one is tapped
+    $('#day-shared').hidden = true; $('#day-photos-pick').hidden = sh; $('#day-choices').hidden = !sh; vid.newShared = false;
+    document.body.classList.toggle('shared-mode', sh);   // placing photos: the video controls step aside
+    if (!vid.days.length) { try { vid.days = JSON.parse(localStorage.getItem('tss-days-' + STUDIO.slug) || '[]'); } catch (e) {} }   // weak signal: the days from last time
+    sharedPics($('#day-shared-pics'));
+    if (sh) $('#day-shared span').textContent = '❤️ Add to this day';
     vidStatus(''); dayStatus(''); fillEvents(); show('s-video'); if (!kidMode()) vidList(); return dayList();
   }
   // The special days that already have photos from the app, so new photos and videos can join them.
   async function dayList() {
     try {
       var r = await fetch('/api/pieces?section=moments' + (STUDIO.main ? '' : studioQ('&')), { credentials: 'same-origin' });
-      if (!r.ok) return;
+      if (!r.ok) throw new Error(r.status);
       var seen = {};
       vid.days = ((await r.json()).pieces || []).filter(function (p) { if (!p.event || seen[p.event]) return false; seen[p.event] = 1; return true; })
         .map(function (p) { return { key: p.event, title: p.eventTitle, date: p.eventDate }; });
-      fillEvents();
-    } catch (e) { /* no signal: the days on the page are still there */ }
+      try { localStorage.setItem('tss-days-' + STUDIO.slug, JSON.stringify(vid.days)); } catch (e) {}
+    } catch (e) { /* no signal: the days on the page (and from last time) are still there */ }
+    vid.daysLoaded = true; fillEvents();
   }
   function dayStatus(msg, bad) { var s = $('#day-status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
   // The day picked (or typed) on the special day screen. Null, with a note, when a new day has no name yet.
@@ -562,7 +602,7 @@
     var files = Array.prototype.slice.call(e.target.files); e.target.value = '';
     if (files.length) dayAdd(files);
   });
-  $('#day-shared').addEventListener('click', function () { if (state.shared && state.shared.length && dayAdd(state.shared)) { state.shared = null; $('#shared-note').hidden = true; } });
+  $('#day-shared').addEventListener('click', addSharedToDay);
   function dayAdd(files) {
     var day = pickedDay();
     if (!day) { dayStatus('Type a name for the special day first.', true); return false; }
@@ -1434,6 +1474,7 @@
   }
   $('#recent').addEventListener('click', openRecent);
   $('#recent-back').addEventListener('click', goHome);
+  $('#shared-day').addEventListener('click', function () { openVideo(); });
 
   // ---------- pictures shared in from Google Photos (the service worker keeps them) ----------
   async function takeShared() {
@@ -1443,9 +1484,10 @@
     // They wait on the first screen (Jesse, 2026-11-25): pick the artist (or All), then Artwork, Snapshot, a category or
     // Family Moments (an existing day or a new one). The first place picked takes them.
     state.shared = got.map(function (s) { return s.file; }).filter(Boolean);
-    var n = state.shared.length, note = $('#shared-note');
-    note.textContent = n + ' picture' + (n > 1 ? 's' : '') + ' shared in';
-    note.hidden = !n;
+    var n = state.shared.length;
+    $('#shared-note').textContent = n + ' photo' + (n > 1 ? 's' : '') + ' shared in';
+    $('#shared-tray').hidden = !n; sharedPics($('#shared-pics'));
+    $('#shared-day').hidden = kidMode() || houseMode();
   }
 
   // Pictures the first version of the app kept on the phone: move them into the new outbox so nothing is lost.

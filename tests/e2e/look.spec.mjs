@@ -4,7 +4,7 @@
 // to screens/<size>/ for Claude to look at and send to Jesse; nothing is compared.
 // New look approved by Jesse -> run the "Approve the look" workflow in GitHub; it remakes the approved pictures.
 import fs from 'node:fs';
-import { test, expect, login, ownerInvite, waitAllSent, newPhone, settled, FILES } from './helpers.mjs';
+import { test, expect, login, ownerInvite, waitAllSent, newPhone, settled, addDay, shareIn, FILES } from './helpers.mjs';
 
 const COMPARE = process.env.VISUAL === '1';
 
@@ -53,6 +53,21 @@ test('look: the app, from home to a saved piece', async ({ page }, info) => {
   await shot(page, 'app-3-photo', info);
   await page.click('#save');
   await waitAllSent(page);
+});
+
+test('look: photos shared in from Google Photos, then which special day', async ({ page }, info) => {
+  await login(page);
+  await addDay(page, 'Wedding', '2026-06-14');
+  await addDay(page, 'Fall bonfire', '2026-10-18');
+  await page.goto('/upload/');
+  await shareIn(page, 3);
+  await expect(page.locator('#shared-tray img')).toHaveCount(3);
+  await shot(page, 'app-shared-1-home', info);
+  await page.click('#shared-day');
+  await expect(page.locator('#day-choices [data-day]')).toHaveCount(2);
+  await shot(page, 'app-shared-2-days', info);
+  await page.click('#day-new');
+  await shot(page, 'app-shared-3-new-day', info);
 });
 
 test('look: a new family\'s setup, first step', async ({ page, browser }, info) => {
