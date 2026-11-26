@@ -97,11 +97,15 @@ export async function shareIn(page, n) {   // what the service worker does with 
   await page.evaluate(async ({ b64, n }) => {
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     const db = await new Promise((ok, no) => { const r = indexedDB.open('two-sisters-studio', 2); r.onsuccess = () => ok(r.result); r.onerror = no; });
-    await new Promise((ok, no) => {
+    // Android Chrome keeps the File itself. Where storage refuses files (Safari's engine in the tests), keep the bytes,
+    // the same packed form the app falls back to (unpackBlobs in app.js). iPhones have no share target, so only the test needs this.
+    const save = (file) => new Promise((ok, no) => {
       const t = db.transaction('shared', 'readwrite');
-      for (let i = 0; i < n; i++) t.objectStore('shared').put({ id: 's' + i, file: new File([bytes], 'shared-' + i + '.jpg', { type: 'image/jpeg' }) });
-      t.oncomplete = ok; t.onerror = no;
+      for (let i = 0; i < n; i++) t.objectStore('shared').put({ id: 's' + i, file: file(i) });
+      t.oncomplete = ok; t.onerror = no; t.onabort = no;
     });
+    try { await save((i) => new File([bytes], 'shared-' + i + '.jpg', { type: 'image/jpeg' })); }
+    catch (e) { await save((i) => ({ __blob: bytes.buffer.slice(0), name: 'shared-' + i + '.jpg', type: 'image/jpeg' })); }
     db.close();
   }, { b64, n });
   await page.goto('/upload/?shared=1');
