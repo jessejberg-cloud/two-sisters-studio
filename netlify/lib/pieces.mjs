@@ -68,7 +68,16 @@ export const extOf = (type) => (type === 'image/webp' ? 'webp' : type === 'image
 
 const dayOf = (p) => ({ ...(p.event ? { event: p.event, eventTitle: p.eventTitle, eventDate: p.eventDate } : {}), ...(p.house ? { house: p.house, from: p.from || '' } : {}),
   ...(p.studio ? { studio: p.studio } : {}), ...(p.studios ? { studios: p.studios } : {}), ...(p.byName ? { byName: p.byName } : {}), ...(p.dev ? { dev: p.dev } : {}),
-  ...(p.kidName ? { kidName: p.kidName } : {}), ...(p.noDrive ? { noDrive: true } : {}) });
+  ...(p.kidName ? { kidName: p.kidName } : {}), ...(p.noDrive ? { noDrive: true } : {}), ...(Array.isArray(p.kids) ? { kids: p.kids } : {}) });
+// "All" (Jesse, 2026-11-25): a piece made by several artists has kid 'both'; kids lists who, when not everyone.
+export const madeBy = (p, kid) => p.kid === kid || (p.kid === 'both' && (!Array.isArray(p.kids) || p.kids.includes(kid)));
+// Who made it, from the phone: kid 'both' with a list of artists. One artist left: just that artist. Everyone: no list.
+export function allOf(kid, list, keys) {
+  if (kid !== 'both' || !Array.isArray(list)) return { kid };
+  const k = [...new Set(list.filter((x) => keys.includes(x)))];
+  if (k.length === 1) return { kid: k[0] };
+  return k.length && k.length < keys.length ? { kid: 'both', kids: k } : { kid: 'both' };
+}
 // The details file: everything needed to show the piece again, nothing about Netlify.
 export function details(p) {
   return {

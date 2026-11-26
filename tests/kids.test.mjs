@@ -78,9 +78,10 @@ test('her photo saves as hers, into her photos, waiting for an OK', async () => 
   const p = await kidSave(leora, { kid: 'amaya', section: 'photos', caption: 'My cat' });   // tries to be Amaya's: not allowed
   photoId = p.id;
   assert.equal(p.kid, 'leora'); assert.equal(p.section, 'photos'); assert.equal(p.waiting, true);
+  // Shown at once, marked as waiting, to the family and to her (Jesse, 2026-11-25: approved by an adult, not hidden).
   const shown = await (await api(req('/api/pieces?kid=leora&section=photos', parentCookie), {})).json();
-  assert.equal(shown.pieces.length, 0, 'not on the site until OK');
-  assert.equal((await img(req('/img/' + photoId + '/1/sm', leora), {})).status, 404);
+  assert.deepEqual(shown.pieces.map((x) => [x.id, x.waiting]), [[photoId, true]]);
+  assert.equal((await img(req('/img/' + photoId + '/1/sm', leora), {})).status, 200, 'she sees what she sent');
   assert.equal((await img(req('/img/' + photoId + '/1/sm', parentCookie), {})).status, 200);
 });
 
@@ -104,7 +105,7 @@ test('a parent sees it waiting, taps OK, and it shows in her photos (not her art
 test('her art (My art) is hers, waits for an OK, then shows in her art gallery', async () => {
   const p = await kidSave(leora, { kid: 'amaya', section: 'art', caption: 'Rainbow dog' });
   assert.equal(p.kid, 'leora', 'never another girl\'s'); assert.equal(p.section, 'art'); assert.equal(p.waiting, true);
-  assert.ok(!(await (await api(req('/api/pieces?kid=leora', leora), {})).json()).pieces.some((x) => x.id === p.id), 'not shown before OK');
+  assert.equal((await (await api(req('/api/pieces?kid=leora', leora), {})).json()).pieces.find((x) => x.id === p.id).waiting, true, 'shown at once, marked waiting');
   assert.equal((await api(post('/api/pieces/' + p.id + '/ok', parentCookie, {}), {})).status, 200);
   assert.ok((await (await api(req('/api/pieces?kid=leora', leora), {})).json()).pieces.some((x) => x.id === p.id));
 });

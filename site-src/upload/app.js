@@ -11,13 +11,15 @@
   var cfg = JSON.parse(document.getElementById('cfg').textContent);
   var $ = function (s) { return document.querySelector(s); };
   var el = function (tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
-  var state = { kid: null, pieces: [], section: 'art', me: null, day: null };   // day: { key, title, date } when adding photos of a special day   // pieces: [{ caption, starred, photos: [photo], dupes: [] }]
+  var state = { kid: null, kids: null, pieces: [], section: 'art', me: null, day: null, shared: null };   // kids: the artists ticked under All; shared: pictures shared in, waiting for a place   // day: { key, title, date } when adding photos of a special day   // pieces: [{ caption, starred, photos: [photo], dupes: [] }]
   // photo: { file, url, bmpUrl, edit: { rot, crop, look }, edited: Blob|null, fp }
 
   // ---------- dates ----------
   function today() { var d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0, 10); }
   function niceDate(iso) { var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' }); }
-  function kidName(k) { return k === 'both' ? Object.keys(cfg.kids).map(function (x) { return cfg.kids[x].name; }).join(' and ') : cfg.kids[k].name; }
+  function listWords(xs) { return xs.length < 2 ? (xs[0] || '') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1]; }
+  // 'both' is All (Jesse, 2026-11-25): every artist, or the ones ticked (p.kids).
+  function kidName(k, list) { return k === 'both' ? listWords((list && list.length ? list : Object.keys(cfg.kids)).filter(function (x) { return cfg.kids[x]; }).map(function (x) { return cfg.kids[x].name; })) : cfg.kids[k] ? cfg.kids[k].name : ''; }
 
   // ---------- the phone's own storage (IndexedDB) ----------
   var dbp = null;
@@ -73,30 +75,28 @@
   function status(msg, bad) { var s = $('#status'); s.textContent = msg; s.classList.toggle('bad', !!bad); }
   function setKid(k) {
     state.kid = k; state.day = null; $('#tag-chips').hidden = true;
-    $('#who').textContent = k === 'both' ? 'Made together' : cfg.kids[k].name + (state.section === 'cat' && state.cat ? ' · ' + state.cat.name : state.section === 'photos' ? '’s snapshots' : '’s art');
+    if (k !== 'both') state.kids = null;
+    $('#who').textContent = k === 'both' ? kidName('both', state.kids) + (state.section === 'cat' && state.cat ? ' · ' + state.cat.name : '') : cfg.kids[k].name + (state.section === 'cat' && state.cat ? ' · ' + state.cat.name : state.section === 'photos' ? '’s snapshots' : '’s art');
     document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (kidMode() ? ' kid-mode' : '') + (devKid() ? ' dev-kid' : '') + (IN_APP ? ' in-app' : '');
     if (!$('#date').value) $('#date').value = today();
     if (k !== 'both' && !kidMode() && ['art', 'photos', 'cat'].indexOf(state.section) !== -1) {   // quick capture comes back here
       try { localStorage.setItem('tss-last', JSON.stringify({ s: STUDIO.slug, kid: k, section: state.section, cat: state.cat ? state.cat.key : null })); } catch (e) {}
     }
-    status(''); renderList(); show('s-photos');
+    status(''); sentShow([]); renderList(); show('s-photos');
+    useShared();
   }
+  // Pictures shared in from Google Photos wait on the first screen until a place is picked, then join it.
+  function useShared() { if (state.shared && state.shared.length) { var f = state.shared; state.shared = null; $('#shared-note').hidden = true; addFiles(f); } }
   // ---------- quick capture (Jesse, 2026-11-25): straight to Take a photo for the last artist and category on this phone ----------
-  // From the app icon's shortcut (Android: hold the icon) or, with ⚡ on, every time the app opens (iPhone: the icon itself).
+  // From the app icon's shortcut (Android: hold the icon). The ⚡ Quick switch is gone (Jesse, 2026-11-25).
   function quick() {
     var last = null; try { last = JSON.parse(localStorage.getItem('tss-last') || 'null'); } catch (e) {}
     if (!last || last.s !== STUDIO.slug || !cfg.kids[last.kid]) return false;
     var cat = last.section === 'cat' ? (STUDIO.cats || []).filter(function (c) { return c.key === last.cat; })[0] : null;
     if (last.section === 'cat' && !cat) return false;
-    setWhere(last.section); state.cat = cat; $('#where').hidden = true; setKid(last.kid);
+    setWhere(last.section); state.cat = cat; setKid(last.kid);
     return true;
   }
-  function quickOn() { try { return localStorage.getItem('tss-quick-' + STUDIO.slug) === '1'; } catch (e) { return false; } }
-  function drawQuick() { var b = $('#quick-toggle'); if (b) b.setAttribute('aria-pressed', String(quickOn())); }
-  $('#quick-toggle').addEventListener('click', function () {
-    try { localStorage.setItem('tss-quick-' + STUDIO.slug, quickOn() ? '0' : '1'); } catch (e) {}
-    drawQuick();
-  });
   // ---------- a girl's own tablet (her tablet password): one big Choose photos, her name already picked ----------
   // Inside the girls' tablet app (Amazon Kids' browser blocks the camera and photo picker; the app does not).
   var IN_APP = / TwoSistersApp\//.test(navigator.userAgent);
@@ -121,10 +121,10 @@
   }
   function guest() { return !!(state.me && state.me.role === 'guest'); }
   function devKid() { return !!(DEV && DEV.kid); }
-  var KID_EMOJI = ['🎨', '🖍️', '✏️', '🌈', '⭐', '🦄', '🚀', '🌻'];
+  // Each artist's own hand-drawn icon (picked in setup or on For parents; by order when none was picked).
   function kidButton(k, i, attr) {
     var b = el('button', 'big-button wobbly c-' + k.color); b.type = 'button'; b.setAttribute(attr, k.key);
-    b.append(el('span', 'big-icon', k.kind === 'pet' ? '🐾' : KID_EMOJI[i % KID_EMOJI.length]), el('span', 'big-label', k.name));
+    b.append(window.TSS_ICONS ? TSS_ICONS.icon(k, i) : el('span', 'big-icon'), el('span', 'big-label', k.name));
     return b;
   }
   async function loadStudio() {
@@ -144,9 +144,9 @@
   function drawHome() {
     var fam = !!(state.me && state.me.role === 'family');
     if (!STUDIO.main) {
-      var box = $('#home-buttons');
-      box.querySelectorAll('[data-home]').forEach(function (b) { b.remove(); });
-      STUDIO.kids.forEach(function (k, i) { box.append(kidButton(k, i, 'data-home')); });
+      var box = $('#home-buttons'), allB = box.querySelector('[data-home="both"]');
+      box.querySelectorAll('[data-home]:not([data-home="both"])').forEach(function (b) { b.remove(); });
+      STUDIO.kids.forEach(function (k, i) { box.insertBefore(kidButton(k, i, 'data-home'), allB); });
       var who = document.querySelector('#s-who .up-kids'), both = who.querySelector('[data-kid="both"]');
       who.querySelectorAll('[data-kid]:not([data-kid="both"])').forEach(function (b) { b.remove(); });
       STUDIO.kids.forEach(function (k, i) { var b = kidButton(k, i, 'data-kid'); b.addEventListener('click', function () { setKid(k.key); }); who.insertBefore(b, both); });
@@ -154,9 +154,8 @@
       bindHome();
       drawCats();
     }
-    document.querySelector('[data-what="both"]').hidden = !STUDIO.main;
-    document.querySelector('[data-what="episode"]').hidden = !fam;
-    $('#home-extra').hidden = !STUDIO.main;
+    document.querySelector('[data-home="both"]').hidden = Object.keys(cfg.kids).length < 2;   // All: two artists or more
+    document.querySelector('[data-what="episode"]').hidden = !fam || !STUDIO.main;   // the podcast is Jesse's studio's
     $('#home-site').href = STUDIO.main ? '/' : '/' + STUDIO.slug + '/';
     $('#home-parents').href = STUDIO.main ? '/parent/' : '/' + STUDIO.slug + '/for-parents/';
     $('#home-parents').hidden = devKid();
@@ -205,7 +204,7 @@
     $('#pick-more').hidden = cats.length <= 3;
     $('#pick-new').hidden = STUDIO.main || devKid() || (STUDIO.cats || []).length >= 8;
   }
-  function openCat(c) { useCat(c.key); setWhere('cat'); state.cat = c; $('#where').hidden = true; setKid(state.pickKid); }
+  function openCat(c) { useCat(c.key); setWhere('cat'); state.cat = c; var k = pickKid(), list = state.kids; setKid(k); if (k === 'both') { state.kids = list; $('#who').textContent = kidName('both', list) + ' · ' + c.name; } }
   $('#pick-more').addEventListener('click', function () { document.querySelectorAll('#s-pick [data-cat]').forEach(function (b) { b.hidden = false; }); this.hidden = true; });
   var IDEAS = []; try { IDEAS = JSON.parse(document.querySelector('#s-newcat #cat-ideas').textContent); } catch (e) {}
   var newOwn = null;
@@ -242,20 +241,15 @@
 
   // ---------- the name screen: once per phone, its name for "added by" (a kid's name turns on kid mode) ----------
   function askName() {
-    var box = $('#name-faces'); box.textContent = '';
-    (STUDIO.kids || []).forEach(function (k, i) {
-      if (k.kind === 'pet') return;   // a pet does not hold a phone
-      var b = kidButton(k, i, 'data-face');
-      b.addEventListener('click', function () { saveName({ kid: k.key }); });
-      box.append(b);
-    });
+    // Name only (Jesse, 2026-11-25): every grown-up is just an adult, and a studio can have several. A kid's tablet is
+    // set on For parents (PIN), never by tapping a face here.
     document.body.className = 'up c-sky' + (IN_APP ? ' in-app' : '');
     show('s-name');
   }
   async function saveName(body) {
     try { var j = await apiJSON('/api/studio/' + encodeURIComponent(STUDIO.slug) + '/device', body); DEV = j.device; STUDIO.named = true; }
     catch (e) { DEV = { name: body.name || '', kid: body.kid || null }; }
-    drawHome(); goHome();
+    drawHome(); goHome(); showWaitingBar(); jumpTo(); hello();   // the Home Screen picture comes after the name, never over it
   }
   $('#name-ok').addEventListener('click', function () { var n = $('#name-own').value.trim(); if (n) saveName({ name: n }); else $('#name-own').focus(); });
   $('#name-own').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('#name-ok').click(); });
@@ -268,19 +262,41 @@
       b.addEventListener('click', function () {
         var k = b.dataset.home;
         state.pickKid = k;
-        $('#pick-who').textContent = cfg.kids[k].name;
-        document.body.className = 'up c-' + cfg.kids[k].color + (devKid() ? ' dev-kid' : '') + (IN_APP ? ' in-app' : '');
+        $('#pick-who').textContent = k === 'both' ? 'All' : cfg.kids[k].name;
+        drawTicks(k === 'both');
+        document.querySelector('[data-pick="photos"]').hidden = k === 'both';   // a snapshot is one artist's
+        document.body.className = 'up c-' + (k === 'both' ? 'yellow' : cfg.kids[k].color) + (devKid() ? ' dev-kid' : '') + (IN_APP ? ' in-app' : '');
         show('s-pick');
       });
     });
   }
   bindHome();
+  // All (Jesse, 2026-11-25): every artist ticked; untick to choose fewer. One left is just that artist's.
+  function drawTicks(on) {
+    var box = $('#all-ticks'); box.textContent = ''; box.hidden = !on;
+    if (!on) { state.kids = null; return; }
+    var keys = Object.keys(cfg.kids); state.kids = keys.slice();
+    keys.forEach(function (key) {
+      var t = el('button', 'mark', cfg.kids[key].name); t.type = 'button'; t.setAttribute('aria-pressed', 'true');
+      t.addEventListener('click', function () {
+        var was = state.kids.indexOf(key) !== -1;
+        if (was && state.kids.length === 1) return;   // one at least
+        state.kids = was ? state.kids.filter(function (x) { return x !== key; }) : keys.filter(function (x) { return x === key || state.kids.indexOf(x) !== -1; });
+        t.setAttribute('aria-pressed', String(!was));
+      });
+      box.append(t);
+    });
+  }
+  function pickKid() {   // All with only one ticked is that artist's own
+    if (state.pickKid === 'both' && state.kids && state.kids.length === 1) { var one = state.kids[0]; state.kids = null; return one; }
+    return state.pickKid;
+  }
   document.querySelectorAll('[data-pick]').forEach(function (b) {
     b.addEventListener('click', function () {
       var w = b.dataset.pick;
       if (w === 'moment') { openVideo(); return; }
       if (w === 'video') { openVideo(); $('#vid-file').click(); return; }   // straight to the phone's video picker
-      setWhere(w); $('#where').hidden = true; setKid(state.pickKid);
+      setWhere(w); var k = pickKid(), list = state.kids; setKid(k); if (k === 'both') { state.kids = list; $('#who').textContent = kidName('both', list); }
     });
   });
   $('#pick-back').addEventListener('click', goHome);
@@ -312,7 +328,7 @@
       $('#who').textContent = (state.me.name || 'Family') + '’s photos';
       $('#date').value = today();
       document.body.className = 'up c-sky day-mode house-mode house-own' + (IN_APP ? ' in-app' : '');
-      status(''); renderList(); show('s-photos');
+      status(''); sentShow([]); renderList(); show('s-photos'); useShared();
     });
   });
   function setWhere(w) {
@@ -327,24 +343,29 @@
     $('#kid-page').href = '/' + state.me.kid + '/';
     document.querySelectorAll('.kid-page').forEach(function (a) { a.href = '/' + state.me.kid + '/'; });
     document.body.className = 'up c-' + cfg.kids[state.me.kid].color + ' kid-mode' + (IN_APP ? ' in-app' : '');
+    document.querySelector('[data-kidwhat="moments"]').hidden = !state.me.moments;   // only when a parent switched it on
     show('s-kidhome');   // My art or A snapshot (Jesse, 2026-11-25)
     return true;
   }
   document.querySelectorAll('[data-kidwhat]').forEach(function (b) {
     b.addEventListener('click', function () {
-      var art = b.dataset.kidwhat === 'art';
-      setWhere(art ? 'art' : 'photos');
-      $('#where').hidden = art || !state.me.moments;
-      $('#kid-help').textContent = art ? 'Take a picture of your art, or choose one. It goes on your page after a grown-up says OK.'
-        : 'Take a picture or choose one. It goes to your snapshots after a grown-up says OK.' + (state.me.moments ? ' Or tap Family Moments below.' : '');
+      var w = b.dataset.kidwhat;
+      if (w === 'moments') { kidMoments(); return; }
+      setWhere(w === 'art' ? 'art' : 'photos');
       setKid(state.me.kid);
     });
   });
+  // Her Family Moments photo (when a parent allows it): into a special day already on the page, never a new one.
+  // No days yet: straight to her photos for Family Moments (they show in their own row). Waits for a parent's OK.
+  async function kidMoments() {
+    openVideo();
+    await dayList();
+    if (!events().length) { setWhere('moments'); setKid(state.me.kid); document.body.classList.add('day-mode'); return; }
+  }
   // ---------- home: what are we adding? Art, a snapshot (a photo she took), or a podcast episode ----------
   function chooseWhat(what) {
     if (what === 'episode') { openEpisode(); return; }
     if (what === 'video') { openVideo(); return; }
-    if (what === 'both') { setWhere('art'); $('#where').hidden = true; setKid('both'); return; }
     state.section = what;
     $('#who-lead').textContent = what === 'photos' ? 'Whose snapshot is it?' : 'Whose art is it?';
     document.querySelector('[data-kid="both"]').hidden = what === 'photos';
@@ -490,7 +511,7 @@
   function vidReady() { $('#vid-save').disabled = vid.busy || !vid.file; }
   function events() {   // the special days on the page, plus any that only have videos so far
     var seen = {}, out = [];
-    (cfg.moments || []).concat(vid.list.filter(function (v) { return !v.deleted; }).map(function (v) { return { key: v.event, title: v.eventTitle, date: v.eventDate }; }), vid.days)
+    (kidMode() ? [] : cfg.moments || []).concat(vid.list.filter(function (v) { return !v.deleted; }).map(function (v) { return { key: v.event, title: v.eventTitle, date: v.eventDate }; }), vid.days)
       .forEach(function (e) { if (!seen[e.key]) { seen[e.key] = 1; out.push(e); } });
     return out.sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
@@ -498,16 +519,19 @@
     var sel = $('#vid-event'), was = vid.lastEvent || (vid.picked ? sel.value : null);   // until someone picks, the newest day
     sel.innerHTML = '';
     events().forEach(function (e) { var o = el('option', '', e.title + ' (' + niceDate(e.date) + ')'); o.value = e.key; sel.append(o); });
-    var n = el('option', '', '➕ A new special day'); n.value = ''; sel.append(n);
+    if (!kidMode()) { var n = el('option', '', '➕ A new special day'); n.value = ''; sel.append(n); }   // a girl never makes a new day
     sel.value = Array.prototype.some.call(sel.options, function (o) { return o.value === was; }) ? was : (sel.options[0] ? sel.options[0].value : '');
     $('#vid-new').hidden = sel.value !== '';
-    $('#vid-event-pick').hidden = sel.options.length < 2;   // no days yet: just ask for the name
+    $('#vid-event-pick').hidden = !kidMode() && sel.options.length < 2;   // no days yet: just ask for the name
   }
   $('#vid-event').addEventListener('change', function () { vid.picked = true; $('#vid-new').hidden = $('#vid-event').value !== ''; });
   function openVideo() {
     if (!$('#vid-event-date').value) $('#vid-event-date').value = today();
-    document.body.className = 'up c-yellow' + HM() + (IN_APP ? ' in-app' : '');
-    vidStatus(''); dayStatus(''); fillEvents(); show('s-video'); vidList(); dayList();
+    document.body.className = 'up c-yellow' + HM() + (kidMode() ? ' kid-mode' : '') + (IN_APP ? ' in-app' : '');
+    var sh = !!(state.shared && state.shared.length);   // shared in from Google Photos: one button adds them to the day
+    $('#day-shared').hidden = !sh; $('#day-photos-pick').hidden = sh;
+    if (sh) $('#day-shared span').textContent = '❤️ Add the ' + state.shared.length + ' shared photo' + (state.shared.length > 1 ? 's' : '');
+    vidStatus(''); dayStatus(''); fillEvents(); show('s-video'); if (!kidMode()) vidList(); return dayList();
   }
   // The special days that already have photos from the app, so new photos and videos can join them.
   async function dayList() {
@@ -536,21 +560,27 @@
   // Photos of a special day: straight to the photos screen, the day already chosen, nothing else to pick.
   $('#day-photos').addEventListener('change', function (e) {
     var files = Array.prototype.slice.call(e.target.files); e.target.value = '';
-    if (!files.length) return;
+    if (files.length) dayAdd(files);
+  });
+  $('#day-shared').addEventListener('click', function () { if (state.shared && state.shared.length && dayAdd(state.shared)) { state.shared = null; $('#shared-note').hidden = true; } });
+  function dayAdd(files) {
     var day = pickedDay();
-    if (!day) { dayStatus('Type a name for the special day first (the box under "Name of the special day").', true); return; }
+    if (!day) { dayStatus('Type a name for the special day first.', true); return false; }
     dayStatus('');
-    state.kid = 'both'; state.section = 'moments'; state.day = day;
+    state.kid = kidMode() ? state.me.kid : 'both'; state.kids = null; state.section = 'moments'; state.day = day;
     $('#who').textContent = '❤️ ' + day.title;
     $('#date').value = day.date;
-    $('#tag-chips').hidden = !!$('#tag-chips').dataset.none || !$('#tag-chips').children.length;
-    document.body.className = 'up c-yellow day-mode' + HM() + (IN_APP ? ' in-app' : '');
-    status(''); show('s-photos');
+    $('#tag-chips').hidden = kidMode() || !!$('#tag-chips').dataset.none || !$('#tag-chips').children.length;
+    document.body.className = 'up c-yellow day-mode' + HM() + (kidMode() ? ' kid-mode' : '') + (IN_APP ? ' in-app' : '');
+    status(''); sentShow([]); show('s-photos');
     addFiles(files);
-  });
+    return true;
+  }
   $('#vid-back').addEventListener('click', function () {
     if (vid.busy && !confirm('The video is still sending. Leave anyway? You can send it again later.')) return;
-    if (houseMode()) { document.body.className = 'up c-sky house-mode' + (IN_APP ? ' in-app' : ''); show('s-househome'); } else goHome();
+    if (houseMode()) { document.body.className = 'up c-sky house-mode' + (IN_APP ? ' in-app' : ''); show('s-househome'); }
+    else if (kidMode()) { document.body.className = 'up c-' + cfg.kids[state.me.kid].color + ' kid-mode' + (IN_APP ? ' in-app' : ''); show('s-kidhome'); }
+    else goHome();
   });
   // Videos in the newer "high efficiency" (HEVC) format play on most phones but may not play on the Fire tablets.
   async function isHevc(f) {
@@ -684,7 +714,7 @@
     if (state.pieces.length && !confirm('Leave without saving these pictures?')) return;
     var wasDay = !!state.day;
     clearPieces(); state.day = null;
-    if (wasDay) openVideo(); else if (kidMode()) show('s-kidhome'); else if (houseMode()) show('s-househome'); else goHome();
+    if (wasDay) openVideo(); else if (kidMode()) { document.body.classList.remove('day-mode'); show('s-kidhome'); } else if (houseMode()) show('s-househome'); else goHome();
   });
   function clearPieces() {
     state.pieces.forEach(function (p) { p.photos.forEach(function (ph) { URL.revokeObjectURL(ph.url); }); });
@@ -857,7 +887,7 @@
         var turn = el('button', 'fix-btn wobbly', '↻ Turn'); turn.type = 'button'; turn.disabled = !!ph.working;
         turn.addEventListener('click', function () { turnOne(ph); });
         tools.append(turn);
-        if (scans()) {
+        if (scans() && !kidMode()) {   // her tablet: Turn only (Jesse, 2026-11-25); the scan fix still runs by itself
           var corners = el('button', 'fix-btn wobbly', '✂ Fix corners'); corners.type = 'button'; corners.disabled = !!ph.working;
           corners.addEventListener('click', function () { openEditor(ph); });
           tools.append(corners);
@@ -873,7 +903,7 @@
       var inp = el('input'); inp.type = 'file'; inp.accept = 'image/*'; inp.setAttribute('capture', 'environment');
       inp.addEventListener('change', function () { addFiles(inp.files, p); inp.value = ''; });
       more.append(inp, el('span', null, '＋ Another photo of this piece'));
-      var cap = el('input'); cap.type = 'text'; cap.placeholder = state.day || houseMode() ? 'A few words (optional)' : kidMode() ? 'What is it? (you can skip this)' : 'Caption, in their own words (optional)';
+      var cap = el('input'); cap.type = 'text'; cap.placeholder = state.day || houseMode() ? 'A few words' : 'Caption';
       cap.value = p.caption; cap.maxLength = 140; cap.setAttribute('aria-label', 'Caption for piece ' + (i + 1));
       cap.addEventListener('input', function () { p.caption = cap.value; });
       var star = el('button', 'star', p.starred ? '★ Show big' : '☆ Show big'); star.type = 'button';
@@ -888,9 +918,9 @@
       li.append(pics, more, box, quick); ul.append(li);
     });
     var n = state.pieces.length;
-    $('#count').textContent = state.day ? (n ? n + ' photo' + (n > 1 ? 's' : '') + '. Tap Save to send ' + (n > 1 ? 'them' : 'it') + '.' : 'All sent. Add more, or go back.')
-      : n ? n + ' piece' + (n > 1 ? 's' : '') + '. Tap a photo to fix it up.' : 'No pictures yet';
-    $('#save').disabled = !n; $('#share').disabled = !n;
+    $('#count').textContent = !n ? '' : state.day || kidMode() ? n + ' photo' + (n > 1 ? 's' : '') : n + ' piece' + (n > 1 ? 's' : '');
+    $('#save').disabled = !n; $('#share').disabled = !n; $('#share').hidden = !n;   // the Drive-app way out only shows with photos to send
+    $('#save').textContent = kidMode() ? 'Send' : 'Save';
   }
 
   // ---------- the scan fix for photos of art (Jesse, 2026-11-25: fewer presses, no looks that change the girls' colours) ----------
@@ -1169,7 +1199,7 @@
           var print = state.section === 'moments' && !ph.pdf ? await printCopy(ph.edited || ph.file).catch(function () { return null; }) : null;
           photos.push({ print: print, pdf: !!ph.pdf, original: ph.file, originalType: ph.pdf ? 'application/pdf' : (ph.file.type || 'image/jpeg'), edited: ph.edited, web: wc.web, thumb: wc.thumb, w: wc.w, h: wc.h, fp: ph.fp, edits: edits });
         }
-        await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, date: date, section: state.section || 'art', event: state.day,
+        await put('outbox2', { id: Date.now() + '-' + i + '-' + Math.random().toString(36).slice(2, 8), kid: state.kid, kids: state.kid === 'both' && state.kids ? state.kids.slice() : null, date: date, section: state.section || 'art', event: state.day,
           studio: STUDIO.slug, studios: state.day && !$('#tag-chips').hidden ? tags.slice() : null,
           cat: state.section === 'cat' && state.cat ? state.cat.key : null,
           caption: p.caption.trim(), starred: p.starred, photos: photos, progress: {}, created: new Date().toISOString() });
@@ -1224,7 +1254,7 @@
   async function sendOne(q, label) {
     var pr = q.progress;
     if (!pr.start) {
-      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, date: q.date, section: q.section || 'art', cat: q.cat || undefined, event: q.event || null, caption: q.caption, starred: q.starred,
+      pr.start = await apiJSON('/api/pieces/start', { clientId: q.id, kid: q.kid, kids: q.kids || undefined, date: q.date, section: q.section || 'art', cat: q.cat || undefined, event: q.event || null, caption: q.caption, starred: q.starred,
         studio: q.studio || 'main', studios: q.studios || undefined,
         photos: q.photos.map(function (ph) { return { originalType: ph.originalType, originalSize: ph.original.size, edited: !!ph.edited, editedSize: ph.edited ? ph.edited.size : 0 }; }) });
       await put('outbox2', q);
@@ -1275,8 +1305,23 @@
       if (!pres.ok) throw await notTaken(pres, 'PDF');
       pr.pdfSent[m] = true; await put('outbox2', q);
     }
-    await apiJSON('/api/pieces/' + pr.start.id + '/finish');
+    var fin = await apiJSON('/api/pieces/' + pr.start.id + '/finish');
     await del('outbox2', q.id);
+    return fin && fin.piece;
+  }
+  // What was just sent, as small pictures under Save. On her tablet each has a "waiting for OK" brush mark (Jesse, 2026-11-25).
+  var sentNow = [];
+  function sentShow(list) {
+    sentNow.forEach(function (x) { if (list.indexOf(x) === -1) URL.revokeObjectURL(x.url); }); sentNow = list;
+    var ul = $('#sent-list'); ul.textContent = ''; ul.hidden = !list.length;
+    list.forEach(function (x) {
+      var li = el('li', 'sent'), img = el('img'); img.src = x.url; img.alt = '';
+      li.append(img); if (x.waiting) li.append(el('span', 'wait-mark', 'waiting for OK'));
+      ul.append(li);
+    });
+    var a = $('#art-look'), k = list.length && list[list.length - 1].kid;
+    a.hidden = !list.length || kidMode() || houseMode() || !!state.day || !k || k === 'both' && !STUDIO.main;
+    if (!a.hidden) $('#art-look-a').href = (STUDIO.main ? '/' : '/' + STUDIO.slug + '/') + (k === 'both' ? '' : k + '/');
   }
   async function sendOutbox() {
     if (sending) return;
@@ -1287,9 +1332,11 @@
       for (var i = 0; i < list.length; i++) {
         var label = 'Sending piece ' + (i + 1) + ' of ' + list.length;
         status(label + '…');
-        await sendOne(list[i], label); done++;
+        var q = list[i], thumb = q.photos[0] && q.photos[0].thumb;
+        var got = await sendOne(q, label); done++;
+        if (thumb && !$('#s-photos').hidden) sentShow(sentNow.concat([{ url: URL.createObjectURL(thumb), waiting: !!(got && got.waiting), kid: got ? got.kid : q.kid }]));
       }
-      status(kidMode() ? 'Sent! A grown-up will look, then ' + (done === 1 ? 'it shows' : 'they show') + (state.section === 'art' ? ' on your page.' : ' in your snapshots.')
+      status(kidMode() ? 'Sent!'
         : 'All sent! ' + (done === 1 ? 'It is' : 'They are') + (state.day ? ' on the Family Moments page now.' : ' on the site now.'));
       outboxErr = '';
     } catch (e) {
@@ -1336,13 +1383,13 @@
     list.textContent = '';
     if (!j.recent || !j.recent.length) list.append(el('li', 'muted', 'Nothing uploaded yet.'));
     (j.recent || []).forEach(function (p) { list.append(recentRow(p, false)); });
-    $('#deleted-h').hidden = $('#deleted-help').hidden = !(j.deleted && j.deleted.length);
+    $('#deleted-h').hidden = !(j.deleted && j.deleted.length);
     (j.deleted || []).forEach(function (p) { gone.append(recentRow(p, true, j.keepDays)); });
   }
   function recentRow(p, deleted, keepDays) {
     var li = el('li', 'item recent');
     var img = el('img', 'recent-pic'); img.src = '/img/' + p.id + '/1/sm'; img.alt = ''; img.loading = 'lazy';
-    var who = el('p', 'recent-who', (p.eventTitle ? '❤️ ' + p.eventTitle : p.kid === 'both' ? 'Made together' : cfg.kids[p.kid].name) + (p.photos.length > 1 ? ' · ' + p.photos.length + ' photos' : ''));
+    var who = el('p', 'recent-who', (p.eventTitle ? '❤️ ' + p.eventTitle : p.kid === 'both' ? kidName('both', p.kids) : (cfg.kids[p.kid] || {}).name || '') + (p.photos.length > 1 ? ' · ' + p.photos.length + ' photos' : ''));
     var box = el('div', 'item-text'); box.append(who);
     if (deleted) {
       var until = new Date(Date.parse(p.deleted) + keepDays * 86400000).toLocaleDateString(undefined, { month: 'long', day: 'numeric' });
@@ -1362,7 +1409,27 @@
     star.addEventListener('click', async function () { await change({ starred: !p.starred }); star.textContent = p.starred ? '★ Show big' : '☆ Show big'; star.setAttribute('aria-pressed', String(p.starred)); });
     rm.addEventListener('click', async function () { rm.disabled = true; try { await apiJSON('/api/pieces/' + p.id + '/delete'); openRecent(); } catch (e) { status(e.message, true); rm.disabled = false; } });
     var row = el('div', 'item-row'); row.append(star, rm, saved);
-    box.append(cap, date, row); li.append(img, box);
+    box.append(cap, date);
+    // Whose / Where (Jesse, 2026-11-25): the wrong artist, or Artwork that should be a Snapshot (and back).
+    if (['art', 'photos', 'cat'].indexOf(p.section || 'art') !== -1 && !devKid()) {
+      var ww = el('div', 'whose-row');
+      var whose = el('select'); whose.setAttribute('aria-label', 'Whose');
+      Object.keys(cfg.kids).forEach(function (k) { var o = el('option', '', cfg.kids[k].name); o.value = k; whose.append(o); });
+      var oa = null; if (Object.keys(cfg.kids).length > 1) { oa = el('option', '', 'All'); oa.value = 'both'; whose.append(oa); }
+      var where = null, os = null;
+      // A snapshot is one artist's: All and Snapshot never show together.
+      var sync = function () { whose.value = p.kid; if (where) where.value = p.section || 'art'; if (oa) oa.hidden = oa.disabled = p.section === 'photos'; if (os) os.hidden = os.disabled = p.kid === 'both'; };
+      whose.addEventListener('change', async function () { await change({ kid: whose.value }); who.textContent = p.kid === 'both' ? kidName('both', p.kids) : cfg.kids[p.kid].name; sync(); });
+      ww.append(el('span', 'ww-label', 'Whose'), whose);
+      if (p.section !== 'cat') {
+        where = el('select'); where.setAttribute('aria-label', 'Where');
+        [['art', 'Artwork'], ['photos', 'Snapshot']].forEach(function (x) { var o = el('option', '', x[1]); o.value = x[0]; where.append(o); if (x[0] === 'photos') os = o; });
+        where.addEventListener('change', async function () { await change({ section: where.value }); sync(); });
+        ww.append(el('span', 'ww-label', 'Where'), where);
+      }
+      sync(); box.append(ww);
+    }
+    box.append(row); li.append(img, box);
     return li;
   }
   $('#recent').addEventListener('click', openRecent);
@@ -1372,11 +1439,13 @@
   async function takeShared() {
     var got = await all('shared');
     if (!got.length) return;
-    got.forEach(function (s) { addFiles([s.file]); });
     await Promise.all(got.map(function (s) { return del('shared', s.id); }));
-    state.section = 'art';
-    $('#who-lead').textContent = got.length + ' picture' + (got.length > 1 ? 's' : '') + ' shared in. Whose art is it?';
-    show('s-who');
+    // They wait on the first screen (Jesse, 2026-11-25): pick the artist (or All), then Artwork, Snapshot, a category or
+    // Family Moments (an existing day or a new one). The first place picked takes them.
+    state.shared = got.map(function (s) { return s.file; }).filter(Boolean);
+    var n = state.shared.length, note = $('#shared-note');
+    note.textContent = n + ' picture' + (n > 1 ? 's' : '') + ' shared in';
+    note.hidden = !n;
   }
 
   // Pictures the first version of the app kept on the phone: move them into the new outbox so nothing is lost.
@@ -1404,7 +1473,20 @@
       waitingList = r.ok ? ((await r.json()).waiting || []) : [];
     } catch (e) { waitingList = []; }
     bar.hidden = !waitingList.length;
-    if (waitingList.length) $('#waiting-text').textContent = waitingList.length + ' picture' + (waitingList.length > 1 ? 's' : '') + ' from the girls ' + (waitingList.length > 1 ? 'are' : 'is') + ' waiting for your OK.';
+    if (waitingList.length) $('#waiting-text').textContent = 'Waiting for your OK';
+    // Each one as a small picture with its own OK (Jesse, 2026-11-25), and OK all.
+    var ul = $('#wait-list'); ul.textContent = '';
+    waitingList.forEach(function (p) {
+      var li = el('li', 'wait-item'), img = el('img'); img.src = '/img/' + encodeURIComponent(p.id) + '/1/sm'; img.alt = (p.kidName || (cfg.kids[p.kid] || {}).name || '') + (p.caption ? ': ' + p.caption : '');
+      var ok = el('button', 'mark', '✓ OK'); ok.type = 'button';
+      ok.addEventListener('click', async function () {
+        ok.disabled = true;
+        try { await apiJSON('/api/pieces/' + encodeURIComponent(p.id) + '/ok'); li.remove(); waitingList = waitingList.filter(function (x) { return x !== p; }); bar.hidden = !waitingList.length; }
+        catch (e) { ok.disabled = false; $('#waiting-text').textContent = e.message; }
+      });
+      li.append(img, ok); ul.append(li);
+    });
+    $('#waiting-ok').hidden = waitingList.length < 2;
   }
   $('#waiting-ok').addEventListener('click', async function () {
     var btn = this; btn.disabled = true;
@@ -1421,9 +1503,8 @@
   startKidMode().then(async function (kid) {
     if (kid) { jumpTo(); return; }
     await loadStudio();
-    if (guest() && !STUDIO.named) { askName(); }
-    else { goHome(); showWaitingBar(); jumpTo(); }
-    hello();
+    if (guest() && !STUDIO.named) { askName(); return; }   // hello() comes after the name
+    goHome(); showWaitingBar(); jumpTo(); hello();
   });
   // The home screen guide (build spec): once per phone, after an Invite. A picture of the phone with the spot to tap.
   function hello() {
@@ -1439,8 +1520,7 @@
   }
   // The ＋ on a site page (Jesse, 2026-11-25) opens the app straight on that page's screen: ?add=art&kid=leora, day, episode, house.
   function jumpTo() {
-    var q = new URLSearchParams(location.search), add = q.get('add') || (quickOn() && !q.get('welcome') ? 'quick' : null), k = q.get('kid');
-    drawQuick();
+    var q = new URLSearchParams(location.search), add = q.get('add'), k = q.get('kid');
     if (!add || kidMode()) return;
     if (add === 'quick') { try { history.replaceState(null, '', '/upload/'); } catch (e) {} quick(); return; }
     try { history.replaceState(null, '', '/upload/' + (q.get('welcome') ? '?welcome=1' : '')); } catch (e) {}
