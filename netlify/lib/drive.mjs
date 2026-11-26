@@ -18,6 +18,9 @@ const FOLDER = 'application/vnd.google-apps.folder';
 export async function saveGoogle(context, refreshToken, info, studio = MAIN) {
   await store('auth', context).setJSON(gkey(studio), { rt: await encrypt(refreshToken, secret()), ...info, at: new Date().toISOString() });
   tokens.delete(gkey(studio));
+  // A new connection may be another Google account (or the old folders were deleted): forget the old folder ids,
+  // so folders are found or made again in this Drive. Found by the real-Drive preview test, 2026-11-26.
+  await store('drive', context).delete(fkey(studio));
 }
 export async function googleInfo(context, studio = MAIN) {
   const g = await store('auth', context).get(gkey(studio), { type: 'json' });

@@ -187,6 +187,7 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 
 | Date | What changed | PR |
 |---|---|---|
+| 2026-11-26 | Found by the first real-Drive preview run: after connecting a different Google account (or deleting the folder in Drive), saving failed with "Google Drive 404" because the site still used the old Drive's folder ids. Connecting now forgets them; a test covers it. | (this PR) |
 | 2026-11-25 | Preview test set up by Jesse (guide section 9 updated); it now says why when the preview will not take the test password. Public privacy page at /privacy/ (no login, noindex, plain words, Google's Limited Use sentence), linked from the login page; "privacy" can't be a studio name. Google asks for it before the app can go In production. A test covers it. | (this PR) |
 | 2026-11-25 | Jesse's Family Moments notes: one 📤 Share button (This page, a special day, Photos: pick one or many); no subtitles under page titles and no tip boxes anywhere; day names as colored brush marks, not pill boxes; ＋ Add as a paint dab, not a pill. | (this PR) |
 | 2026-11-25 | Pick several to share (Jesse: yes): ☑ Pick several to share at the top of a page with pictures; tap to pick, one link for all. Previews stay name and logo; the phone-count cookie stays (Jesse: yes). | (this PR) |
