@@ -523,10 +523,20 @@
   function vidReady() { $('#vid-save').disabled = vid.busy || !vid.file; }
   function events() {   // the special days on the page, plus any that only have videos so far
     var seen = {}, out = [];
-    (kidMode() ? [] : cfg.moments || []).concat(vid.list.filter(function (v) { return !v.deleted; }).map(function (v) { return { key: v.event, title: v.eventTitle, date: v.eventDate }; }), vid.days)
+    (kidMode() ? [] : cfg.moments || []).concat(vid.list.filter(function (v) { return !v.deleted; }).map(function (v) { return { key: v.event, title: v.eventTitle, date: v.eventDate }; }), vid.days, kidMode() ? [] : myDays())   // the site's days first: they win over this phone's memory
       .forEach(function (e) { if (!seen[e.key]) { seen[e.key] = 1; out.push(e); } });
     return out.sort(function (a, b) { return b.date.localeCompare(a.date); });
   }
+  // Days made on this phone (Jesse, 2026-11-27: "I need to be able to add to an existing event"): a new day is only on the
+  // site once its first photo has gone through, so the phone remembers it at once and offers it again even while sending.
+  function myDays() { try { return JSON.parse(localStorage.getItem('tss-mydays-' + STUDIO.slug) || '[]'); } catch (e) { return []; } }
+  function rememberDay(d) {
+    var list = myDays().filter(function (x) { return x.key !== d.key; });
+    list.unshift({ key: d.key, title: d.title, date: d.date });
+    try { localStorage.setItem('tss-mydays-' + STUDIO.slug, JSON.stringify(list.slice(0, 40))); } catch (e) {}
+  }
+  // The same key the site makes for a new day (dayKey in netlify/lib/pieces.mjs), so later photos join the same day.
+  function dayKey(date, title) { return date + '-' + (String(title).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(' ').slice(0, 6).join('-') || 'untitled'); }
   function fillEvents() {
     var sel = $('#vid-event'), was = vid.lastEvent || (vid.picked ? sel.value : null);   // until someone picks, the newest day
     sel.innerHTML = '';
@@ -581,6 +591,8 @@
       vid.days = ((await r.json()).pieces || []).filter(function (p) { if (!p.event || seen[p.event]) return false; seen[p.event] = 1; return true; })
         .map(function (p) { return { key: p.event, title: p.eventTitle, date: p.eventDate }; });
       try { localStorage.setItem('tss-days-' + STUDIO.slug, JSON.stringify(vid.days)); } catch (e) {}
+      var onSite = {}; vid.days.forEach(function (d) { onSite[d.key] = 1; });   // on the site now: the phone can forget it
+      try { localStorage.setItem('tss-mydays-' + STUDIO.slug, JSON.stringify(myDays().filter(function (d) { return !onSite[d.key]; }))); } catch (e) {}
     } catch (e) { /* no signal: the days on the page (and from last time) are still there */ }
     vid.daysLoaded = true; fillEvents();
   }
@@ -590,12 +602,13 @@
     var key = $('#vid-event').value, ev = null;
     events().forEach(function (x) { if (x.key === key) ev = x; });
     if (ev) return { key: ev.key, title: ev.title, date: ev.date };
-    var title = $('#vid-event-title').value.trim() || (fallbackTitle || '');
+    var title = ($('#vid-event-title').value.trim() || (fallbackTitle || '')).slice(0, 80);   // the site keeps 80
     if (!title) {
       $('#vid-event-title').scrollIntoView({ block: 'center' }); $('#vid-event-title').focus();
       return null;
     }
-    return { key: '', title: title, date: $('#vid-event-date').value || today() };
+    var date = $('#vid-event-date').value || today();
+    return { key: dayKey(date, title), title: title, date: date };
   }
   // Photos of a special day: straight to the photos screen, the day already chosen, nothing else to pick.
   $('#day-photos').addEventListener('change', function (e) {
@@ -607,6 +620,7 @@
     var day = pickedDay();
     if (!day) { dayStatus('Type a name for the special day first.', true); return false; }
     dayStatus('');
+    if (!kidMode()) rememberDay(day);
     state.kid = kidMode() ? state.me.kid : 'both'; state.kids = null; state.section = 'moments'; state.day = day;
     $('#who').textContent = '❤️ ' + day.title;
     $('#date').value = day.date;
@@ -681,6 +695,7 @@
     // No name typed? Use the few words about it, so nothing blocks sending.
     var day = pickedDay($('#vid-caption').value.trim());
     if (!day) { vidStatus('Type a name for the special day (the box under "Name of the special day").', true); return; }
+    if (!kidMode()) rememberDay(day);
     var ev = day.key ? day : null, evTitle = day.title, evDate = day.date;
     vid.busy = true; vidReady(); $('#vid-done').hidden = true;
     var lock = null; try { if (navigator.wakeLock) lock = await navigator.wakeLock.request('screen'); } catch (e) {}

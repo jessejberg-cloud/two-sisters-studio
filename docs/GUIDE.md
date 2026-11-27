@@ -100,6 +100,9 @@ Priorities, in order (spec):
   button; an artist or All takes them too. For shared photos, Family Moments shows ➕ A new special day (name and date
   first), then every special day as its own button (no day is picked for you; the days are remembered for a weak signal;
   no video controls on that screen). The day tapped takes them (Jesse, 2026-11-26: "the right spot").
+- A special day made on a phone is offered on that phone at once, even before its first photos reach the site (a weak
+  signal, Drive off). The phone makes the same day key as the site, so later photos and videos join that day. Once the site
+  lists the day, the site's list wins. Another grown-up's phone sees it once its first photo is through.
 - Artwork and "Paper" categories get the scan fix (find the paper, straighten, even the light). Under each photo: Turn, Fix corners, Use the original.
 - Snapshots and special-day photos: Turn only.
 - Save: kept on the phone, then the original goes to Drive and a web copy to the site. It shows on the site right away.
@@ -206,6 +209,7 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 
 | Date | What changed | PR |
 |---|---|---|
+| 2026-11-27 | Fix (Jesse: "Unable to add to existing family moment"): a day he made did not show as a button, because a new day only reached the site once its first photo was through. The phone now remembers days it made and uses the site's own day key. Test first (`tests/e2e/share.spec.mjs`). | (this PR) |
 | 2026-11-26 | Found by the first real-Drive preview run: after connecting a different Google account (or deleting the folder in Drive), saving failed with "Google Drive 404" because the site still used the old Drive's folder ids. Connecting now forgets them; a test covers it. | (this PR) |
 | 2026-11-26 | Shared photos land in the right special day (Jesse: "save it in the right spot"): the shared pictures show on the app's first screen with ❤️ Family Moments; the special day screen lists every day as a button instead of a small list that picked the newest; ➕ A new special day asks the name first. Tests first (`tests/e2e/share.spec.mjs`), look screens `app-shared-*`. | (this PR) |
 | 2026-11-25 | Ease-of-use gaps batch: app home with artist blocks + All (any number of artists, untick to choose fewer), hand-drawn icon row, Quick removed; name-only new-phone screen, guide after the name; her tablet: one-word buttons, Family Moments into an existing day, Turn + Send only, sent pictures marked waiting; waiting pictures shown marked to family and her; OK bar with pictures; Recent Whose / Where; smaller Choose photos; Google Photos share lands on the first screen (new day too); artist icons; brush-mark filters. Tests `tests/ease.test.mjs`, `tests/e2e/ease.spec.mjs`. | (this PR) |

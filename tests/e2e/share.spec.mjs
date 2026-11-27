@@ -1,6 +1,6 @@
 // Photos shared in from Google Photos (Jesse, 2026-11-26: "Need solution to save it in the right spot"): they show on the
 // first screen with a direct Family Moments button, and the special day is picked on purpose, never guessed.
-import { test, expect, login, waitAllSent, addDay, shareIn } from './helpers.mjs';
+import { test, expect, login, waitAllSent, addDay, shareIn, FILES } from './helpers.mjs';
 
 test('shared photos: shown on the first screen, Family Moments asks which day, and they go to the day picked', async ({ page }) => {
   await login(page);
@@ -80,4 +80,31 @@ test('shared photos with no signal: the days from last time are still buttons, a
   await expect(page.locator('#vid-new')).toBeHidden();
   await expect(page.locator('#vid-list')).toBeHidden();
   await expect(page.locator('#vid-file')).toBeHidden();
+});
+
+test('a day made on this phone is a button right away, even before its first photos have gone through', async ({ page }) => {
+  await login(page);
+  await page.goto('/upload/');
+  await shareIn(page, 1);
+  await page.click('#shared-day');
+  await page.fill('#vid-event-title', 'Thanksgiving');
+  await page.click('#day-shared');
+  await page.route('**/api/pieces/start', (r) => r.abort());       // the photo cannot go through yet (no signal, Drive off)
+  await page.click('#save');
+  await expect(page.locator('#status')).toContainText(/still saved on this phone/);
+  await page.goto('/upload/');
+  await shareIn(page, 1, FILES.art);
+  await page.click('#shared-day');
+  await expect(page.locator('#vid-new')).toBeHidden();
+  await page.locator('#day-choices [data-day]', { hasText: 'Thanksgiving' }).click();
+  await expect(page.locator('#who')).toHaveText(/Thanksgiving/);
+  await page.unroute('**/api/pieces/start');                         // the signal is back: both photos go to the one day
+  await page.click('#save');
+  await waitAllSent(page);
+  await page.goto('/upload/');                                        // the first one waits on the first screen: Send now
+  await expect.poll(async () => {
+    if (await page.locator('#outbox-send').isVisible()) await page.locator('#outbox-send').click();
+    const j = await (await page.request.get('/api/pieces?section=moments')).json();
+    return [...new Set(j.pieces.map((p) => p.eventTitle + ' ' + p.event.replace(/^\d{4}-\d{2}-\d{2}-/, '')))].concat(j.pieces.length);
+  }, { timeout: 30_000 }).toEqual(['Thanksgiving thanksgiving', 2]);
 });
