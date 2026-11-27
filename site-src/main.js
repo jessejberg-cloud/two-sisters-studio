@@ -264,6 +264,7 @@ function initGallery() {
     label.textContent = a.dataset.label;
     if (more) more.textContent = sl.of > 1 ? 'Photo ' + sl.n + ' of ' + sl.of : '';
     if (pdfLink) { pdfLink.hidden = !sl.ph.pdf; if (sl.ph.pdf) pdfLink.href = sl.ph.pdf; }
+    if (moveBtn) moveBtn.hidden = !(mayMove && a.dataset.piece);
     if (sl.ph.pdf) { readyFor = sl; ready = null; if (saveBtn) saveBtn.hidden = true; return; }
     if (saveBtn) saveBtn.hidden = false;
     prepareSave(sl, sl.ph.dl || sl.ph.full, (a.dataset.name || 'picture') + (sl.of > 1 ? '-' + sl.n : ''));
@@ -346,6 +347,42 @@ function initGallery() {
     var first = 0; for (var k = 0; k < list.length; k++) if (list[k].a === a) { first = k; break; }
     opener = a; show(first); box.showModal();
   });
+  // ---------- ❤️ Move to another day (Jesse, 2026-11-27): a family phone puts a Family Moments photo in the right day ----------
+  var moveBtn = box.querySelector('.lb-move'), mayMove = false;
+  if (moveBtn) {
+    fetch('/api/whoami', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (me) { mayMove = me.role === 'family'; }, function () {});
+    var mk = function (tag, cls, text) { var x = document.createElement(tag); if (cls) x.className = cls; if (text != null) x.textContent = text; return x; };
+    var mbox = mk('dialog', 'share-box move-box'); mbox.setAttribute('aria-label', 'Move to another day');
+    var mh = mk('h2', 'share-h', 'Which day?'), mlist = mk('div', 'move-days'), mmsg = mk('p', 'share-msg'), mshut = mk('button', 'linkish share-close', 'Close');
+    mmsg.setAttribute('role', 'status'); mshut.type = 'button';
+    mbox.append(mh, mlist, mmsg, mshut);
+    mshut.addEventListener('click', function () { mbox.close(); });
+    moveBtn.addEventListener('click', function () {
+      var a = list[at] && list[at].a; if (!a || !a.dataset.piece) return;
+      mlist.textContent = ''; mmsg.textContent = '';
+      // The days on this page that came from the app (sample days are only examples); not the one it is in now.
+      area.querySelectorAll('.moment').forEach(function (sec) {
+        if (sec.id === a.dataset.event || sec.querySelector('.sample-tag') || !sec.dataset.date) return;
+        var title = (sec.querySelector('.moment-h') || {}).textContent || '';
+        var b = mk('button', 'btn-big move-day'); b.type = 'button'; b.dataset.day = sec.id;
+        b.append(mk('span', '', '❤️ ' + title), mk('span', 'move-when', (sec.querySelector('.moment-date') || {}).textContent || ''));
+        b.addEventListener('click', async function () {
+          mlist.querySelectorAll('button').forEach(function (x) { x.disabled = true; }); mmsg.textContent = 'Moving…';
+          try {
+            var r = await fetch('/api/pieces/' + encodeURIComponent(a.dataset.piece) + '/edit', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ event: { key: sec.id, title: title, date: sec.dataset.date } }) });
+            var j = await r.json(); if (!j.ok) throw new Error(j.error || r.status);
+            mmsg.textContent = '✓ Moved to ' + title + '.';
+            setTimeout(function () { location.hash = sec.id; location.reload(); }, 700);
+          } catch (e) { mmsg.textContent = /401/.test(String(e.message)) || e.message === 'family' || e.message === 'pin' ? 'Only a parent’s phone can move this.' : 'That did not work. Try again?'; mlist.querySelectorAll('button').forEach(function (x) { x.disabled = false; }); }
+        });
+        mlist.append(b);
+      });
+      if (!mlist.children.length) mmsg.textContent = 'There is no other special day yet. Add one from the app.';
+      if (!mbox.isConnected) document.body.append(mbox);
+      box.close(); mbox.showModal();
+    });
+  }
   var fullBtn = box.querySelector('.lb-full');
   if (fullBtn) fullBtn.addEventListener('click', function () { TSS.enter(box); });
   box.addEventListener('cancel', function (e) { if (TSS.isFull()) { e.preventDefault(); TSS.exit(); } });
@@ -516,6 +553,7 @@ function livePhotos(sec) {
       list = (j.pieces || []).sort(function (a, b) { return (b.date + b.created).localeCompare(a.date + a.created); });
       if (sec.dataset.src.indexOf('moments') !== -1) {
         addToDays(list.filter(function (p) { return p.event; }));
+        var goTo = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1))); if (goTo) goTo.scrollIntoView();   // after a move: the new day
         list = list.filter(function (p) { return !p.event; });   // the girls' own photos stay in their own row
       }
       if (!list.length) {
@@ -696,7 +734,7 @@ function addToDays(pieces) {
     p.photos.forEach(function (ph) {
       var base = '/img/' + encodeURIComponent(p.id) + '/' + ph.n;
       var fig = make('figure', 'piece'), a = make('a', 'piece-open'), im = document.createElement('img');
-      a.href = base; a.dataset.full = base; a.dataset.dl = base + '/print'; a.dataset.name = p.id + (p.photos.length > 1 ? '-' + ph.n : '');
+      a.href = base; a.dataset.full = base; a.dataset.dl = base + '/print'; a.dataset.piece = p.id; a.dataset.event = p.event; a.dataset.name = p.id + (p.photos.length > 1 ? '-' + ph.n : '');
       a.dataset.w = ph.w; a.dataset.h = ph.h; a.dataset.caption = p.caption || ''; a.dataset.label = nice(p.date) + ' · ' + p.eventTitle + (p.from || p.byName ? ' · added by ' + (p.from || p.byName) : '');
       a.setAttribute('aria-label', 'Open ' + (p.caption || 'this photo') + ' big');
       im.src = base + '/sm'; im.alt = p.caption || 'A photo from ' + p.eventTitle; im.loading = 'lazy'; im.decoding = 'async';

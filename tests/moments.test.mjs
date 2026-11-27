@@ -72,3 +72,23 @@ test('a friend cannot send print copies', async () => {
   const p = new FormData(); p.set('print', new Blob(['P'.repeat(200)], { type: 'image/jpeg' }), 'print.jpg');
   assert.equal((await api(R(`/api/pieces/${id}/print/1`, { method: 'POST', body: p }, friend), {})).status, 401);
 });
+
+test('a day photo can move to another special day (Jesse, 2026-11-27); other pieces cannot get a day this way', async () => {
+  const id = await addPhoto({ title: 'Wrong day', date: '2026-07-10' });
+  assert.ok((await (await api(R(`/api/pieces/${id}/finish`, { method: 'POST' }), {})).json()).ok);
+  const moved = await (await api(J(`/api/pieces/${id}/edit`, { event: { key: '2026-07-04-trip-to-grandma', title: 'Trip to Grandma', date: '2026-07-04' } }), {})).json();
+  assert.ok(moved.ok, JSON.stringify(moved));
+  const list = (await (await api(R('/api/pieces?section=moments'), {})).json()).pieces;
+  const p = list.find((x) => x.id === id);
+  assert.equal(p.event, '2026-07-04-trip-to-grandma');
+  assert.equal(p.eventTitle, 'Trip to Grandma');
+  assert.equal(p.eventDate, '2026-07-04');
+  assert.ok(!list.some((x) => x.event === '2026-07-10-wrong-day'), 'the old day is empty now');
+  const bad = await api(J(`/api/pieces/${id}/edit`, { event: { key: 'x', title: '', date: '2026-07-04' } }), {});
+  assert.equal(bad.status, 400);
+  const artId = await addPhoto(undefined, { kid: 'leora', section: 'art', date: '2026-07-01', caption: 'not a day' });
+  assert.ok((await (await api(R(`/api/pieces/${artId}/finish`, { method: 'POST' }), {})).json()).ok);
+  assert.equal((await api(J(`/api/pieces/${artId}/edit`, { event: { title: 'Trip to Grandma', date: '2026-07-04' } }), {})).status, 400, 'art never gets a day');
+  const friend = `tss=${encodeURIComponent(await auth.makeLogin('friends', {}))}`;
+  assert.notEqual((await api(J(`/api/pieces/${id}/edit`, { event: { title: 'Mine', date: '2026-07-01' } }, friend), {})).status, 200);
+});

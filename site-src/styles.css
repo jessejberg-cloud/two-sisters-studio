@@ -705,6 +705,10 @@ html.full-open { overflow: hidden; }
 .share-page[hidden] { display: none; }
 .share-box { width: min(440px, calc(100vw - 32px)); box-sizing: border-box; padding: 22px; border: 3px solid var(--ink); border-radius: var(--wobble); background: var(--paper, #fdf8ef); color: var(--ink); box-shadow: 6px 6px 0 var(--ink); }
 .share-box::backdrop { background: rgba(29, 26, 36, .45); }
+.move-days { display: grid; gap: 10px; margin: 12px 0; }
+.move-day { display: grid; gap: 0; width: 100%; text-align: center; }
+.move-day .move-when { font-size: 1rem; font-weight: 400; }
+.lb-move[hidden] { display: none; }
 .share-h { margin: 0 0 6px; }
 .share-note, .share-how { margin: 0 0 10px; }
 .share-how { font-weight: 800; }
@@ -842,8 +846,8 @@ body.dev-kid .remove, body.dev-kid #home-parents { display: none !important; }
 .shared-h { margin: 8px 0 2px; }
 .shared-wait { color: #5d554d; }
 .shared-what { margin: 0; font-weight: 800; }
-.lightbox .lb-share, .pb-tools .pb-share { min-height: 52px; padding: 10px 20px; margin-top: 8px; border-radius: 999px; border: 3px solid var(--ink); background: #fff; color: var(--ink); font: 800 1.05rem var(--body); cursor: pointer; }
-.lightbox .lb-share[hidden], .pb-tools .pb-share[hidden] { display: none; }
+.lightbox .lb-share, .lightbox .lb-move, .pb-tools .pb-share { min-height: 52px; padding: 10px 20px; margin-top: 8px; border-radius: 999px; border: 3px solid var(--ink); background: #fff; color: var(--ink); font: 800 1.05rem var(--body); cursor: pointer; }
+.lightbox .lb-share[hidden], .lightbox .lb-move[hidden], .pb-tools .pb-share[hidden] { display: none; }
 /* Pick several to share */
 .piece-open.is-picked, .photo-tile.is-picked { outline: 5px solid var(--plum); outline-offset: 2px; }
 .piece-open.is-picked::after, .photo-tile.is-picked::after { content: '✓'; position: absolute; top: 8px; left: 8px; width: 36px; height: 36px; border-radius: 50%; background: var(--plum); color: #fff; font: 800 1.3rem/36px var(--body); text-align: center; }

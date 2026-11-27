@@ -530,7 +530,7 @@ ${blocks}
 <dialog class="lightbox" aria-label="Photo">
   <button type="button" class="lb-close" aria-label="Close">✕</button>
   <button type="button" class="lb-prev" aria-label="Previous photo">‹</button>
-  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button><button type="button" class="lb-share" hidden>📤 Share</button></span></figcaption></figure>
+  <figure class="lb-fig"><img class="lb-img" alt=""><figcaption><span class="lb-cap"></span><span class="lb-label"></span><span class="lb-tools"><button type="button" class="lb-full">⛶ Full screen</button><button type="button" class="lb-save">⬇ Save this picture</button><button type="button" class="lb-share" hidden>📤 Share</button><button type="button" class="lb-move" hidden>❤️ Move to another day</button></span></figcaption></figure>
   <button type="button" class="lb-next" aria-label="Next photo">›</button>
 </dialog>` : `<div class="gallery-area" data-videos="/api/videos" hidden></div>
 ${gallery([], 'Family photos will show up here soon!')}

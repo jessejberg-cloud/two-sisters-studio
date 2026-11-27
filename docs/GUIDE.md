@@ -122,6 +122,9 @@ Priorities, in order (spec):
 **Looking (the website)**
 - Galleries by school year (Sept to Aug), newest open; fall, winter, spring, then summer. Featured pieces large; never cropped.
 - Family Moments: one page, one section per special day, newest first; Download all per day.
+- On Jesse's studio, a phone logged in with the family password can move a Family Moments photo to another special day:
+  open it, ❤️ Move to another day, tap the day (days added from the app or by hand; not sample days). The details file in
+  Drive is updated with the new day; the original and its details file stay in the old day's Drive folder.
 - Every picture and video: Full screen and Save.
 - For parents → Download everything (family studios): every picture as one zip made in the browser, a folder per
   artist (Artwork, Snapshots, each category) and per special day, plus `details.json`. Shows the count and the space
@@ -209,6 +212,7 @@ Each line is checked on every PR. **[auto]** = the robot tests check it; **[Clau
 
 | Date | What changed | PR |
 |---|---|---|
+| 2026-11-27 | ❤️ Move to another day (Jesse: "Is there a way to move a photo on the site to a different family event? There should be"): in the Family Moments picture viewer, family logins; the server takes a new day for a day photo only. Tests first (`tests/moments.test.mjs`, `tests/e2e/share.spec.mjs`), look screens `moments-move-*`. | (this PR) |
 | 2026-11-27 | Fix (Jesse: "Unable to add to existing family moment"): a day he made did not show as a button, because a new day only reached the site once its first photo was through. The phone now remembers days it made and uses the site's own day key. Test first (`tests/e2e/share.spec.mjs`). | (this PR) |
 | 2026-11-26 | Found by the first real-Drive preview run: after connecting a different Google account (or deleting the folder in Drive), saving failed with "Google Drive 404" because the site still used the old Drive's folder ids. Connecting now forgets them; a test covers it. | (this PR) |
 | 2026-11-26 | Shared photos land in the right special day (Jesse: "save it in the right spot"): the shared pictures show on the app's first screen with ❤️ Family Moments; the special day screen lists every day as a button instead of a small list that picked the newest; ➕ A new special day asks the name first. Tests first (`tests/e2e/share.spec.mjs`), look screens `app-shared-*`. | (this PR) |

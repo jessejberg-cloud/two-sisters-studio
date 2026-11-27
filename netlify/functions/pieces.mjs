@@ -348,6 +348,14 @@ async function handle(req, context) {
       if (st) { const k = (st.kids || []).find((x) => x.key === p.kid); if (k) p.kidName = k.name; else if (p.kid === 'both') p.kidName = 'All'; }
     }
     if (['art', 'photos'].includes(b.section) && ['art', 'photos'].includes(sectionOf(p)) && !(b.section === 'photos' && p.kid === 'both')) p.section = b.section;
+    // Another special day (Jesse, 2026-11-27: "move a photo on the site to a different family event"): only a day's own photos.
+    if (b.event && typeof b.event === 'object') {
+      const title = String(b.event.title || '').trim().slice(0, 80), date = String(b.event.date || '');
+      if (sectionOf(p) !== 'moments' || !p.event || !title || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: 'bad', fields: ['event'] }, 400);
+      const wasDayDate = p.date === p.eventDate;   // a photo with its own date keeps it
+      p.event = /^[a-z0-9-]{10,90}$/.test(b.event.key || '') ? b.event.key : dayKey(date, title); p.eventTitle = title; p.eventDate = date;
+      if (wasDayDate || !p.date) { p.date = date; p.season = seasonOf(date); p.schoolYear = schoolYearOf(date); }
+    }
     if (typeof b.kid === 'string' || b.section || typeof b.date === 'string') {
       if (typeof b.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date)) { p.date = b.date; p.season = seasonOf(b.date); p.schoolYear = schoolYearOf(b.date); }
       p.grade = p.kid === 'both' || sectionOf(p) === 'moments' ? '' : st ? gradeFor(p.kid, p.date, bases(st)) : gradeFor(p.kid, p.date);
