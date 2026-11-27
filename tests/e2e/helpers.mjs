@@ -92,8 +92,8 @@ export async function addDay(page, title, date) {   // a special day that alread
   expect((await (await page.request.post(`/api/pieces/${s.id}/finish`)).json()).ok).toBeTruthy();
 }
 
-export async function shareIn(page, n) {   // what the service worker does with a share from Google Photos
-  const b64 = fs.readFileSync(FILES.photo).toString('base64');
+export async function shareIn(page, n, file = FILES.photo) {   // what the service worker does with a share from Google Photos
+  const b64 = fs.readFileSync(file).toString('base64');
   await page.evaluate(async ({ b64, n }) => {
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     const db = await new Promise((ok, no) => { const r = indexedDB.open('two-sisters-studio', 2); r.onsuccess = () => ok(r.result); r.onerror = no; });
