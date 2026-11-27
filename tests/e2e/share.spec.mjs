@@ -108,3 +108,20 @@ test('a day made on this phone is a button right away, even before its first pho
     return [...new Set(j.pieces.map((p) => p.eventTitle + ' ' + p.event.replace(/^\d{4}-\d{2}-\d{2}-/, '')))].concat(j.pieces.length);
   }, { timeout: 30_000 }).toEqual(['Thanksgiving thanksgiving', 2]);
 });
+
+test('Family Moments: a family phone moves a photo to another special day from the picture viewer', async ({ page }) => {
+  await login(page);
+  await addDay(page, 'Lake day', '2026-07-12');
+  await addDay(page, 'Snow day', '2026-11-20');
+  await page.goto('/family-moments/');
+  await page.locator('section.moment[id="2026-11-20-snow-day"] .piece-open').first().click();
+  await expect(page.locator('.lightbox .lb-move')).toBeVisible();
+  await page.click('.lightbox .lb-move');
+  await expect(page.locator('.move-box [data-day]')).toHaveCount(1);     // the other day only; sample days are left out
+  await page.locator('.move-box [data-day]', { hasText: 'Lake day' }).click();
+  await expect(page.locator('.move-box .share-msg')).toHaveText(/Moved to Lake day/);
+  const j = await (await page.request.get('/api/pieces?section=moments')).json();
+  expect(j.pieces.filter((p) => p.event === '2026-07-12-lake-day').length).toBe(2);
+  await page.waitForLoadState('load');
+  await expect(page.locator('section.moment[id="2026-07-12-lake-day"] .piece-open')).toHaveCount(2);
+});

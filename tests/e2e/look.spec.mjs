@@ -70,6 +70,19 @@ test('look: photos shared in from Google Photos, then which special day', async 
   await shot(page, 'app-shared-3-new-day', info);
 });
 
+test('look: Family Moments, move a photo to another day', async ({ page }, info) => {
+  await login(page);
+  await addDay(page, 'Lake day', '2026-07-12');
+  await addDay(page, 'Snow day', '2026-11-20');
+  await page.goto('/family-moments/');
+  await page.locator('section.moment[id="2026-11-20-snow-day"] .piece-open').first().click();
+  await expect(page.locator('.lightbox .lb-move')).toBeVisible();
+  await shot(page, 'moments-move-1-viewer', info);
+  await page.click('.lightbox .lb-move');
+  await expect(page.locator('.move-box [data-day]')).toHaveCount(1);
+  await shot(page, 'moments-move-2-days', info);
+});
+
 test('look: a new family\'s setup, first step', async ({ page, browser }, info) => {
   const invite = await ownerInvite(page, 'Look');
   const problems = [];
